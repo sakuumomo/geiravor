@@ -1,0 +1,16 @@
+[package]
+name = "geiravor-core"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "r/a/dio client domain and API (UniFFI)"
+
+[lib]
+name = "geiravor_core"
+crate-type = ["lib", "cdylib", "staticlib"]
+
+[dependencies]
+uniffi = { version = "0.29", features = ["cli"] }
+
+[build-dependencies]
+uniffi = { version = "0.29", features = ["build"] }
