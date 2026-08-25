@@ -19,7 +19,7 @@ Must cover:
 
 ## Kotlin
 
-Fake UniFFI core. Cover pause→stop (drop live buffer, no reconnect while stopped), idle notification kept after stop, notification permission path (compat; play does not require it), Auto browse hiding Queue when not AFK.
+Fake UniFFI core. Cover pause→stop (drop live buffer, no reconnect while stopped), idle notification kept after stop, notification permission path (compat; play does not require it), Auto browse hiding Queue when not AFK, auto-start on plug default off.
 
 ## CI
 
@@ -27,7 +27,7 @@ Fake UniFFI core. Cover pause→stop (drop live buffer, no reconnect while stopp
 
 ## Manual (0.1.0)
 
-Phone: play/stop, volume, unplug, notification play/pause (stays after pause; play even if permission denied), rotation, airplane, audio-focus interruption, AFK vs live DJ next `???` / queue hide.
+Phone: play/stop, volume, unplug, notification play/pause (stays after pause; play even if permission denied), rotation, airplane, audio-focus interruption, AFK vs live DJ next `???` / queue hide, Settings auto-start on plug (default off) and version.
 
 DHU (optional): app appears, play/stop, no skip buttons, prev/next text, browse does not change audio. Not a merge gate for phone work.
 

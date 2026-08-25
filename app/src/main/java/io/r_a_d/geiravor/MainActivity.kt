@@ -37,10 +37,12 @@ import io.r_a_d.geiravor.compat.applyEdgeToEdge
 import io.r_a_d.geiravor.playback.LivePlaybackPolicy
 import io.r_a_d.geiravor.playback.PlaybackService
 import io.r_a_d.geiravor.radio.RadioStore
+import io.r_a_d.geiravor.settings.SettingsPolicy
 import io.r_a_d.geiravor.settings.SettingsStore
 import io.r_a_d.geiravor.ui.AppTab
 import io.r_a_d.geiravor.ui.NowPlayingScreen
 import io.r_a_d.geiravor.ui.RadioTheme
+import io.r_a_d.geiravor.ui.SettingsScreen
 import io.r_a_d.geiravor.ui.SongsScreen
 import kotlinx.coroutines.launch
 
@@ -60,6 +62,7 @@ private fun GeiravorRoot() {
     val radioState by RadioStore.state.collectAsState()
     val scope = rememberCoroutineScope()
     var gain by remember { mutableStateOf(LivePlaybackPolicy.DEFAULT_GAIN) }
+    var autoStartOnPlug by remember { mutableStateOf(SettingsPolicy.AUTO_START_DEFAULT) }
     var controller by remember { mutableStateOf<MediaController?>(null) }
     var playing by remember { mutableStateOf(false) }
 
@@ -68,6 +71,9 @@ private fun GeiravorRoot() {
             gain = stored
             controller?.volume = stored
         }
+    }
+    LaunchedEffect(Unit) {
+        settings.autoStartOnPlug.collect { autoStartOnPlug = it }
     }
 
     LifecycleResumeEffect(app) {
@@ -156,7 +162,7 @@ private fun GeiravorRoot() {
                         NavigationBarItem(
                             selected = tab == dest,
                             onClick = { tab = dest },
-                            icon = { Text(if (dest == AppTab.NowPlaying) "▶" else "≡") },
+                            icon = { Text(dest.icon) },
                             label = { Text(dest.label) },
                             colors = NavigationBarItemDefaults.colors(
                                 selectedIconColor = RadioTheme.blue,
@@ -185,6 +191,15 @@ private fun GeiravorRoot() {
                 AppTab.Songs -> SongsScreen(
                     status = radioState.status,
                     streamDown = radioState.streamDown,
+                    modifier = Modifier.padding(padding),
+                )
+                AppTab.Settings -> SettingsScreen(
+                    autoStartOnPlug = autoStartOnPlug,
+                    onAutoStartOnPlug = { enabled ->
+                        autoStartOnPlug = enabled
+                        scope.launch { settings.setAutoStartOnPlug(enabled) }
+                    },
+                    versionName = BuildConfig.VERSION_NAME,
                     modifier = Modifier.padding(padding),
                 )
             }
