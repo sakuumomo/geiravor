@@ -9,28 +9,32 @@ import uniffi.geiravor_core.ListEntry
 
 class AutoBrowseTest {
     @Test
-    fun rootHidesQueueWhenNotAfk() {
-        val afk = AutoBrowse.rootChildren(isAfkStream = true).map { it.id }
-        assertEquals(
-            listOf(AutoBrowse.NOW_PLAYING, AutoBrowse.LAST_PLAYED, AutoBrowse.QUEUE),
-            afk,
-        )
-        val liveDj = AutoBrowse.rootChildren(isAfkStream = false).map { it.id }
-        assertEquals(
-            listOf(AutoBrowse.NOW_PLAYING, AutoBrowse.LAST_PLAYED),
-            liveDj,
-        )
+    fun browseRootMirrorsSongsSections() {
+        val afk = AutoBrowse.rootChildren(isAfkStream = true)
+        assertEquals(listOf(AutoBrowse.LAST_PLAYED, AutoBrowse.QUEUE), afk.map { it.id })
+        assertTrue(afk.all { it.browsable && !it.playable })
+        val liveDj = AutoBrowse.rootChildren(isAfkStream = false)
+        assertEquals(listOf(AutoBrowse.LAST_PLAYED), liveDj.map { it.id })
+        assertTrue(liveDj.none { it.id == AutoBrowse.NOW_PLAYING })
     }
 
     @Test
-    fun onlyNowPlayingIsPlayable() {
-        val nodes = AutoBrowse.rootChildren(isAfkStream = true)
-        assertTrue(nodes.single { it.id == AutoBrowse.NOW_PLAYING }.playable)
-        assertFalse(nodes.single { it.id == AutoBrowse.NOW_PLAYING }.browsable)
-        assertFalse(nodes.single { it.id == AutoBrowse.LAST_PLAYED }.playable)
-        assertTrue(nodes.single { it.id == AutoBrowse.LAST_PLAYED }.browsable)
-        assertFalse(nodes.single { it.id == AutoBrowse.QUEUE }.playable)
-        assertTrue(nodes.single { it.id == AutoBrowse.QUEUE }.browsable)
+    fun songRowsDoNotAllowPlayback() {
+        assertFalse(AutoBrowse.allowsPlayback(mediaId = "lp:0", uri = null))
+        assertFalse(AutoBrowse.allowsPlayback(mediaId = AutoBrowse.LAST_PLAYED, uri = null))
+        assertFalse(AutoBrowse.allowsPlayback(mediaId = AutoBrowse.QUEUE, uri = null))
+        assertTrue(
+            AutoBrowse.allowsPlayback(
+                mediaId = AutoBrowse.NOW_PLAYING,
+                uri = LivePlaybackPolicy.STREAM_URL,
+            ),
+        )
+        assertTrue(
+            AutoBrowse.allowsPlayback(
+                mediaId = AutoBrowse.ROOT,
+                uri = LivePlaybackPolicy.STREAM_URL,
+            ),
+        )
     }
 
     @Test
@@ -113,6 +117,7 @@ class AutoBrowseTest {
     @Test
     fun liveStreamIdsAreThePlayableNowPlayingItem() {
         assertTrue(AutoBrowse.isLiveStream(AutoBrowse.NOW_PLAYING))
+        assertTrue(AutoBrowse.isLiveStream(AutoBrowse.ROOT))
         assertFalse(AutoBrowse.isLiveStream(AutoBrowse.LAST_PLAYED))
         assertFalse(AutoBrowse.isLiveStream("lp:0"))
     }

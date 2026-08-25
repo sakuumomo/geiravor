@@ -18,7 +18,6 @@ object AutoBrowse {
 
     fun rootChildren(isAfkStream: Boolean): List<BrowseNode> {
         val nodes = mutableListOf(
-            BrowseNode(NOW_PLAYING, "Now Playing", playable = true, browsable = false),
             BrowseNode(LAST_PLAYED, "Last Played", playable = false, browsable = true),
         )
         if (isAfkStream) {
@@ -42,7 +41,15 @@ object AutoBrowse {
         }
     }
 
-    fun isLiveStream(mediaId: String): Boolean = mediaId == NOW_PLAYING
+    fun isLiveStream(mediaId: String): Boolean =
+        mediaId == NOW_PLAYING || mediaId == ROOT
+
+    fun allowsPlayback(mediaId: String, uri: String?): Boolean {
+        if (uri == LivePlaybackPolicy.STREAM_URL) {
+            return true
+        }
+        return isLiveStream(mediaId)
+    }
 
     fun subtitle(
         lastPlayedMeta: String?,

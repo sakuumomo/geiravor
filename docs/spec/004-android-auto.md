@@ -34,15 +34,18 @@ Do **not** advertise seek, skip next, or skip previous.
 
 Tapping previous/next must not exist as a command. The subtitle is reference only.
 
+## Default view
+
+The session now-playing card is the default (same as the phone Now Playing tab): play/pause, `np`, DJ, **Prev/Next text**. Do **not** put Now Playing in the browse tree. Opening the app must not require tapping a Now Playing row.
+
 ## Browse tree
 
-Root:
+Same sections as the phone Songs tab:
 
-1. Now Playing (the live stream; playable)
-2. Last Played (children not playable; click does not change audio)
-3. Queue — **only if `isafkstream`**. Same hide rule as the Songs tab.
+1. Last Played (browsable folder)
+2. Queue — **only if `isafkstream`**. Same hide rule as Songs.
 
-Queue/LP `MediaItem`s are display/browse only.
+Last Played / Queue **rows are reference only**: not playable, not browsable. Tapping a song must not play, must not replace the live stream, and must not look like a valid playable entry.
 
 No request, news, thread, search, or settings in Auto.
 

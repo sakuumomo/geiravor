@@ -164,20 +164,15 @@ class PlaybackService : MediaLibraryService() {
             startPositionMs: Long,
         ): ListenableFuture<MediaSession.MediaItemsWithStartPosition> {
             val playLive = mediaItems.any { item ->
-                AutoBrowse.isLiveStream(item.mediaId) ||
-                    item.localConfiguration?.uri?.toString() == LivePlaybackPolicy.STREAM_URL
+                AutoBrowse.allowsPlayback(
+                    item.mediaId,
+                    item.localConfiguration?.uri?.toString(),
+                )
             }
             if (!playLive) {
-                val current = session.player.currentMediaItem
-                if (current != null) {
-                    return Futures.immediateFuture(
-                        MediaSession.MediaItemsWithStartPosition(
-                            listOf(current),
-                            0,
-                            C.TIME_UNSET,
-                        ),
-                    )
-                }
+                return Futures.immediateFailedFuture(
+                    UnsupportedOperationException("display only"),
+                )
             }
             return Futures.immediateFuture(livePlaylist())
         }
@@ -230,16 +225,20 @@ class PlaybackService : MediaLibraryService() {
                     MediaConstants.EXTRAS_VALUE_CONTENT_STYLE_LIST_ITEM,
                 )
             }
+            val card = SessionMetadata.card(status())
+            val metadata = MediaMetadata.Builder()
+                .setTitle(card?.title ?: "r/a/dio")
+                .setArtist(card?.artist)
+                .setAlbumArtist(card?.albumArtist)
+                .setIsBrowsable(true)
+                .setIsPlayable(true)
+                .setExtras(extras)
+            card?.subtitle?.let { metadata.setSubtitle(it) }
+            card?.artworkUrl?.let { metadata.setArtworkUri(android.net.Uri.parse(it)) }
             return MediaItem.Builder()
                 .setMediaId(AutoBrowse.ROOT)
-                .setMediaMetadata(
-                    MediaMetadata.Builder()
-                        .setTitle("r/a/dio")
-                        .setIsBrowsable(true)
-                        .setIsPlayable(false)
-                        .setExtras(extras)
-                        .build(),
-                )
+                .setUri(LivePlaybackPolicy.STREAM_URL)
+                .setMediaMetadata(metadata.build())
                 .build()
         }
 
@@ -258,10 +257,13 @@ private fun BrowseNode.toMediaItem(): MediaItem {
         .setTitle(title)
         .setIsPlayable(playable)
         .setIsBrowsable(browsable)
-        .build()
+    if (browsable && !playable) {
+        metadata.setMediaType(MediaMetadata.MEDIA_TYPE_FOLDER_MIXED)
+    }
+    val built = metadata.build()
     val builder = MediaItem.Builder()
         .setMediaId(id)
-        .setMediaMetadata(metadata)
+        .setMediaMetadata(built)
     if (playable) {
         builder.setUri(LivePlaybackPolicy.STREAM_URL)
     }
