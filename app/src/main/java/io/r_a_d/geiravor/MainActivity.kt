@@ -84,13 +84,11 @@ private fun GeiravorRoot() {
                 controller = c
                 c.volume = gain
                 fun syncPlaying() {
-                    val active = LivePlaybackPolicy.showAsPlaying(
+                    playing = LivePlaybackPolicy.showAsPlaying(
                         c.playbackState,
                         c.isPlaying,
                         c.playWhenReady,
                     )
-                    playing = active
-                    app.radio.setPlaying(active)
                 }
                 syncPlaying()
                 c.addListener(
@@ -132,8 +130,11 @@ private fun GeiravorRoot() {
     val onPlayToggle: () -> Unit = {
         if (playing) {
             playing = false
-            app.radio.setPlaying(false)
-            controller?.pause()
+            when (LivePlaybackPolicy.leavePlaybackCommand()) {
+                LivePlaybackPolicy.Command.PAUSE -> controller?.pause()
+                LivePlaybackPolicy.Command.STOP -> controller?.stop()
+                LivePlaybackPolicy.Command.PLAY -> controller?.play()
+            }
         } else {
             playing = true
             controller?.play()

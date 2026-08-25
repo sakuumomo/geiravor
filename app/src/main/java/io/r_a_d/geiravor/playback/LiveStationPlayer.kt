@@ -21,13 +21,14 @@ internal class LiveStationPlayer(
     var wantsPlayback: Boolean = false
         private set
 
+    var onWantsPlayback: ((Boolean) -> Unit)? = null
+
     private val mainHandler = Handler(exo.applicationLooper)
     private val reconnect = Runnable {
         if (!LivePlaybackPolicy.shouldReconnect(wantsPlayback)) {
             return@Runnable
         }
-        ensureLiveItem()
-        exo.play()
+        play()
     }
 
     fun applyStatus(status: Status?) {
@@ -72,7 +73,7 @@ internal class LiveStationPlayer(
     }
 
     override fun play() {
-        wantsPlayback = true
+        setWantsPlayback(true)
         ensureLiveItem()
         super.play()
     }
@@ -95,7 +96,7 @@ internal class LiveStationPlayer(
             return
         }
         if (playWhenReady) {
-            wantsPlayback = true
+            setWantsPlayback(true)
             ensureLiveItem()
         }
         super.setPlayWhenReady(playWhenReady)
@@ -156,8 +157,16 @@ internal class LiveStationPlayer(
         mainHandler.postDelayed(reconnect, LivePlaybackPolicy.reconnectDelayMs())
     }
 
+    private fun setWantsPlayback(value: Boolean) {
+        if (wantsPlayback == value) {
+            return
+        }
+        wantsPlayback = value
+        onWantsPlayback?.invoke(value)
+    }
+
     private fun teardown() {
-        wantsPlayback = false
+        setWantsPlayback(false)
         mainHandler.removeCallbacks(reconnect)
         exo.playWhenReady = false
         exo.stop()

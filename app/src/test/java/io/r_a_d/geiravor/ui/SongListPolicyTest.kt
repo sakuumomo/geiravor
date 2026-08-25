@@ -46,4 +46,11 @@ class SongListPolicyTest {
         assertEquals("—", n.previous)
         assertEquals("—", n.next)
     }
+
+    @Test
+    fun unknownStreamDoesNotPretendToBeLiveDj() {
+        val n = SongListPolicy.neighbors(null, null, isAfkStream = null)
+        assertEquals("—", n.previous)
+        assertEquals("—", n.next)
+    }
 }

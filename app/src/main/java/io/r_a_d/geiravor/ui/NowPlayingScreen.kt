@@ -61,7 +61,7 @@ fun NowPlayingScreen(
     var sliding by remember { mutableStateOf(false) }
     var percent by remember { mutableStateOf(LivePlaybackPolicy.toPercent(gain)) }
 
-    LaunchedEffect(status) {
+    LaunchedEffect(radio) {
         while (true) {
             progress = radio.progress()
             delay(1000)
@@ -225,7 +225,7 @@ fun NowPlayingScreen(
         val neighbors = SongListPolicy.neighbors(
             lastPlayedMeta = status?.lastPlayed?.firstOrNull()?.meta,
             nextInQueueMeta = status?.queue?.firstOrNull()?.meta,
-            isAfkStream = status?.isAfkStream == true,
+            isAfkStream = status?.isAfkStream,
         )
         Text("Previous", color = RadioTheme.muted, fontSize = 12.sp)
         Text(

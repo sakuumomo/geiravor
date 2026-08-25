@@ -65,6 +65,7 @@ class PlaybackService : MediaLibraryService() {
                 .build(),
         )
         val player = LiveStationPlayer(exo) { radio.progress() }
+        player.onWantsPlayback = { radio.setPlaying(it) }
         player.applyStatus(radio.snapshot())
         player.addListener(
             object : Player.Listener {
@@ -76,10 +77,6 @@ class PlaybackService : MediaLibraryService() {
                     if (!LivePlaybackPolicy.shouldReconnect(player.wantsPlayback)) {
                         radio.onStreamError()
                     }
-                }
-
-                override fun onIsPlayingChanged(isPlaying: Boolean) {
-                    radio.setPlaying(player.wantsPlayback)
                 }
             },
         )

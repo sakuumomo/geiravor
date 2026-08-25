@@ -17,13 +17,13 @@ object SongListPolicy {
     fun neighbors(
         lastPlayedMeta: String?,
         nextInQueueMeta: String?,
-        isAfkStream: Boolean,
+        isAfkStream: Boolean?,
     ): NeighborTracks {
         val previous = lastPlayedMeta ?: MISSING
-        val next = if (isAfkStream) {
-            nextInQueueMeta ?: MISSING
-        } else {
-            LIVE_DJ_NEXT
+        val next = when (isAfkStream) {
+            true -> nextInQueueMeta ?: MISSING
+            false -> LIVE_DJ_NEXT
+            null -> MISSING
         }
         return NeighborTracks(previous, next)
     }
