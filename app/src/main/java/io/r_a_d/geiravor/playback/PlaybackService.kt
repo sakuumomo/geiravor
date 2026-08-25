@@ -13,10 +13,13 @@ import androidx.media3.common.Player
 import androidx.media3.datasource.DefaultHttpDataSource
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.exoplayer.source.ProgressiveMediaSource
+import androidx.media3.session.CommandButton
 import androidx.media3.session.LibraryResult
 import androidx.media3.session.MediaConstants
 import androidx.media3.session.MediaLibraryService
 import androidx.media3.session.MediaSession
+import androidx.media3.session.SessionCommand
+import androidx.media3.session.SessionResult
 import com.google.common.collect.ImmutableList
 import com.google.common.util.concurrent.Futures
 import com.google.common.util.concurrent.ListenableFuture
@@ -90,11 +93,18 @@ class PlaybackService : MediaLibraryService() {
             Intent(this, MainActivity::class.java),
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
         )
-        session = MediaLibraryService.MediaLibrarySession.Builder(
-            this,
-            player,
-            LibraryCallback({ radio.snapshot() }, player),
+        val settings = SettingsStore(this)
+        val callback = LibraryCallback(
+            status = { radio.snapshot() },
+            player = player,
+            onNudgeVolume = { up ->
+                val next = LivePlaybackPolicy.nudgeGain(player.volume, up)
+                player.volume = next
+                scope.launch { settings.setGain(next) }
+                session?.setCustomLayout(volumeButtons(next))
+            },
         )
+        session = MediaLibraryService.MediaLibrarySession.Builder(this, player, callback)
             .setId("geiravor")
             .setSessionActivity(activity)
             .build()
@@ -105,9 +115,11 @@ class PlaybackService : MediaLibraryService() {
                 SHOW_NOTIFICATION_FOR_IDLE_PLAYER_NEVER
             },
         )
-        val settings = SettingsStore(this)
         scope.launch {
-            settings.gain.collect { exo.volume = it }
+            settings.gain.collect { gain ->
+                exo.volume = gain
+                session?.setCustomLayout(volumeButtons(gain))
+            }
         }
         scope.launch {
             RadioStore.state.collect { state ->
@@ -149,7 +161,42 @@ class PlaybackService : MediaLibraryService() {
     private class LibraryCallback(
         private val status: () -> Status?,
         private val player: LiveStationPlayer,
+        private val onNudgeVolume: (Boolean) -> Unit,
     ) : MediaLibraryService.MediaLibrarySession.Callback {
+        override fun onConnect(
+            session: MediaSession,
+            controller: MediaSession.ControllerInfo,
+        ): MediaSession.ConnectionResult {
+            val sessionCommands = MediaSession.ConnectionResult.DEFAULT_SESSION_AND_LIBRARY_COMMANDS
+                .buildUpon()
+                .add(SessionCommand(LivePlaybackPolicy.VOLUME_UP, Bundle.EMPTY))
+                .add(SessionCommand(LivePlaybackPolicy.VOLUME_DOWN, Bundle.EMPTY))
+                .build()
+            return MediaSession.ConnectionResult.accept(sessionCommands, player.availableCommands)
+        }
+
+        override fun onPostConnect(
+            session: MediaSession,
+            controller: MediaSession.ControllerInfo,
+        ) {
+            session.setCustomLayout(controller, volumeButtons(player.volume))
+        }
+
+        override fun onCustomCommand(
+            session: MediaSession,
+            controller: MediaSession.ControllerInfo,
+            customCommand: SessionCommand,
+            args: Bundle,
+        ): ListenableFuture<SessionResult> {
+            when (customCommand.customAction) {
+                LivePlaybackPolicy.VOLUME_UP -> onNudgeVolume(true)
+                LivePlaybackPolicy.VOLUME_DOWN -> onNudgeVolume(false)
+                else -> return Futures.immediateFuture(
+                    SessionResult(SessionResult.RESULT_ERROR_NOT_SUPPORTED),
+                )
+            }
+            return Futures.immediateFuture(SessionResult(SessionResult.RESULT_SUCCESS))
+        }
         override fun onPlaybackResumption(
             session: MediaSession,
             controller: MediaSession.ControllerInfo,
@@ -268,6 +315,22 @@ class PlaybackService : MediaLibraryService() {
             return MediaSession.MediaItemsWithStartPosition(listOf(item), 0, C.TIME_UNSET)
         }
     }
+}
+
+private fun volumeButtons(gain: Float): List<CommandButton> {
+    val label = LivePlaybackPolicy.volumeLabel(gain)
+    return listOf(
+        CommandButton.Builder(CommandButton.ICON_VOLUME_DOWN)
+            .setSessionCommand(SessionCommand(LivePlaybackPolicy.VOLUME_DOWN, Bundle.EMPTY))
+            .setDisplayName("Vol $label −")
+            .setSlots(CommandButton.SLOT_BACK_SECONDARY, CommandButton.SLOT_OVERFLOW)
+            .build(),
+        CommandButton.Builder(CommandButton.ICON_VOLUME_UP)
+            .setSessionCommand(SessionCommand(LivePlaybackPolicy.VOLUME_UP, Bundle.EMPTY))
+            .setDisplayName("Vol $label +")
+            .setSlots(CommandButton.SLOT_FORWARD_SECONDARY, CommandButton.SLOT_OVERFLOW)
+            .build(),
+    )
 }
 
 private fun BrowseNode.toMediaItem(): MediaItem {

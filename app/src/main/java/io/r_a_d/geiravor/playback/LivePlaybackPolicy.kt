@@ -5,6 +5,9 @@ import androidx.media3.common.Player
 object LivePlaybackPolicy {
     const val STREAM_URL = "https://stream.r-a-d.io/main.mp3"
     const val DEFAULT_GAIN = 0.8f
+    const val VOLUME_STEP_PERCENT = 5f
+    const val VOLUME_UP = "io.r_a_d.geiravor.VOLUME_UP"
+    const val VOLUME_DOWN = "io.r_a_d.geiravor.VOLUME_DOWN"
 
     enum class Command {
         PLAY,
@@ -33,6 +36,13 @@ object LivePlaybackPolicy {
     fun toPercent(gain: Float): Float = (gain * 100f).coerceIn(0f, 100f)
 
     fun fromPercent(percent: Float): Float = (percent / 100f).coerceIn(0f, 1f)
+
+    fun nudgeGain(gain: Float, up: Boolean): Float {
+        val delta = if (up) VOLUME_STEP_PERCENT else -VOLUME_STEP_PERCENT
+        return fromPercent(toPercent(gain) + delta)
+    }
+
+    fun volumeLabel(gain: Float): String = toPercent(gain).toInt().toString()
 
     fun shouldReconnect(userWantsPlay: Boolean): Boolean = userWantsPlay
 

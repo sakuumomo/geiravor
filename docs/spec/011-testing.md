@@ -19,7 +19,7 @@ Must cover:
 
 ## Kotlin
 
-Fake UniFFI core. Cover pause→stop (drop live buffer, no reconnect while stopped), idle notification kept after stop, notification permission path (compat; play does not require it), Auto browse hiding Queue when not AFK, auto-start on plug and in vehicle default off (independent), Songs Queue section hidden when not AFK.
+Fake UniFFI core. Cover pause→stop (drop live buffer, no reconnect while stopped), idle notification kept after stop, notification permission path (compat; play does not require it), Auto browse hiding Queue when not AFK, auto-start on plug and in vehicle default off (independent), Songs Queue section hidden when not AFK, volume ±5 for Auto.
 
 ## CI
 

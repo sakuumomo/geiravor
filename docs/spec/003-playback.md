@@ -52,7 +52,7 @@ ICY metadata may fire on song change. Treat as a refetch trigger only (`002-api.
 
 ## Volume
 
-Player gain 0.0–1.0, UI 0–100, default **80**. Independent of system stream volume. Persist in DataStore. Control lives on now-playing, not only Settings.
+Player gain 0.0–1.0, UI 0–100, default **80**. Independent of system stream volume. Persist in DataStore. Control lives on now-playing (phone slider) and Android Auto (same gain, ±5). Not only Settings.
 
 ## 0.2.0
 

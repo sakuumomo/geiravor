@@ -41,7 +41,7 @@ While `MAJOR == 0`, MINOR may add features; 0.x is not API-stable.
 - Play/stop `https://stream.r-a-d.io/main.mp3` (HTTPS `audio/mpeg`). No seek, no skip. Pause control **stops**.
 - Now playing from `GET https://r-a-d.io/api`: split `np`, collapsible tags, unix-second progress (AFK only), listeners, `dj.djname`, DJ image, thread on phone only, previous (`lp[0]`) and next (`queue[0]`, or `???` for a live DJ).
 - Songs tab: last played (5) and queue (5) from `timestamp`, relative times. Hide queue when `isafkstream == false`. Mark `type == 1` as `/r/`. Bottom tabs (Now Playing \| Songs \| Settings). Songs/Settings use section tabs at every width.
-- Volume 0–100, default 80, on now-playing.
+- Volume 0–100, default 80, on now-playing and Android Auto (same persisted gain).
 - Media notification, lockscreen, Bluetooth. Unplug and audio-focus loss stop playback. Optional auto-start on plug and in vehicle (independent, both default off).
 - Android Auto: play/stop, metadata, prev/next **text**, browse Last Played and (when AFK) Queue.
 - Stream-down / offline as a state (player/HTTP error — not a magic title).

@@ -22,6 +22,8 @@ Advertise play and pause. Implement pause as **stop** (`003-playback.md`).
 
 Do **not** advertise seek, skip next, or skip previous.
 
+App gain is the same as the phone (0–100, default 80, DataStore). Auto exposes **Vol −** / **Vol +** (±5). Independent of the car's system volume.
+
 ## Now playing card
 
 - Title / artist from split `np`

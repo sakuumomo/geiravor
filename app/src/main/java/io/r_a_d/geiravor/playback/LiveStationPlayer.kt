@@ -64,6 +64,8 @@ internal class LiveStationPlayer(
                 COMMAND_PREPARE,
                 COMMAND_STOP,
                 COMMAND_SET_MEDIA_ITEM,
+                COMMAND_GET_VOLUME,
+                COMMAND_SET_VOLUME,
             )
             .removeAll(
                 COMMAND_SEEK_IN_CURRENT_MEDIA_ITEM,

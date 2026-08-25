@@ -118,4 +118,13 @@ class LivePlaybackPolicyTest {
             )
         }
     }
+
+    @Test
+    fun autoVolumeNudgesFivePercentAndClamps() {
+        assertEquals(0.85f, LivePlaybackPolicy.nudgeGain(0.8f, up = true), 0.0001f)
+        assertEquals(0.75f, LivePlaybackPolicy.nudgeGain(0.8f, up = false), 0.0001f)
+        assertEquals(1f, LivePlaybackPolicy.nudgeGain(1f, up = true), 0.0001f)
+        assertEquals(0f, LivePlaybackPolicy.nudgeGain(0f, up = false), 0.0001f)
+        assertEquals("80", LivePlaybackPolicy.volumeLabel(LivePlaybackPolicy.DEFAULT_GAIN))
+    }
 }
