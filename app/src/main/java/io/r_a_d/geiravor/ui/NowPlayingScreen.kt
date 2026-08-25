@@ -39,13 +39,10 @@ import coil.compose.AsyncImage
 import io.r_a_d.geiravor.R
 import io.r_a_d.geiravor.playback.LivePlaybackPolicy
 import kotlinx.coroutines.delay
-import uniffi.geiravor_core.ListEntry
 import uniffi.geiravor_core.RadioCore
 import uniffi.geiravor_core.SongProgress
 import uniffi.geiravor_core.Status
 import uniffi.geiravor_core.djImageUrl
-import uniffi.geiravor_core.relativeLastPlayed
-import uniffi.geiravor_core.relativeQueue
 
 @Composable
 fun NowPlayingScreen(
@@ -129,7 +126,7 @@ fun NowPlayingScreen(
             modifier = Modifier.fillMaxWidth(),
         ) {
             Text(
-                text = status?.np ?: if (streamDown) "Stream down" else "…",
+                text = StreamStatus.headline(status?.np, streamDown),
                 color = RadioTheme.text,
                 fontSize = 22.sp,
                 textAlign = TextAlign.Center,
@@ -208,22 +205,22 @@ fun NowPlayingScreen(
             color = RadioTheme.text,
             fontSize = 20.sp,
         )
-        if (streamDown) {
-            Text("Stream down", color = RadioTheme.red)
+        if (StreamStatus.showBanner(streamDown)) {
+            Text(StreamStatus.banner, color = RadioTheme.red)
         }
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-            TrackColumn(
+            SongSection(
                 title = "Last Played",
                 entries = status?.lastPlayed.orEmpty(),
                 current = status?.current ?: 0,
                 queue = false,
                 modifier = Modifier.weight(1f),
             )
-            if (status?.isAfkStream == true) {
-                TrackColumn(
+            if (SongListPolicy.showQueue(status?.isAfkStream == true) && status != null) {
+                SongSection(
                     title = "Queue",
                     entries = status.queue,
                     current = status.current,
@@ -233,40 +230,5 @@ fun NowPlayingScreen(
             }
         }
         Spacer(Modifier.height(8.dp))
-    }
-}
-
-@Composable
-private fun TrackColumn(
-    title: String,
-    entries: List<ListEntry>,
-    current: Long,
-    queue: Boolean,
-    modifier: Modifier = Modifier,
-) {
-    Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        Text(title, color = RadioTheme.text, fontSize = 18.sp, textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth())
-        entries.forEach { entry ->
-            val whenText = if (queue) {
-                relativeQueue(entry.timestamp, current)
-            } else {
-                relativeLastPlayed(entry.timestamp, current)
-            }
-            val color = if (entry.isRequest) RadioTheme.blue else RadioTheme.text
-            Text(
-                text = entry.meta,
-                color = color,
-                fontSize = 13.sp,
-                textAlign = TextAlign.Center,
-                modifier = Modifier.fillMaxWidth(),
-            )
-            Text(
-                text = if (entry.isRequest) "/r/ · $whenText" else whenText,
-                color = RadioTheme.muted,
-                fontSize = 12.sp,
-                textAlign = TextAlign.Center,
-                modifier = Modifier.fillMaxWidth(),
-            )
-        }
     }
 }

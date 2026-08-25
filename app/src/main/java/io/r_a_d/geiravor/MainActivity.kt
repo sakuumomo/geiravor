@@ -6,9 +6,18 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.systemBarsPadding
+import androidx.compose.material3.NavigationBar
+import androidx.compose.material3.NavigationBarItem
+import androidx.compose.material3.NavigationBarItemDefaults
+import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -20,6 +29,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.LifecycleResumeEffect
 import androidx.media3.common.Player
 import androidx.media3.session.MediaController
@@ -31,8 +41,10 @@ import io.r_a_d.geiravor.playback.LivePlaybackPolicy
 import io.r_a_d.geiravor.playback.PlaybackService
 import io.r_a_d.geiravor.radio.RadioStore
 import io.r_a_d.geiravor.settings.SettingsStore
+import io.r_a_d.geiravor.ui.AppTab
 import io.r_a_d.geiravor.ui.NowPlayingScreen
 import io.r_a_d.geiravor.ui.RadioTheme
+import io.r_a_d.geiravor.ui.SongsScreen
 import kotlinx.coroutines.launch
 
 class MainActivity : ComponentActivity() {
@@ -101,28 +113,86 @@ private fun GeiravorRoot() {
         }
     }
 
+    val onGain: (Float) -> Unit = { value ->
+        gain = value
+        controller?.volume = value
+        scope.launch { settings.setGain(value) }
+    }
+    val onPlayToggle: () -> Unit = {
+        if (playing) {
+            controller?.stop()
+        } else if (Notifications.shouldRequest(Notifications.needed, Notifications.granted(context))) {
+            permission.launch(Notifications.permission())
+        } else {
+            controller?.play()
+        }
+    }
+    var tab by remember { mutableStateOf(AppTab.NowPlaying) }
+
     Surface(modifier = Modifier.fillMaxSize(), color = RadioTheme.background) {
-        NowPlayingScreen(
-            radio = app.radio,
-            status = radioState.status,
-            streamDown = radioState.streamDown,
-            playing = playing,
-            gain = gain,
-            onGain = { value ->
-                gain = value
-                controller?.volume = value
-                scope.launch { settings.setGain(value) }
-            },
-            onPlayToggle = {
-                if (playing) {
-                    controller?.stop()
-                } else if (Notifications.shouldRequest(Notifications.needed, Notifications.granted(context))) {
-                    permission.launch(Notifications.permission())
-                } else {
-                    controller?.play()
+        BoxWithConstraints(modifier = Modifier.systemBarsPadding()) {
+            val twoPane = maxWidth >= 600.dp
+            if (twoPane) {
+                Row(modifier = Modifier.fillMaxSize()) {
+                    NowPlayingScreen(
+                        radio = app.radio,
+                        status = radioState.status,
+                        streamDown = radioState.streamDown,
+                        playing = playing,
+                        gain = gain,
+                        onGain = onGain,
+                        onPlayToggle = onPlayToggle,
+                        modifier = Modifier.weight(1f),
+                    )
+                    SongsScreen(
+                        status = radioState.status,
+                        streamDown = radioState.streamDown,
+                        modifier = Modifier.weight(1f),
+                    )
                 }
-            },
-            modifier = Modifier.systemBarsPadding(),
-        )
+            } else {
+                Scaffold(
+                    containerColor = RadioTheme.background,
+                    contentWindowInsets = WindowInsets(0, 0, 0, 0),
+                    bottomBar = {
+                        NavigationBar(containerColor = RadioTheme.surface) {
+                            AppTab.entries.forEach { dest ->
+                                NavigationBarItem(
+                                    selected = tab == dest,
+                                    onClick = { tab = dest },
+                                    icon = { Text(if (dest == AppTab.NowPlaying) "▶" else "≡") },
+                                    label = { Text(dest.label) },
+                                    colors = NavigationBarItemDefaults.colors(
+                                        selectedIconColor = RadioTheme.blue,
+                                        selectedTextColor = RadioTheme.text,
+                                        indicatorColor = RadioTheme.border,
+                                        unselectedIconColor = RadioTheme.muted,
+                                        unselectedTextColor = RadioTheme.muted,
+                                    ),
+                                )
+                            }
+                        }
+                    },
+                ) { padding ->
+                    when (tab) {
+                        AppTab.NowPlaying -> NowPlayingScreen(
+                            radio = app.radio,
+                            status = radioState.status,
+                            streamDown = radioState.streamDown,
+                            playing = playing,
+                            gain = gain,
+                            onGain = onGain,
+                            onPlayToggle = onPlayToggle,
+                            modifier = Modifier.padding(padding),
+                        )
+                        AppTab.Songs -> SongsScreen(
+                            status = radioState.status,
+                            streamDown = radioState.streamDown,
+                            modifier = Modifier.padding(padding),
+                        )
+                    }
+                }
+            }
+        }
     }
 }
