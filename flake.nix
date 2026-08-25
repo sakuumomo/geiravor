@@ -40,7 +40,20 @@
             };
           };
 
-          android-sdk = android-nixpkgs.sdk.${system} (
+          # Patch upstream `stdenv.isLinux` (deprecated) before composing the SDK.
+          android-nixpkgs-src = pkgs.applyPatches {
+            name = "android-nixpkgs-hostPlatform-isLinux";
+            src = android-nixpkgs;
+            postPatch = ''
+              find pkgs/android -name '*.nix' -print0 \
+                | xargs -0 sed -i 's/stdenv\.isLinux/stdenv.hostPlatform.isLinux/g'
+            '';
+          };
+          android = import android-nixpkgs-src {
+            inherit pkgs;
+            channel = "stable";
+          };
+          android-sdk = android.sdk (
             sdkPkgs: with sdkPkgs; [
               # latest (23) replaces sdkmanager with `android` CLI whose Nix wrapper fails.
               cmdline-tools-16-0
@@ -88,7 +101,9 @@
             ANDROID_NDK_HOME = ndkRoot;
             ANDROID_NDK_ROOT = ndkRoot;
             LIBCLANG_PATH = "${pkgs.llvmPackages.libclang.lib}/lib";
-            GRADLE_OPTS = "-Dorg.gradle.daemon=false -Dorg.gradle.project.android.aapt2FromMavenOverride=${aapt2}";
+            # Required on NixOS: AGP's Maven aapt2 is a generic dynamic binary.
+            # AGP logs this property as experimental; without it, resource linking fails.
+            GRADLE_OPTS = "-Dorg.gradle.project.android.aapt2FromMavenOverride=${aapt2}";
 
             shellHook = ''
               export ANDROID_USER_HOME="''${XDG_CACHE_HOME:-$HOME/.cache}/geiravor/android"

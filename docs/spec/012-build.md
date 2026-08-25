@@ -45,7 +45,8 @@ Env (mkShell, not only hook):
 - `ANDROID_NDK_HOME` = `ANDROID_NDK_ROOT` = `${ANDROID_HOME}/ndk/<exact-version>`
 - `ANDROID_USER_HOME` writable under `$XDG_CACHE_HOME/geiravor/android`
 - `LIBCLANG_PATH`
-- `GRADLE_OPTS=-Dorg.gradle.daemon=false -Dorg.gradle.project.android.aapt2FromMavenOverride=$ANDROID_SDK_ROOT/build-tools/36.0.0/aapt2`
+- `GRADLE_OPTS=-Dorg.gradle.project.android.aapt2FromMavenOverride=$ANDROID_SDK_ROOT/build-tools/36.0.0/aapt2` (required on NixOS; AGP prints an “experimental” warning. Do not drop it.)
+- `stdenv.isLinux` in android-nixpkgs is patched to `stdenv.hostPlatform.isLinux` in `flake.nix` so `nix develop` stays quiet.
 
 Optional `shellHook` writes gitignored `local.properties` `sdk.dir=...`.
 
