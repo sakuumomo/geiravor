@@ -1,0 +1,46 @@
+{
+  "main": {
+    "np": "Some Live DJ - No End",
+    "listeners": 12,
+    "bitrate": 0,
+    "isafkstream": false,
+    "isstreamdesk": false,
+    "current": 1000,
+    "start_time": 900,
+    "end_time": 0,
+    "lastset": "ignored",
+    "trackid": 0,
+    "thread": "https://boards.4chan.org/a/thread/1",
+    "requesting": false,
+    "djname": "username",
+    "dj": {
+      "id": 7,
+      "djname": "Ojiisan",
+      "djtext": "",
+      "djimage": "7-abc.png",
+      "djcolor": "1 2 3",
+      "visible": true,
+      "priority": 1,
+      "css": "nope.css",
+      "theme_id": 0,
+      "role": "dj"
+    },
+    "queue": [
+      {
+        "meta": "Should Be Hidden - Track",
+        "time": "<time class=\"timeago\">x</time>",
+        "type": 0,
+        "timestamp": 1100
+      }
+    ],
+    "lp": [
+      {
+        "meta": "Previous - Song",
+        "time": "<time class=\"timeago\">x</time>",
+        "type": 0,
+        "timestamp": 800
+      }
+    ],
+    "tags": []
+  }
+}
