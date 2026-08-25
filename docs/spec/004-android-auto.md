@@ -27,9 +27,9 @@ Do **not** advertise seek, skip next, or skip previous.
 - Album artist = `dj.djname`
 - Artwork = DJ image (mystery-DJ fallback)
 - Subtitle, truncated: `Prev: <lp[0]> · Next: <queue[0]>`
-- Omit `Next:` when queue is hidden (`isafkstream == false`)
-- Omit a side if that list is empty
-- Duration/position from API window; unknown if `end_time` is 0
+- Live DJ (`isafkstream == false`): `Next: ???` (same as the phone Now Playing screen). Do not use `queue[0]`.
+- Omit `Prev:` if last-played is empty. Omit `Next:` only when AFK and the queue is empty.
+- Duration/position from the AFK API window (`002-api.md`). Live DJ: unknown duration (`TIME_UNSET`).
 
 Tapping previous/next must not exist as a command. The subtitle is reference only.
 
@@ -39,7 +39,7 @@ Root:
 
 1. Now Playing (the live stream; playable)
 2. Last Played (children not playable; click does not change audio)
-3. Queue — **only if `isafkstream`**. Same hide rule as the phone.
+3. Queue — **only if `isafkstream`**. Same hide rule as the Songs tab.
 
 Queue/LP `MediaItem`s are display/browse only.
 

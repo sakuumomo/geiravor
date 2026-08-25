@@ -1,7 +1,9 @@
 package io.r_a_d.geiravor.playback
 
+import androidx.media3.common.Player
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class LivePlaybackPolicyTest {
@@ -42,6 +44,61 @@ class LivePlaybackPolicyTest {
     }
 
     @Test
+    fun idleOrEndedNeverShowsAsPlayingEvenIfIsPlayingStale() {
+        assertFalse(
+            LivePlaybackPolicy.showAsPlaying(
+                playbackState = Player.STATE_IDLE,
+                isPlaying = true,
+                playWhenReady = true,
+            ),
+        )
+        assertFalse(
+            LivePlaybackPolicy.showAsPlaying(
+                playbackState = Player.STATE_ENDED,
+                isPlaying = false,
+                playWhenReady = true,
+            ),
+        )
+        assertTrue(
+            LivePlaybackPolicy.showAsPlaying(
+                playbackState = Player.STATE_BUFFERING,
+                isPlaying = false,
+                playWhenReady = true,
+            ),
+        )
+        assertTrue(
+            LivePlaybackPolicy.showAsPlaying(
+                playbackState = Player.STATE_READY,
+                isPlaying = true,
+                playWhenReady = true,
+            ),
+        )
+    }
+
+    @Test
+    fun leavePlaybackUsesPauseSoMedia3WillFirePlayPause() {
+        assertEquals(LivePlaybackPolicy.Command.PAUSE, LivePlaybackPolicy.leavePlaybackCommand())
+    }
+
+    @Test
+    fun playDoesNotRequireNotificationPermission() {
+        assertFalse(LivePlaybackPolicy.playRequiresNotificationPermission())
+    }
+
+    @Test
+    fun pauseKeepsIdlePlayTargetSoNotificationCanStay() {
+        assertTrue(LivePlaybackPolicy.keepNotificationAfterStop())
+        assertTrue(LivePlaybackPolicy.leaveUnpreparedLiveItemAfterStop())
+    }
+
+    @Test
+    fun autoReconnectsOnlyWhileUserWantsPlay() {
+        assertTrue(LivePlaybackPolicy.shouldReconnect(userWantsPlay = true))
+        assertFalse(LivePlaybackPolicy.shouldReconnect(userWantsPlay = false))
+        assertEquals(2_000L, LivePlaybackPolicy.reconnectDelayMs())
+    }
+
+    @Test
     fun gainMapsToSitePercentScale() {
         assertEquals(80f, LivePlaybackPolicy.toPercent(LivePlaybackPolicy.DEFAULT_GAIN), 0.0001f)
         assertEquals(0.8f, LivePlaybackPolicy.fromPercent(80f), 0.0001f)
@@ -49,5 +106,16 @@ class LivePlaybackPolicyTest {
         assertEquals(1f, LivePlaybackPolicy.fromPercent(140f), 0.0001f)
         assertEquals(0f, LivePlaybackPolicy.toPercent(-1f), 0.0001f)
         assertEquals(100f, LivePlaybackPolicy.toPercent(2f), 0.0001f)
+    }
+
+    @Test
+    fun integerPercentsSurviveGainRoundTrip() {
+        for (p in 0..100) {
+            assertEquals(
+                p.toFloat(),
+                LivePlaybackPolicy.toPercent(LivePlaybackPolicy.fromPercent(p.toFloat())),
+                0.001f,
+            )
+        }
     }
 }

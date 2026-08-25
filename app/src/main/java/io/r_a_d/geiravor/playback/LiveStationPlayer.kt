@@ -1,8 +1,10 @@
 package io.r_a_d.geiravor.playback
 
+import android.os.Handler
 import androidx.media3.common.ForwardingPlayer
 import androidx.media3.common.MediaItem
 import androidx.media3.common.MediaMetadata
+import androidx.media3.common.PlaybackException
 import androidx.media3.common.Player
 import androidx.media3.exoplayer.ExoPlayer
 import uniffi.geiravor_core.SongProgress
@@ -15,6 +17,19 @@ internal class LiveStationPlayer(
     @Volatile
     private var apiMetadata: MediaMetadata? = null
 
+    @Volatile
+    var wantsPlayback: Boolean = false
+        private set
+
+    private val mainHandler = Handler(exo.applicationLooper)
+    private val reconnect = Runnable {
+        if (!LivePlaybackPolicy.shouldReconnect(wantsPlayback)) {
+            return@Runnable
+        }
+        ensureLiveItem()
+        exo.play()
+    }
+
     fun applyStatus(status: Status?) {
         val meta = SessionMetadata.fromStatus(status)
         apiMetadata = meta
@@ -23,8 +38,25 @@ internal class LiveStationPlayer(
         }
     }
 
+    init {
+        exo.addListener(
+            object : Player.Listener {
+                override fun onPlayerError(error: PlaybackException) {
+                    scheduleReconnect()
+                }
+
+                override fun onPlaybackStateChanged(state: Int) {
+                    if (state == STATE_ENDED) {
+                        scheduleReconnect()
+                    }
+                }
+            },
+        )
+    }
+
     override fun getAvailableCommands(): Player.Commands {
         return super.getAvailableCommands().buildUpon()
+            .addAll(COMMAND_PLAY_PAUSE, COMMAND_PREPARE, COMMAND_STOP)
             .removeAll(
                 COMMAND_SEEK_IN_CURRENT_MEDIA_ITEM,
                 COMMAND_SEEK_TO_NEXT,
@@ -40,9 +72,8 @@ internal class LiveStationPlayer(
     }
 
     override fun play() {
-        if (LivePlaybackPolicy.onPause() == LivePlaybackPolicy.Action.STOP) {
-            ensureLiveItem()
-        }
+        wantsPlayback = true
+        ensureLiveItem()
         super.play()
     }
 
@@ -56,6 +87,18 @@ internal class LiveStationPlayer(
 
     override fun stop() {
         teardown()
+    }
+
+    override fun setPlayWhenReady(playWhenReady: Boolean) {
+        if (!playWhenReady && LivePlaybackPolicy.onPause() == LivePlaybackPolicy.Action.STOP) {
+            teardown()
+            return
+        }
+        if (playWhenReady) {
+            wantsPlayback = true
+            ensureLiveItem()
+        }
+        super.setPlayWhenReady(playWhenReady)
     }
 
     override fun seekTo(positionMs: Long) {
@@ -95,16 +138,32 @@ internal class LiveStationPlayer(
 
     override fun isCurrentMediaItemLive(): Boolean = true
 
+    private fun liveItem(): MediaItem = MediaItem.fromUri(LivePlaybackPolicy.STREAM_URL)
+
     private fun ensureLiveItem() {
         val idle = exo.playbackState == STATE_IDLE || exo.playbackState == STATE_ENDED
         if (exo.currentMediaItem == null || idle) {
-            exo.setMediaItem(MediaItem.fromUri(LivePlaybackPolicy.STREAM_URL))
+            exo.setMediaItem(liveItem())
             exo.prepare()
         }
     }
 
+    private fun scheduleReconnect() {
+        if (!LivePlaybackPolicy.shouldReconnect(wantsPlayback)) {
+            return
+        }
+        mainHandler.removeCallbacks(reconnect)
+        mainHandler.postDelayed(reconnect, LivePlaybackPolicy.reconnectDelayMs())
+    }
+
     private fun teardown() {
+        wantsPlayback = false
+        mainHandler.removeCallbacks(reconnect)
+        exo.playWhenReady = false
         exo.stop()
         exo.clearMediaItems()
+        if (LivePlaybackPolicy.leaveUnpreparedLiveItemAfterStop()) {
+            exo.setMediaItem(liveItem())
+        }
     }
 }

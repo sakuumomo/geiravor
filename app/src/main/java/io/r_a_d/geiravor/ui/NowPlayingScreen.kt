@@ -52,11 +52,14 @@ fun NowPlayingScreen(
     playing: Boolean,
     gain: Float,
     onGain: (Float) -> Unit,
+    onGainFinished: (Float) -> Unit,
     onPlayToggle: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     var progress by remember { mutableStateOf<SongProgress?>(null) }
     var tagsOpen by remember { mutableStateOf(false) }
+    var sliding by remember { mutableStateOf(false) }
+    var percent by remember { mutableStateOf(LivePlaybackPolicy.toPercent(gain)) }
 
     LaunchedEffect(status) {
         while (true) {
@@ -65,12 +68,16 @@ fun NowPlayingScreen(
         }
     }
 
-    val percent = LivePlaybackPolicy.toPercent(gain)
+    LaunchedEffect(gain) {
+        if (!sliding) {
+            percent = LivePlaybackPolicy.toPercent(gain)
+        }
+    }
 
     Column(
         modifier = modifier
             .fillMaxSize()
-            .verticalScroll(rememberScrollState())
+            .verticalScroll(rememberScrollState(), enabled = !sliding)
             .padding(16.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(12.dp),
@@ -107,8 +114,17 @@ fun NowPlayingScreen(
         ) {
             Slider(
                 value = percent,
-                onValueChange = { onGain(LivePlaybackPolicy.fromPercent(it)) },
+                onValueChange = { value ->
+                    sliding = true
+                    percent = value
+                    onGain(LivePlaybackPolicy.fromPercent(value))
+                },
+                onValueChangeFinished = {
+                    sliding = false
+                    onGainFinished(LivePlaybackPolicy.fromPercent(percent))
+                },
                 valueRange = 0f..100f,
+                steps = 99,
                 colors = SliderDefaults.colors(
                     thumbColor = RadioTheme.blue,
                     activeTrackColor = RadioTheme.blue,
@@ -167,11 +183,7 @@ fun NowPlayingScreen(
                 trackColor = RadioTheme.border,
             )
         }
-        val clock = if (duration == null) {
-            formatMmSs(elapsed)
-        } else {
-            "${formatMmSs(elapsed)} / ${formatMmSs(duration)}"
-        }
+        val clock = formatProgressClock(elapsed, duration)
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceBetween,
@@ -180,7 +192,9 @@ fun NowPlayingScreen(
                 text = "Listeners: ${status?.listeners ?: "—"}",
                 color = RadioTheme.muted,
             )
-            Text(text = clock, color = RadioTheme.text)
+            if (clock != null) {
+                Text(text = clock, color = RadioTheme.text)
+            }
         }
         status?.thread?.let { url ->
             val context = LocalContext.current
@@ -208,27 +222,27 @@ fun NowPlayingScreen(
         if (StreamStatus.showBanner(streamDown)) {
             Text(StreamStatus.banner, color = RadioTheme.red)
         }
-        Row(
+        val neighbors = SongListPolicy.neighbors(
+            lastPlayedMeta = status?.lastPlayed?.firstOrNull()?.meta,
+            nextInQueueMeta = status?.queue?.firstOrNull()?.meta,
+            isAfkStream = status?.isAfkStream == true,
+        )
+        Text("Previous", color = RadioTheme.muted, fontSize = 12.sp)
+        Text(
+            text = neighbors.previous,
+            color = RadioTheme.text,
+            fontSize = 14.sp,
+            textAlign = TextAlign.Center,
             modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(12.dp),
-        ) {
-            SongSection(
-                title = "Last Played",
-                entries = status?.lastPlayed.orEmpty(),
-                current = status?.current ?: 0,
-                queue = false,
-                modifier = Modifier.weight(1f),
-            )
-            if (SongListPolicy.showQueue(status?.isAfkStream == true) && status != null) {
-                SongSection(
-                    title = "Queue",
-                    entries = status.queue,
-                    current = status.current,
-                    queue = true,
-                    modifier = Modifier.weight(1f),
-                )
-            }
-        }
+        )
+        Text("Next", color = RadioTheme.muted, fontSize = 12.sp)
+        Text(
+            text = neighbors.next,
+            color = RadioTheme.text,
+            fontSize = 14.sp,
+            textAlign = TextAlign.Center,
+            modifier = Modifier.fillMaxWidth(),
+        )
         Spacer(Modifier.height(8.dp))
     }
 }

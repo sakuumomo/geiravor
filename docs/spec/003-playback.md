@@ -14,16 +14,17 @@ Never download the `.mp3` in unit tests or CI.
 
 There is one playable `MediaItem`: the stream URL. Last played / queue items are display-only.
 
-- **Play** connects (or reconnects) to live.
-- **Pause** (Auto, notification, headset UI) **stops**: release the player, do not leave a live buffer paused (`playWhenReady = false` is wrong).
+- **Play** connects (or reconnects) to live with a new HTTP GET. Do not resume a paused buffer.
+- **Pause** (Auto, notification, headset UI) **stops**: `stop` + drop the live buffer so Icecast is not left downloading or cached (`playWhenReady = false` is wrong). Then set the live `MediaItem` **without** `prepare` so the notification/Auto play target remains. Explicit Play `prepare`s a new GET (`onPlaybackResumption` if the item is missing).
 - **Stop** is the same teardown.
 - **Seek**, skip next, skip previous are not advertised and are rejected.
+- While the user wants play, player error or stream end **auto-reconnects**. After pause/stop, do **not** reconnect.
 
 AudioAttributes: `USAGE_MEDIA`, `CONTENT_TYPE_MUSIC`. ExoPlayer wake mode for network while playing.
 
 ## Progress
 
-Song window comes from `/api` (`002-api.md`), converted to milliseconds for Media3 metadata. ExoPlayer position is **not** the song progress. Seek on the session is rejected.
+Song window comes from `/api` (`002-api.md`), converted to milliseconds for Media3 metadata, **only while AFK**. Live DJ: duration `TIME_UNSET`, no track clock. ExoPlayer position is **not** the song progress. Seek on the session is rejected.
 
 ## Focus and noisy
 
@@ -39,7 +40,9 @@ Manifest: `FOREGROUND_SERVICE` + `FOREGROUND_SERVICE_MEDIA_PLAYBACK`. Start type
 
 ## Notification
 
-Media3 media notification. Runtime `POST_NOTIFICATIONS` on API 33+ **before the first notification** (on Play). Channel for playback.
+Media3 media notification. On API 33+ we may ask `POST_NOTIFICATIONS` on Play so the shade can show it. Playback does **not** wait on grant; deny or ignore still plays and pauses. Channel for playback.
+
+After pause/stop: keep that notification as the play target (unprepared live item, no Icecast GET). Play on it reconnects. Shade dismiss follows the platform session; do not custom-handle swipe.
 
 `setSessionActivity` → the single Activity.
 

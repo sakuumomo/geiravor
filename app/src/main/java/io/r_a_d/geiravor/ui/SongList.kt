@@ -1,8 +1,13 @@
 package io.r_a_d.geiravor.ui
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
@@ -21,35 +26,62 @@ fun SongSection(
     queue: Boolean,
     modifier: Modifier = Modifier,
 ) {
-    Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        Text(
-            title,
-            color = RadioTheme.text,
-            fontSize = 18.sp,
-            textAlign = TextAlign.Center,
-            modifier = Modifier.fillMaxWidth(),
-        )
-        entries.forEach { entry ->
-            val whenText = if (queue) {
-                relativeQueue(entry.timestamp, current)
+    Card(
+        modifier = modifier,
+        colors = CardDefaults.cardColors(containerColor = RadioTheme.surface),
+        border = BorderStroke(1.dp, RadioTheme.border),
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp),
+        ) {
+            Text(
+                title,
+                color = RadioTheme.text,
+                fontSize = 18.sp,
+                textAlign = TextAlign.Center,
+                modifier = Modifier.fillMaxWidth(),
+            )
+            HorizontalDivider(color = RadioTheme.border)
+            if (entries.isEmpty()) {
+                Text(
+                    text = "Nothing yet",
+                    color = RadioTheme.muted,
+                    fontSize = 13.sp,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.fillMaxWidth(),
+                )
             } else {
-                relativeLastPlayed(entry.timestamp, current)
+                entries.forEach { entry ->
+                    val whenText = if (queue) {
+                        relativeQueue(entry.timestamp, current)
+                    } else {
+                        relativeLastPlayed(entry.timestamp, current)
+                    }
+                    val color = if (entry.isRequest) RadioTheme.blue else RadioTheme.text
+                    Column(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalArrangement = Arrangement.spacedBy(2.dp),
+                    ) {
+                        Text(
+                            text = entry.meta,
+                            color = color,
+                            fontSize = 14.sp,
+                            textAlign = TextAlign.Center,
+                            modifier = Modifier.fillMaxWidth(),
+                        )
+                        Text(
+                            text = SongListPolicy.caption(entry.isRequest, whenText),
+                            color = RadioTheme.muted,
+                            fontSize = 12.sp,
+                            textAlign = TextAlign.Center,
+                            modifier = Modifier.fillMaxWidth(),
+                        )
+                    }
+                }
             }
-            val color = if (entry.isRequest) RadioTheme.blue else RadioTheme.text
-            Text(
-                text = entry.meta,
-                color = color,
-                fontSize = 13.sp,
-                textAlign = TextAlign.Center,
-                modifier = Modifier.fillMaxWidth(),
-            )
-            Text(
-                text = SongListPolicy.caption(entry.isRequest, whenText),
-                color = RadioTheme.muted,
-                fontSize = 12.sp,
-                textAlign = TextAlign.Center,
-                modifier = Modifier.fillMaxWidth(),
-            )
         }
     }
 }

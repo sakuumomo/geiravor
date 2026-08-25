@@ -15,4 +15,11 @@ class TimeFormatTest {
     fun clampsNegativeToZero() {
         assertEquals("0:00", formatMmSs(-12))
     }
+
+    @Test
+    fun liveDjHasNoTrackClock() {
+        assertEquals(null, formatProgressClock(elapsedSecs = 0, durationSecs = null))
+        assertEquals("1:40", formatProgressClock(elapsedSecs = 100, durationSecs = null))
+        assertEquals("1:05 / 3:00", formatProgressClock(elapsedSecs = 65, durationSecs = 180))
+    }
 }

@@ -73,11 +73,13 @@ class PlaybackService : MediaLibraryService() {
                 }
 
                 override fun onPlayerError(error: PlaybackException) {
-                    radio.onStreamError()
+                    if (!LivePlaybackPolicy.shouldReconnect(player.wantsPlayback)) {
+                        radio.onStreamError()
+                    }
                 }
 
                 override fun onIsPlayingChanged(isPlaying: Boolean) {
-                    radio.setPlaying(isPlaying)
+                    radio.setPlaying(player.wantsPlayback)
                 }
             },
         )
@@ -91,6 +93,13 @@ class PlaybackService : MediaLibraryService() {
             .setId("geiravor")
             .setSessionActivity(activity)
             .build()
+        setShowNotificationForIdlePlayer(
+            if (LivePlaybackPolicy.keepNotificationAfterStop()) {
+                SHOW_NOTIFICATION_FOR_IDLE_PLAYER_AFTER_STOP_OR_ERROR
+            } else {
+                SHOW_NOTIFICATION_FOR_IDLE_PLAYER_NEVER
+            },
+        )
         val settings = SettingsStore(this)
         scope.launch {
             settings.gain.collect { exo.volume = it }
@@ -119,6 +128,16 @@ class PlaybackService : MediaLibraryService() {
     }
 
     private class LibraryCallback : MediaLibraryService.MediaLibrarySession.Callback {
+        override fun onPlaybackResumption(
+            session: MediaSession,
+            controller: MediaSession.ControllerInfo,
+        ): ListenableFuture<MediaSession.MediaItemsWithStartPosition> {
+            val item = MediaItem.fromUri(LivePlaybackPolicy.STREAM_URL)
+            return Futures.immediateFuture(
+                MediaSession.MediaItemsWithStartPosition(listOf(item), 0, C.TIME_UNSET),
+            )
+        }
+
         override fun onGetLibraryRoot(
             session: MediaLibraryService.MediaLibrarySession,
             browser: MediaSession.ControllerInfo,

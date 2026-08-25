@@ -7,6 +7,12 @@ pub struct SongProgress {
 }
 
 pub fn song_progress(status: &Status, local_at_fetch: i64, local_now: i64) -> SongProgress {
+    if !status.is_afk_stream {
+        return SongProgress {
+            elapsed_secs: 0,
+            duration_secs: None,
+        };
+    }
     let elapsed = (local_now + (status.current - local_at_fetch)) - status.start_time;
     let duration = if status.end_time > status.start_time {
         Some(status.end_time - status.start_time)

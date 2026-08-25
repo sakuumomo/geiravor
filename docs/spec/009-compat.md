@@ -18,7 +18,7 @@ Grep `Compat:` when raising minSdk and delete.
 
 | Concern | From API | Notes |
 |---|---|---|
-| `POST_NOTIFICATIONS` | 33 | Permission **and** the runtime request before the first media notification |
+| `POST_NOTIFICATIONS` | 33 | Ask so the media notification can appear. Do **not** block play/pause if denied. |
 | FGS `mediaPlayback` start | 34 | `startForeground` type |
 | Edge-to-edge / insets | 35 | Status/nav bars |
 

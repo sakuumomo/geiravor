@@ -6,8 +6,6 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.foundation.layout.BoxWithConstraints
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
@@ -29,12 +27,11 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.LifecycleResumeEffect
 import androidx.media3.common.Player
 import androidx.media3.session.MediaController
 import androidx.media3.session.SessionToken
-import com.google.common.util.concurrent.MoreExecutors
+import androidx.core.content.ContextCompat
 import io.r_a_d.geiravor.compat.Notifications
 import io.r_a_d.geiravor.compat.applyEdgeToEdge
 import io.r_a_d.geiravor.playback.LivePlaybackPolicy
@@ -85,19 +82,34 @@ private fun GeiravorRoot() {
             {
                 val c = future.get()
                 controller = c
-                playing = c.isPlaying
                 c.volume = gain
-                app.radio.setPlaying(c.isPlaying)
+                fun syncPlaying() {
+                    val active = LivePlaybackPolicy.showAsPlaying(
+                        c.playbackState,
+                        c.isPlaying,
+                        c.playWhenReady,
+                    )
+                    playing = active
+                    app.radio.setPlaying(active)
+                }
+                syncPlaying()
                 c.addListener(
                     object : Player.Listener {
                         override fun onIsPlayingChanged(isPlaying: Boolean) {
-                            playing = isPlaying
-                            app.radio.setPlaying(isPlaying)
+                            syncPlaying()
+                        }
+
+                        override fun onPlaybackStateChanged(playbackState: Int) {
+                            syncPlaying()
+                        }
+
+                        override fun onPlayWhenReadyChanged(playWhenReady: Boolean, reason: Int) {
+                            syncPlaying()
                         }
                     },
                 )
             },
-            MoreExecutors.directExecutor(),
+            ContextCompat.getMainExecutor(context),
         )
         onDispose {
             MediaController.releaseFuture(future)
@@ -107,91 +119,73 @@ private fun GeiravorRoot() {
 
     val permission = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestPermission(),
-    ) { granted ->
-        if (granted) {
-            controller?.play()
-        }
-    }
+    ) { }
 
     val onGain: (Float) -> Unit = { value ->
+        controller?.volume = value
+    }
+    val onGainFinished: (Float) -> Unit = { value ->
         gain = value
         controller?.volume = value
         scope.launch { settings.setGain(value) }
     }
     val onPlayToggle: () -> Unit = {
         if (playing) {
-            controller?.stop()
-        } else if (Notifications.shouldRequest(Notifications.needed, Notifications.granted(context))) {
-            permission.launch(Notifications.permission())
+            playing = false
+            app.radio.setPlaying(false)
+            controller?.pause()
         } else {
+            playing = true
             controller?.play()
+            if (Notifications.shouldRequest(Notifications.needed, Notifications.granted(context))) {
+                permission.launch(Notifications.permission())
+            }
         }
     }
     var tab by remember { mutableStateOf(AppTab.NowPlaying) }
 
     Surface(modifier = Modifier.fillMaxSize(), color = RadioTheme.background) {
-        BoxWithConstraints(modifier = Modifier.systemBarsPadding()) {
-            val twoPane = maxWidth >= 600.dp
-            if (twoPane) {
-                Row(modifier = Modifier.fillMaxSize()) {
-                    NowPlayingScreen(
-                        radio = app.radio,
-                        status = radioState.status,
-                        streamDown = radioState.streamDown,
-                        playing = playing,
-                        gain = gain,
-                        onGain = onGain,
-                        onPlayToggle = onPlayToggle,
-                        modifier = Modifier.weight(1f),
-                    )
-                    SongsScreen(
-                        status = radioState.status,
-                        streamDown = radioState.streamDown,
-                        modifier = Modifier.weight(1f),
-                    )
-                }
-            } else {
-                Scaffold(
-                    containerColor = RadioTheme.background,
-                    contentWindowInsets = WindowInsets(0, 0, 0, 0),
-                    bottomBar = {
-                        NavigationBar(containerColor = RadioTheme.surface) {
-                            AppTab.entries.forEach { dest ->
-                                NavigationBarItem(
-                                    selected = tab == dest,
-                                    onClick = { tab = dest },
-                                    icon = { Text(if (dest == AppTab.NowPlaying) "▶" else "≡") },
-                                    label = { Text(dest.label) },
-                                    colors = NavigationBarItemDefaults.colors(
-                                        selectedIconColor = RadioTheme.blue,
-                                        selectedTextColor = RadioTheme.text,
-                                        indicatorColor = RadioTheme.border,
-                                        unselectedIconColor = RadioTheme.muted,
-                                        unselectedTextColor = RadioTheme.muted,
-                                    ),
-                                )
-                            }
-                        }
-                    },
-                ) { padding ->
-                    when (tab) {
-                        AppTab.NowPlaying -> NowPlayingScreen(
-                            radio = app.radio,
-                            status = radioState.status,
-                            streamDown = radioState.streamDown,
-                            playing = playing,
-                            gain = gain,
-                            onGain = onGain,
-                            onPlayToggle = onPlayToggle,
-                            modifier = Modifier.padding(padding),
-                        )
-                        AppTab.Songs -> SongsScreen(
-                            status = radioState.status,
-                            streamDown = radioState.streamDown,
-                            modifier = Modifier.padding(padding),
+        Scaffold(
+            modifier = Modifier.systemBarsPadding(),
+            containerColor = RadioTheme.background,
+            contentWindowInsets = WindowInsets(0, 0, 0, 0),
+            bottomBar = {
+                NavigationBar(containerColor = RadioTheme.surface) {
+                    AppTab.entries.forEach { dest ->
+                        NavigationBarItem(
+                            selected = tab == dest,
+                            onClick = { tab = dest },
+                            icon = { Text(if (dest == AppTab.NowPlaying) "▶" else "≡") },
+                            label = { Text(dest.label) },
+                            colors = NavigationBarItemDefaults.colors(
+                                selectedIconColor = RadioTheme.blue,
+                                selectedTextColor = RadioTheme.text,
+                                indicatorColor = RadioTheme.border,
+                                unselectedIconColor = RadioTheme.muted,
+                                unselectedTextColor = RadioTheme.muted,
+                            ),
                         )
                     }
                 }
+            },
+        ) { padding ->
+            when (tab) {
+                AppTab.NowPlaying -> NowPlayingScreen(
+                    radio = app.radio,
+                    status = radioState.status,
+                    streamDown = radioState.streamDown,
+                    playing = playing,
+                    gain = gain,
+                    onGain = onGain,
+                    onGainFinished = onGainFinished,
+                    onPlayToggle = onPlayToggle,
+                    modifier = Modifier.padding(padding),
+                )
+                AppTab.Songs -> SongsScreen(
+                    status = radioState.status,
+                    streamDown = radioState.streamDown,
+                    modifier = Modifier.padding(padding),
+                )
             }
         }
     }

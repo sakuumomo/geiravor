@@ -27,7 +27,7 @@ fun SongsScreen(
             .verticalScroll(rememberScrollState())
             .padding(16.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(16.dp),
+        verticalArrangement = Arrangement.spacedBy(20.dp),
     ) {
         if (StreamStatus.showBanner(streamDown)) {
             Text(StreamStatus.banner, color = RadioTheme.red, fontSize = 16.sp)
