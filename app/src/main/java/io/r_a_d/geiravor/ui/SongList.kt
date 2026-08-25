@@ -25,6 +25,7 @@ fun SongSection(
     current: Long,
     queue: Boolean,
     modifier: Modifier = Modifier,
+    showTitle: Boolean = true,
 ) {
     Card(
         modifier = modifier,
@@ -37,14 +38,16 @@ fun SongSection(
                 .padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(10.dp),
         ) {
-            Text(
-                title,
-                color = RadioTheme.text,
-                fontSize = 18.sp,
-                textAlign = TextAlign.Center,
-                modifier = Modifier.fillMaxWidth(),
-            )
-            HorizontalDivider(color = RadioTheme.border)
+            if (showTitle) {
+                Text(
+                    title,
+                    color = RadioTheme.text,
+                    fontSize = 18.sp,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+                HorizontalDivider(color = RadioTheme.border)
+            }
             if (entries.isEmpty()) {
                 Text(
                     text = "Nothing yet",

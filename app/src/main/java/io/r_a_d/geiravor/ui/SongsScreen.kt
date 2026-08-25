@@ -1,7 +1,9 @@
 package io.r_a_d.geiravor.ui
 
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -9,6 +11,10 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
@@ -21,32 +27,85 @@ fun SongsScreen(
     streamDown: Boolean,
     modifier: Modifier = Modifier,
 ) {
-    Column(
-        modifier = modifier
-            .fillMaxSize()
-            .verticalScroll(rememberScrollState())
-            .padding(16.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(20.dp),
-    ) {
-        if (StreamStatus.showBanner(streamDown)) {
-            Text(StreamStatus.banner, color = RadioTheme.red, fontSize = 16.sp)
-        }
-        SongSection(
-            title = "Last Played",
-            entries = status?.lastPlayed.orEmpty(),
-            current = status?.current ?: 0,
-            queue = false,
-            modifier = Modifier.fillMaxWidth(),
-        )
-        if (SongListPolicy.showQueue(status?.isAfkStream == true) && status != null) {
-            SongSection(
-                title = "Queue",
-                entries = status.queue,
-                current = status.current,
-                queue = true,
-                modifier = Modifier.fillMaxWidth(),
-            )
+    val afk = status?.isAfkStream == true
+    val sections = SectionLayout.songsSections(afk)
+    var selected by remember { mutableStateOf(SectionLayout.SongsSection.LastPlayed) }
+    val section = SectionLayout.clampSongsSection(selected, afk)
+
+    BoxWithConstraints(modifier = modifier.fillMaxSize()) {
+        val twoPane = SectionLayout.twoPane(maxWidth.value.toInt())
+        Column(modifier = Modifier.fillMaxSize()) {
+            if (StreamStatus.showBanner(streamDown)) {
+                Text(
+                    StreamStatus.banner,
+                    color = RadioTheme.red,
+                    fontSize = 16.sp,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 8.dp),
+                )
+            }
+            if (!twoPane) {
+                SectionTabs(
+                    labels = sections.map { it.label },
+                    selected = sections.indexOf(section).coerceAtLeast(0),
+                    onSelect = { selected = sections[it] },
+                )
+            }
+            if (twoPane && sections.size > 1) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(16.dp),
+                    horizontalArrangement = Arrangement.spacedBy(16.dp),
+                ) {
+                    SongPane(
+                        status = status,
+                        section = SectionLayout.SongsSection.LastPlayed,
+                        showTitle = true,
+                        modifier = Modifier.weight(1f),
+                    )
+                    SongPane(
+                        status = status,
+                        section = SectionLayout.SongsSection.Queue,
+                        showTitle = true,
+                        modifier = Modifier.weight(1f),
+                    )
+                }
+            } else {
+                Column(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .verticalScroll(rememberScrollState())
+                        .padding(16.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                ) {
+                    SongPane(
+                        status = status,
+                        section = section,
+                        showTitle = false,
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                }
+            }
         }
     }
+}
+
+@Composable
+private fun SongPane(
+    status: Status?,
+    section: SectionLayout.SongsSection,
+    showTitle: Boolean,
+    modifier: Modifier = Modifier,
+) {
+    val queue = section == SectionLayout.SongsSection.Queue
+    SongSection(
+        title = section.label,
+        entries = if (queue) status?.queue.orEmpty() else status?.lastPlayed.orEmpty(),
+        current = status?.current ?: 0,
+        queue = queue,
+        showTitle = showTitle,
+        modifier = modifier,
+    )
 }

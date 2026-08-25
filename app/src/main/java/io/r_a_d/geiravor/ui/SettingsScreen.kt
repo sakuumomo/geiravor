@@ -2,6 +2,7 @@ package io.r_a_d.geiravor.ui
 
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
@@ -15,6 +16,10 @@ import androidx.compose.material3.Switch
 import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
@@ -29,37 +34,83 @@ fun SettingsScreen(
     versionName: String,
     modifier: Modifier = Modifier,
 ) {
-    Column(
-        modifier = modifier
-            .fillMaxSize()
-            .verticalScroll(rememberScrollState())
-            .padding(16.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(20.dp),
-    ) {
-        Card(
-            modifier = Modifier.fillMaxWidth(),
-            colors = CardDefaults.cardColors(containerColor = RadioTheme.surface),
-            border = BorderStroke(1.dp, RadioTheme.border),
-        ) {
-            Column(modifier = Modifier.fillMaxWidth()) {
-                SettingToggle(
-                    label = "Auto-start on plug",
-                    checked = autoStartOnPlug,
-                    onCheckedChange = onAutoStartOnPlug,
-                )
-                SettingToggle(
-                    label = "Auto-start in vehicle",
-                    checked = autoStartInVehicle,
-                    onCheckedChange = onAutoStartInVehicle,
+    val sections = SectionLayout.settingsSections()
+    var selected by remember { mutableStateOf(SectionLayout.SettingsSection.General) }
+
+    BoxWithConstraints(modifier = modifier.fillMaxSize()) {
+        val twoPane = SectionLayout.twoPane(maxWidth.value.toInt())
+        Column(modifier = Modifier.fillMaxSize()) {
+            if (!twoPane) {
+                SectionTabs(
+                    labels = sections.map { it.label },
+                    selected = sections.indexOf(selected).coerceAtLeast(0),
+                    onSelect = { selected = sections[it] },
                 )
             }
+            if (twoPane) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(16.dp),
+                    horizontalArrangement = Arrangement.spacedBy(16.dp),
+                ) {
+                    GeneralSettings(
+                        autoStartOnPlug = autoStartOnPlug,
+                        onAutoStartOnPlug = onAutoStartOnPlug,
+                        versionName = versionName,
+                        modifier = Modifier.weight(1f),
+                    )
+                    AutoSettings(
+                        autoStartInVehicle = autoStartInVehicle,
+                        onAutoStartInVehicle = onAutoStartInVehicle,
+                        modifier = Modifier.weight(1f),
+                    )
+                }
+            } else {
+                Column(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .verticalScroll(rememberScrollState())
+                        .padding(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(20.dp),
+                ) {
+                    when (selected) {
+                        SectionLayout.SettingsSection.General -> GeneralSettings(
+                            autoStartOnPlug = autoStartOnPlug,
+                            onAutoStartOnPlug = onAutoStartOnPlug,
+                            versionName = versionName,
+                        )
+                        SectionLayout.SettingsSection.Auto -> AutoSettings(
+                            autoStartInVehicle = autoStartInVehicle,
+                            onAutoStartInVehicle = onAutoStartInVehicle,
+                        )
+                    }
+                }
+            }
         }
-        Card(
-            modifier = Modifier.fillMaxWidth(),
-            colors = CardDefaults.cardColors(containerColor = RadioTheme.surface),
-            border = BorderStroke(1.dp, RadioTheme.border),
-        ) {
+    }
+}
+
+@Composable
+private fun GeneralSettings(
+    autoStartOnPlug: Boolean,
+    onAutoStartOnPlug: (Boolean) -> Unit,
+    versionName: String,
+    modifier: Modifier = Modifier,
+) {
+    Column(
+        modifier = modifier,
+        verticalArrangement = Arrangement.spacedBy(20.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
+        SettingsCard {
+            SettingToggle(
+                label = "Auto-start on plug",
+                checked = autoStartOnPlug,
+                onCheckedChange = onAutoStartOnPlug,
+            )
+        }
+        SettingsCard {
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -73,6 +124,33 @@ fun SettingsScreen(
             }
         }
     }
+}
+
+@Composable
+private fun AutoSettings(
+    autoStartInVehicle: Boolean,
+    onAutoStartInVehicle: (Boolean) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Column(modifier = modifier) {
+        SettingsCard {
+            SettingToggle(
+                label = "Auto-start in vehicle",
+                checked = autoStartInVehicle,
+                onCheckedChange = onAutoStartInVehicle,
+            )
+        }
+    }
+}
+
+@Composable
+private fun SettingsCard(content: @Composable () -> Unit) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(containerColor = RadioTheme.surface),
+        border = BorderStroke(1.dp, RadioTheme.border),
+        content = { content() },
+    )
 }
 
 @Composable
