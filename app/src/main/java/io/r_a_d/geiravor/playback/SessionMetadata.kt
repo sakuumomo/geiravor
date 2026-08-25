@@ -11,6 +11,7 @@ data class NowPlayingCard(
     val artist: String,
     val albumArtist: String,
     val artworkUrl: String,
+    val subtitle: String?,
 )
 
 object SessionMetadata {
@@ -21,17 +22,23 @@ object SessionMetadata {
             artist = status.artist,
             albumArtist = status.dj.name,
             artworkUrl = "https://r-a-d.io/api/dj-image/${status.dj.image}",
+            subtitle = AutoBrowse.subtitle(
+                lastPlayedMeta = status.lastPlayed.firstOrNull()?.meta,
+                nextInQueueMeta = status.queue.firstOrNull()?.meta,
+                isAfkStream = status.isAfkStream,
+            ),
         )
     }
 
     fun fromStatus(status: Status?): MediaMetadata? {
         val card = card(status) ?: return null
-        return MediaMetadata.Builder()
+        val builder = MediaMetadata.Builder()
             .setTitle(card.title)
             .setArtist(card.artist)
             .setAlbumArtist(card.albumArtist)
             .setArtworkUri(Uri.parse(card.artworkUrl))
-            .build()
+        card.subtitle?.let { builder.setSubtitle(it) }
+        return builder.build()
     }
 
     fun positionMs(progress: SongProgress?): Long =

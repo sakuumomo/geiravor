@@ -37,6 +37,29 @@ class SessionMetadataTest {
     }
 
     @Test
+    fun cardSubtitleFollowsAutoPrevNext() {
+        val afk = requireNotNull(
+            SessionMetadata.card(
+                sampleStatus(
+                    lastPlayed = listOf(ListEntry("Hirasawa Susumu - Gats", "Hirasawa Susumu", "Gats", 1, false)),
+                    queue = listOf(ListEntry("Aimer - ninelie", "Aimer", "ninelie", 2, false)),
+                ),
+            ),
+        )
+        assertEquals("Prev: Hirasawa Susumu - Gats · Next: Aimer - ninelie", afk.subtitle)
+        val liveDj = requireNotNull(
+            SessionMetadata.card(
+                sampleStatus(
+                    isAfkStream = false,
+                    lastPlayed = listOf(ListEntry("Previous - Song", "", "Previous - Song", 1, false)),
+                    queue = listOf(ListEntry("Hidden - Track", "", "Hidden - Track", 2, false)),
+                ),
+            ),
+        )
+        assertEquals("Prev: Previous - Song · Next: ???", liveDj.subtitle)
+    }
+
+    @Test
     fun songWindowIsApiSecondsTimesOneThousand() {
         val progress = uniffi.geiravor_core.SongProgress(elapsedSecs = 65, durationSecs = 180)
         assertEquals(65_000L, SessionMetadata.positionMs(progress))
