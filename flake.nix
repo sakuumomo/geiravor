@@ -62,6 +62,7 @@
               build-tools-36-0-0
               ndk-28-2-13676358
               cmake-3-22-1
+              extras-google-auto
             ]
           );
 
@@ -83,6 +84,29 @@
           sdkRoot = "${android-sdk}/share/android-sdk";
           ndkRoot = "${sdkRoot}/ndk/${ndkVersion}";
           aapt2 = "${sdkRoot}/build-tools/${buildToolsVersion}/aapt2";
+          dhuFhs = pkgs.buildFHSEnv {
+            pname = "desktop-head-unit";
+            version = "2.1";
+            targetPkgs =
+              p: with p; [
+                SDL2
+                libpng
+                zlib
+                libGL
+                mesa
+                alsa-lib
+                libpulseaudio
+                freetype
+                fontconfig
+                libx11
+                libxext
+                libxcursor
+                libxi
+                libxrandr
+                libxfixes
+              ];
+            runScript = "${sdkRoot}/extras/google/auto/desktop-head-unit";
+          };
         in
         {
           default = pkgs.mkShell {
@@ -93,6 +117,7 @@
               pkgs.cargo-ndk
               pkgs.pkg-config
               pkgs.llvmPackages.libclang
+              dhuFhs
             ];
 
             JAVA_HOME = "${pkgs.jdk21}";

@@ -33,7 +33,7 @@ Inputs (do **not** set `android-nixpkgs.inputs.nixpkgs.follows`):
 
 `allowUnfree = true`, `android_sdk.accept_license = true`.
 
-SDK: `cmdline-tools-16-0` (not `latest`: 23’s `android` CLI wrapper fails in Nix), `platform-tools`, `platforms-android-36`, `build-tools-36-0-0`, `ndk-28-2-13676358`, `cmake-3-22-1`. No emulator in `devShells.default`.
+SDK: `cmdline-tools-16-0` (not `latest`: 23’s `android` CLI wrapper fails in Nix), `platform-tools`, `platforms-android-36`, `build-tools-36-0-0`, `ndk-28-2-13676358`, `cmake-3-22-1`, `extras-google-auto` (DHU). No emulator in `devShells.default`. DHU is wrapped in `buildFHSEnv` as `desktop-head-unit`; `./scripts/dhu.sh` pairs it with Waydroid.
 
 Fenix: stable cargo, rustc, rustfmt, clippy, rust-src, rust-analyzer + android `rust-std` for `aarch64-linux-android`, `armv7-linux-androideabi`, `x86_64-linux-android`.
 

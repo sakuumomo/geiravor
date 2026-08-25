@@ -53,4 +53,12 @@ No request, news, thread, search, or settings in Auto.
 
 ## DHU
 
-Install Desktop Head Unit via Android Studio extras when testing Auto. Not in the Nix default shell. Phone features must not wait on DHU (`011-testing.md`).
+Desktop Head Unit is the car screen. Waydroid (or a physical phone) is still the phone; DHU does not replace the phone.
+
+In `nix develop`, `extras-google-auto` provides `desktop-head-unit` (FHS-wrapped). Pair with Waydroid:
+
+1. Waydroid running, Geiravor and **Android Auto** installed in it (Play Store).
+2. Android Auto → ⋮ → **Start head unit server** (once per session).
+3. `./scripts/dhu.sh` (adb connect + `adb forward tcp:5277 tcp:5277` + DHU).
+
+Unknown sources still apply inside Waydroid. Phone features must not wait on DHU (`011-testing.md`).
