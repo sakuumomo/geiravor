@@ -1,13 +1,28 @@
 package io.r_a_d.geiravor.playback
 
+import androidx.media3.common.ForwardingPlayer
+import androidx.media3.common.MediaItem
+import androidx.media3.common.MediaMetadata
 import androidx.media3.common.Player
 import androidx.media3.exoplayer.ExoPlayer
-import androidx.media3.common.MediaItem
-import androidx.media3.common.ForwardingPlayer
+import uniffi.geiravor_core.SongProgress
+import uniffi.geiravor_core.Status
 
 internal class LiveStationPlayer(
     private val exo: ExoPlayer,
+    private val songWindow: () -> SongProgress? = { null },
 ) : ForwardingPlayer(exo) {
+    @Volatile
+    private var apiMetadata: MediaMetadata? = null
+
+    fun applyStatus(status: Status?) {
+        val meta = SessionMetadata.fromStatus(status)
+        apiMetadata = meta
+        if (meta != null) {
+            exo.setPlaylistMetadata(meta)
+        }
+    }
+
     override fun getAvailableCommands(): Player.Commands {
         return super.getAvailableCommands().buildUpon()
             .removeAll(
@@ -63,6 +78,22 @@ internal class LiveStationPlayer(
         }
         super.seekToPrevious()
     }
+
+    override fun getMediaMetadata(): MediaMetadata {
+        return apiMetadata ?: super.getMediaMetadata()
+    }
+
+    override fun getDuration(): Long = SessionMetadata.durationMs(songWindow())
+
+    override fun getCurrentPosition(): Long = SessionMetadata.positionMs(songWindow())
+
+    override fun getContentDuration(): Long = duration
+
+    override fun getContentPosition(): Long = currentPosition
+
+    override fun isCurrentMediaItemSeekable(): Boolean = false
+
+    override fun isCurrentMediaItemLive(): Boolean = true
 
     private fun ensureLiveItem() {
         val idle = exo.playbackState == STATE_IDLE || exo.playbackState == STATE_ENDED

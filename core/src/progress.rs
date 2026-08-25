@@ -1,6 +1,6 @@
 use crate::status::Status;
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, uniffi::Record)]
 pub struct SongProgress {
     pub elapsed_secs: i64,
     pub duration_secs: Option<i64>,
@@ -42,10 +42,12 @@ fn minutes_phrase(delta_secs: i64, template_one: &str, template_many: &str) -> S
     }
 }
 
+#[uniffi::export]
 pub fn relative_last_played(entry_ts: i64, current: i64) -> String {
     minutes_phrase(current - entry_ts, "1 minute ago", "{n} minutes ago")
 }
 
+#[uniffi::export]
 pub fn relative_queue(entry_ts: i64, current: i64) -> String {
     minutes_phrase(entry_ts - current, "in 1 minute", "in {n} minutes")
 }

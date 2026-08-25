@@ -6,11 +6,12 @@ pub const API_URL: &str = "https://r-a-d.io/api";
 pub const STREAM_URL: &str = "https://stream.r-a-d.io/main.mp3";
 pub const DJ_IMAGE_BASE: &str = "https://r-a-d.io/api/dj-image/";
 
+#[uniffi::export]
 pub fn dj_image_url(image: &str) -> String {
     format!("{DJ_IMAGE_BASE}{image}")
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, uniffi::Record)]
 pub struct Status {
     pub np: String,
     pub artist: String,
@@ -29,14 +30,14 @@ pub struct Status {
     pub tags: Vec<String>,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, uniffi::Record)]
 pub struct Dj {
     pub id: i64,
     pub name: String,
     pub image: String,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, uniffi::Record)]
 pub struct ListEntry {
     pub meta: String,
     pub artist: String,

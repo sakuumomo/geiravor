@@ -27,4 +27,8 @@ object LivePlaybackPolicy {
     fun onSkipNext(): Action = Action.REJECT
 
     fun onSkipPrevious(): Action = Action.REJECT
+
+    fun toPercent(gain: Float): Float = (gain * 100f).coerceIn(0f, 100f)
+
+    fun fromPercent(percent: Float): Float = (percent / 100f).coerceIn(0f, 1f)
 }

@@ -1,0 +1,272 @@
+package io.r_a_d.geiravor.ui
+
+import android.content.Intent
+import android.net.Uri
+import androidx.compose.foundation.Image
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.LinearProgressIndicator
+import androidx.compose.material3.Slider
+import androidx.compose.material3.SliderDefaults
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import coil.compose.AsyncImage
+import io.r_a_d.geiravor.R
+import io.r_a_d.geiravor.playback.LivePlaybackPolicy
+import kotlinx.coroutines.delay
+import uniffi.geiravor_core.ListEntry
+import uniffi.geiravor_core.RadioCore
+import uniffi.geiravor_core.SongProgress
+import uniffi.geiravor_core.Status
+import uniffi.geiravor_core.djImageUrl
+import uniffi.geiravor_core.relativeLastPlayed
+import uniffi.geiravor_core.relativeQueue
+
+@Composable
+fun NowPlayingScreen(
+    radio: RadioCore,
+    status: Status?,
+    streamDown: Boolean,
+    playing: Boolean,
+    gain: Float,
+    onGain: (Float) -> Unit,
+    onPlayToggle: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    var progress by remember { mutableStateOf<SongProgress?>(null) }
+    var tagsOpen by remember { mutableStateOf(false) }
+
+    LaunchedEffect(status) {
+        while (true) {
+            progress = radio.progress()
+            delay(1000)
+        }
+    }
+
+    val percent = LivePlaybackPolicy.toPercent(gain)
+
+    Column(
+        modifier = modifier
+            .fillMaxSize()
+            .verticalScroll(rememberScrollState())
+            .padding(16.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.Center,
+            modifier = Modifier.fillMaxWidth(),
+        ) {
+            Image(
+                painter = painterResource(R.drawable.logo_image_small),
+                contentDescription = null,
+                modifier = Modifier.size(40.dp),
+            )
+            Image(
+                painter = painterResource(R.drawable.logotitle_2),
+                contentDescription = "r/a/dio",
+                contentScale = ContentScale.Fit,
+                modifier = Modifier
+                    .height(28.dp)
+                    .padding(start = 8.dp),
+            )
+        }
+        Button(
+            onClick = onPlayToggle,
+            colors = ButtonDefaults.buttonColors(containerColor = RadioTheme.blue),
+            modifier = Modifier.fillMaxWidth(),
+        ) {
+            Text(if (playing) "Stop" else "Play Stream")
+        }
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier.fillMaxWidth(),
+        ) {
+            Slider(
+                value = percent,
+                onValueChange = { onGain(LivePlaybackPolicy.fromPercent(it)) },
+                valueRange = 0f..100f,
+                colors = SliderDefaults.colors(
+                    thumbColor = RadioTheme.blue,
+                    activeTrackColor = RadioTheme.blue,
+                ),
+                modifier = Modifier.weight(1f),
+            )
+            Text(
+                text = percent.toInt().toString(),
+                color = RadioTheme.muted,
+                modifier = Modifier.padding(start = 8.dp),
+            )
+        }
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier.fillMaxWidth(),
+        ) {
+            Text(
+                text = status?.np ?: if (streamDown) "Stream down" else "…",
+                color = RadioTheme.text,
+                fontSize = 22.sp,
+                textAlign = TextAlign.Center,
+                modifier = Modifier.weight(1f),
+            )
+            if (!status?.tags.isNullOrEmpty()) {
+                Text(
+                    text = if (tagsOpen) "−" else "+",
+                    color = RadioTheme.muted,
+                    fontSize = 22.sp,
+                    modifier = Modifier
+                        .clickable { tagsOpen = !tagsOpen }
+                        .padding(8.dp),
+                )
+            }
+        }
+        if (tagsOpen && !status?.tags.isNullOrEmpty()) {
+            Text(
+                text = status!!.tags.joinToString(" "),
+                color = RadioTheme.muted,
+                textAlign = TextAlign.Center,
+            )
+        }
+        val duration = progress?.durationSecs
+        val elapsed = progress?.elapsedSecs ?: 0
+        if (duration == null) {
+            LinearProgressIndicator(
+                modifier = Modifier.fillMaxWidth(),
+                color = RadioTheme.blue,
+                trackColor = RadioTheme.border,
+            )
+        } else {
+            val d = duration.coerceAtLeast(1)
+            LinearProgressIndicator(
+                progress = { (elapsed.toFloat() / d.toFloat()).coerceIn(0f, 1f) },
+                modifier = Modifier.fillMaxWidth(),
+                color = RadioTheme.blue,
+                trackColor = RadioTheme.border,
+            )
+        }
+        val clock = if (duration == null) {
+            formatMmSs(elapsed)
+        } else {
+            "${formatMmSs(elapsed)} / ${formatMmSs(duration)}"
+        }
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+        ) {
+            Text(
+                text = "Listeners: ${status?.listeners ?: "—"}",
+                color = RadioTheme.muted,
+            )
+            Text(text = clock, color = RadioTheme.text)
+        }
+        status?.thread?.let { url ->
+            val context = LocalContext.current
+            Text(
+                text = url,
+                color = RadioTheme.link,
+                modifier = Modifier.clickable {
+                    context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)))
+                },
+            )
+        }
+        AsyncImage(
+            model = status?.let { djImageUrl(it.dj.image) },
+            contentDescription = status?.dj?.name,
+            placeholder = painterResource(R.drawable.mystery_dj),
+            error = painterResource(R.drawable.mystery_dj),
+            contentScale = ContentScale.Crop,
+            modifier = Modifier.size(160.dp),
+        )
+        Text(
+            text = status?.dj?.name ?: "",
+            color = RadioTheme.text,
+            fontSize = 20.sp,
+        )
+        if (streamDown) {
+            Text("Stream down", color = RadioTheme.red)
+        }
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            TrackColumn(
+                title = "Last Played",
+                entries = status?.lastPlayed.orEmpty(),
+                current = status?.current ?: 0,
+                queue = false,
+                modifier = Modifier.weight(1f),
+            )
+            if (status?.isAfkStream == true) {
+                TrackColumn(
+                    title = "Queue",
+                    entries = status.queue,
+                    current = status.current,
+                    queue = true,
+                    modifier = Modifier.weight(1f),
+                )
+            }
+        }
+        Spacer(Modifier.height(8.dp))
+    }
+}
+
+@Composable
+private fun TrackColumn(
+    title: String,
+    entries: List<ListEntry>,
+    current: Long,
+    queue: Boolean,
+    modifier: Modifier = Modifier,
+) {
+    Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Text(title, color = RadioTheme.text, fontSize = 18.sp, textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth())
+        entries.forEach { entry ->
+            val whenText = if (queue) {
+                relativeQueue(entry.timestamp, current)
+            } else {
+                relativeLastPlayed(entry.timestamp, current)
+            }
+            val color = if (entry.isRequest) RadioTheme.blue else RadioTheme.text
+            Text(
+                text = entry.meta,
+                color = color,
+                fontSize = 13.sp,
+                textAlign = TextAlign.Center,
+                modifier = Modifier.fillMaxWidth(),
+            )
+            Text(
+                text = if (entry.isRequest) "/r/ · $whenText" else whenText,
+                color = RadioTheme.muted,
+                fontSize = 12.sp,
+                textAlign = TextAlign.Center,
+                modifier = Modifier.fillMaxWidth(),
+            )
+        }
+    }
+}

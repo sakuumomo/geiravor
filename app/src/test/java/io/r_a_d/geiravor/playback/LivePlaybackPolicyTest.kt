@@ -40,4 +40,14 @@ class LivePlaybackPolicyTest {
     fun defaultGainMatchesSiteVolumeEighty() {
         assertEquals(0.8f, LivePlaybackPolicy.DEFAULT_GAIN, 0.0001f)
     }
+
+    @Test
+    fun gainMapsToSitePercentScale() {
+        assertEquals(80f, LivePlaybackPolicy.toPercent(LivePlaybackPolicy.DEFAULT_GAIN), 0.0001f)
+        assertEquals(0.8f, LivePlaybackPolicy.fromPercent(80f), 0.0001f)
+        assertEquals(0f, LivePlaybackPolicy.fromPercent(-5f), 0.0001f)
+        assertEquals(1f, LivePlaybackPolicy.fromPercent(140f), 0.0001f)
+        assertEquals(0f, LivePlaybackPolicy.toPercent(-1f), 0.0001f)
+        assertEquals(100f, LivePlaybackPolicy.toPercent(2f), 0.0001f)
+    }
 }
