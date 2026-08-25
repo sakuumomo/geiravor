@@ -57,7 +57,12 @@ internal class LiveStationPlayer(
 
     override fun getAvailableCommands(): Player.Commands {
         return super.getAvailableCommands().buildUpon()
-            .addAll(COMMAND_PLAY_PAUSE, COMMAND_PREPARE, COMMAND_STOP)
+            .addAll(
+                COMMAND_PLAY_PAUSE,
+                COMMAND_PREPARE,
+                COMMAND_STOP,
+                COMMAND_SET_MEDIA_ITEM,
+            )
             .removeAll(
                 COMMAND_SEEK_IN_CURRENT_MEDIA_ITEM,
                 COMMAND_SEEK_TO_NEXT,

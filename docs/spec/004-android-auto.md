@@ -10,10 +10,11 @@ Manifest:
 
 - Service `android:exported="true"`
 - Intent filters: `androidx.media3.session.MediaLibraryService` and `android.media.browse.MediaBrowserService`
+- `androidx.media3.session.MediaButtonReceiver` for `MEDIA_BUTTON` (Auto/Bluetooth discovery)
 - `automotive_app_desc.xml` with `<uses name="media"/>`
 - `com.google.android.gms.car.application` meta-data
 
-Sideload works with DHU. A real car often needs Play or Auto “Unknown sources”. 0.1.0 does not assume a Play listing.
+Sideload: on the **phone that plugs into the car**, enable Android Auto **Developer settings → Unknown sources**, then reboot the phone. DHU is the same. A Play listing is not required for 0.1.0.
 
 ## Commands
 

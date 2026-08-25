@@ -2,7 +2,6 @@ package io.r_a_d.geiravor.ui
 
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
@@ -37,55 +36,29 @@ fun SettingsScreen(
     val sections = SectionLayout.settingsSections()
     var selected by remember { mutableStateOf(SectionLayout.SettingsSection.General) }
 
-    BoxWithConstraints(modifier = modifier.fillMaxSize()) {
-        val twoPane = SectionLayout.twoPane(maxWidth.value.toInt())
-        Column(modifier = Modifier.fillMaxSize()) {
-            if (!twoPane) {
-                SectionTabs(
-                    labels = sections.map { it.label },
-                    selected = sections.indexOf(selected).coerceAtLeast(0),
-                    onSelect = { selected = sections[it] },
+    Column(modifier = modifier.fillMaxSize()) {
+        SectionTabs(
+            labels = sections.map { it.label },
+            selected = sections.indexOf(selected).coerceAtLeast(0),
+            onSelect = { selected = sections[it] },
+        )
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .verticalScroll(rememberScrollState())
+                .padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(20.dp),
+        ) {
+            when (selected) {
+                SectionLayout.SettingsSection.General -> GeneralSettings(
+                    autoStartOnPlug = autoStartOnPlug,
+                    onAutoStartOnPlug = onAutoStartOnPlug,
+                    versionName = versionName,
                 )
-            }
-            if (twoPane) {
-                Row(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(16.dp),
-                    horizontalArrangement = Arrangement.spacedBy(16.dp),
-                ) {
-                    GeneralSettings(
-                        autoStartOnPlug = autoStartOnPlug,
-                        onAutoStartOnPlug = onAutoStartOnPlug,
-                        versionName = versionName,
-                        modifier = Modifier.weight(1f),
-                    )
-                    AutoSettings(
-                        autoStartInVehicle = autoStartInVehicle,
-                        onAutoStartInVehicle = onAutoStartInVehicle,
-                        modifier = Modifier.weight(1f),
-                    )
-                }
-            } else {
-                Column(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .verticalScroll(rememberScrollState())
-                        .padding(16.dp),
-                    verticalArrangement = Arrangement.spacedBy(20.dp),
-                ) {
-                    when (selected) {
-                        SectionLayout.SettingsSection.General -> GeneralSettings(
-                            autoStartOnPlug = autoStartOnPlug,
-                            onAutoStartOnPlug = onAutoStartOnPlug,
-                            versionName = versionName,
-                        )
-                        SectionLayout.SettingsSection.Auto -> AutoSettings(
-                            autoStartInVehicle = autoStartInVehicle,
-                            onAutoStartInVehicle = onAutoStartInVehicle,
-                        )
-                    }
-                }
+                SectionLayout.SettingsSection.Auto -> AutoSettings(
+                    autoStartInVehicle = autoStartInVehicle,
+                    onAutoStartInVehicle = onAutoStartInVehicle,
+                )
             }
         }
     }

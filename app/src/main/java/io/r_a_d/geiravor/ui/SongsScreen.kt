@@ -1,9 +1,6 @@
 package io.r_a_d.geiravor.ui
 
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -32,62 +29,35 @@ fun SongsScreen(
     var selected by remember { mutableStateOf(SectionLayout.SongsSection.LastPlayed) }
     val section = SectionLayout.clampSongsSection(selected, afk)
 
-    BoxWithConstraints(modifier = modifier.fillMaxSize()) {
-        val twoPane = SectionLayout.twoPane(maxWidth.value.toInt())
-        Column(modifier = Modifier.fillMaxSize()) {
-            if (StreamStatus.showBanner(streamDown)) {
-                Text(
-                    StreamStatus.banner,
-                    color = RadioTheme.red,
-                    fontSize = 16.sp,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 16.dp, vertical = 8.dp),
-                )
-            }
-            if (!twoPane) {
-                SectionTabs(
-                    labels = sections.map { it.label },
-                    selected = sections.indexOf(section).coerceAtLeast(0),
-                    onSelect = { selected = sections[it] },
-                )
-            }
-            if (twoPane && sections.size > 1) {
-                Row(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(16.dp),
-                    horizontalArrangement = Arrangement.spacedBy(16.dp),
-                ) {
-                    SongPane(
-                        status = status,
-                        section = SectionLayout.SongsSection.LastPlayed,
-                        showTitle = true,
-                        modifier = Modifier.weight(1f),
-                    )
-                    SongPane(
-                        status = status,
-                        section = SectionLayout.SongsSection.Queue,
-                        showTitle = true,
-                        modifier = Modifier.weight(1f),
-                    )
-                }
-            } else {
-                Column(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .verticalScroll(rememberScrollState())
-                        .padding(16.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                ) {
-                    SongPane(
-                        status = status,
-                        section = section,
-                        showTitle = false,
-                        modifier = Modifier.fillMaxWidth(),
-                    )
-                }
-            }
+    Column(modifier = modifier.fillMaxSize()) {
+        if (StreamStatus.showBanner(streamDown)) {
+            Text(
+                StreamStatus.banner,
+                color = RadioTheme.red,
+                fontSize = 16.sp,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 8.dp),
+            )
+        }
+        SectionTabs(
+            labels = sections.map { it.label },
+            selected = sections.indexOf(section).coerceAtLeast(0),
+            onSelect = { selected = sections[it] },
+        )
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .verticalScroll(rememberScrollState())
+                .padding(16.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+        ) {
+            SongPane(
+                status = status,
+                section = section,
+                showTitle = false,
+                modifier = Modifier.fillMaxWidth(),
+            )
         }
     }
 }

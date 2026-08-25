@@ -1,19 +1,9 @@
 package io.r_a_d.geiravor.ui
 
 import org.junit.Assert.assertEquals
-import org.junit.Assert.assertFalse
-import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class SectionLayoutTest {
-    @Test
-    fun twoPaneOnlyAtExpandedWidth() {
-        assertFalse(SectionLayout.twoPane(widthDp = 411))
-        assertFalse(SectionLayout.twoPane(widthDp = 839))
-        assertTrue(SectionLayout.twoPane(widthDp = 840))
-        assertTrue(SectionLayout.twoPane(widthDp = 1280))
-    }
-
     @Test
     fun songsSectionsHideQueueWhenNotAfk() {
         assertEquals(

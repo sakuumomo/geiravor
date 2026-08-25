@@ -2,6 +2,7 @@ package io.r_a_d.geiravor.playback
 
 import android.app.PendingIntent
 import android.content.Intent
+import android.os.Bundle
 import androidx.media3.common.AudioAttributes
 import androidx.media3.common.C
 import androidx.media3.common.MediaItem
@@ -13,6 +14,7 @@ import androidx.media3.datasource.DefaultHttpDataSource
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.exoplayer.source.ProgressiveMediaSource
 import androidx.media3.session.LibraryResult
+import androidx.media3.session.MediaConstants
 import androidx.media3.session.MediaLibraryService
 import androidx.media3.session.MediaSession
 import com.google.common.collect.ImmutableList
@@ -185,16 +187,7 @@ class PlaybackService : MediaLibraryService() {
             browser: MediaSession.ControllerInfo,
             params: MediaLibraryService.LibraryParams?,
         ): ListenableFuture<LibraryResult<MediaItem>> {
-            val root = MediaItem.Builder()
-                .setMediaId(AutoBrowse.ROOT)
-                .setMediaMetadata(
-                    MediaMetadata.Builder()
-                        .setIsBrowsable(true)
-                        .setIsPlayable(false)
-                        .build(),
-                )
-                .build()
-            return Futures.immediateFuture(LibraryResult.ofItem(root, params))
+            return Futures.immediateFuture(LibraryResult.ofItem(libraryRoot(), params))
         }
 
         override fun onGetChildren(
@@ -215,16 +208,7 @@ class PlaybackService : MediaLibraryService() {
             mediaId: String,
         ): ListenableFuture<LibraryResult<MediaItem>> {
             if (mediaId == AutoBrowse.ROOT) {
-                val root = MediaItem.Builder()
-                    .setMediaId(AutoBrowse.ROOT)
-                    .setMediaMetadata(
-                        MediaMetadata.Builder()
-                            .setIsBrowsable(true)
-                            .setIsPlayable(false)
-                            .build(),
-                    )
-                    .build()
-                return Futures.immediateFuture(LibraryResult.ofItem(root, null))
+                return Futures.immediateFuture(LibraryResult.ofItem(libraryRoot(), null))
             }
             val node = AutoBrowse.children(AutoBrowse.ROOT, status()).find { it.id == mediaId }
                 ?: AutoBrowse.children(AutoBrowse.LAST_PLAYED, status()).find { it.id == mediaId }
@@ -233,6 +217,30 @@ class PlaybackService : MediaLibraryService() {
                 return Futures.immediateFuture(LibraryResult.ofError(LibraryResult.RESULT_ERROR_BAD_VALUE))
             }
             return Futures.immediateFuture(LibraryResult.ofItem(node.toMediaItem(), null))
+        }
+
+        private fun libraryRoot(): MediaItem {
+            val extras = Bundle().apply {
+                putInt(
+                    MediaConstants.EXTRAS_KEY_CONTENT_STYLE_BROWSABLE,
+                    MediaConstants.EXTRAS_VALUE_CONTENT_STYLE_LIST_ITEM,
+                )
+                putInt(
+                    MediaConstants.EXTRAS_KEY_CONTENT_STYLE_PLAYABLE,
+                    MediaConstants.EXTRAS_VALUE_CONTENT_STYLE_LIST_ITEM,
+                )
+            }
+            return MediaItem.Builder()
+                .setMediaId(AutoBrowse.ROOT)
+                .setMediaMetadata(
+                    MediaMetadata.Builder()
+                        .setTitle("r/a/dio")
+                        .setIsBrowsable(true)
+                        .setIsPlayable(false)
+                        .setExtras(extras)
+                        .build(),
+                )
+                .build()
         }
 
         private fun livePlaylist(): MediaSession.MediaItemsWithStartPosition {
