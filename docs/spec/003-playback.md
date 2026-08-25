@@ -30,7 +30,7 @@ Song window comes from `/api` (`002-api.md`), converted to milliseconds for Medi
 
 - Audio-focus loss → stop
 - `ACTION_AUDIO_BECOMING_NOISY` (unplug) → stop
-- Optional auto-start on plug: Settings (`008-settings.md`); default off
+- Optional auto-start on plug (wired headset) and in vehicle (Android Auto / car mode): Settings (`008-settings.md`); both default off. Independent toggles.
 
 ## Foreground service
 

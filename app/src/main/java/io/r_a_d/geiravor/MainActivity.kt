@@ -63,6 +63,7 @@ private fun GeiravorRoot() {
     val scope = rememberCoroutineScope()
     var gain by remember { mutableStateOf(LivePlaybackPolicy.DEFAULT_GAIN) }
     var autoStartOnPlug by remember { mutableStateOf(SettingsPolicy.AUTO_START_DEFAULT) }
+    var autoStartInVehicle by remember { mutableStateOf(SettingsPolicy.AUTO_START_VEHICLE_DEFAULT) }
     var controller by remember { mutableStateOf<MediaController?>(null) }
     var playing by remember { mutableStateOf(false) }
 
@@ -74,6 +75,9 @@ private fun GeiravorRoot() {
     }
     LaunchedEffect(Unit) {
         settings.autoStartOnPlug.collect { autoStartOnPlug = it }
+    }
+    LaunchedEffect(Unit) {
+        settings.autoStartInVehicle.collect { autoStartInVehicle = it }
     }
 
     LifecycleResumeEffect(app) {
@@ -198,6 +202,11 @@ private fun GeiravorRoot() {
                     onAutoStartOnPlug = { enabled ->
                         autoStartOnPlug = enabled
                         scope.launch { settings.setAutoStartOnPlug(enabled) }
+                    },
+                    autoStartInVehicle = autoStartInVehicle,
+                    onAutoStartInVehicle = { enabled ->
+                        autoStartInVehicle = enabled
+                        scope.launch { settings.setAutoStartInVehicle(enabled) }
                     },
                     versionName = BuildConfig.VERSION_NAME,
                     modifier = Modifier.padding(padding),

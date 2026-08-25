@@ -30,4 +30,39 @@ class SettingsPolicyTest {
         assertFalse(SettingsPolicy.isHeadsetPlugged(state = 0))
         assertFalse(SettingsPolicy.isHeadsetPlugged(state = -1))
     }
+
+    @Test
+    fun autoStartInVehicleDefaultsOffAndIsIndependentOfPlug() {
+        assertFalse(SettingsPolicy.AUTO_START_VEHICLE_DEFAULT)
+        assertTrue(
+            SettingsPolicy.shouldStartInVehicle(enabled = true, enteredCar = true),
+        )
+        assertFalse(
+            SettingsPolicy.shouldStartInVehicle(enabled = false, enteredCar = true),
+        )
+        assertFalse(
+            SettingsPolicy.shouldStartInVehicle(
+                enabled = true,
+                enteredCar = true,
+                isInitialSticky = true,
+            ),
+        )
+        assertTrue(
+            SettingsPolicy.shouldStartOnPlug(enabled = true, pluggedIn = true),
+        )
+    }
+
+    @Test
+    fun carUiModeIsVehicle() {
+        assertTrue(
+            SettingsPolicy.isCarUiMode(
+                uiModeType = android.content.res.Configuration.UI_MODE_TYPE_CAR,
+            ),
+        )
+        assertFalse(
+            SettingsPolicy.isCarUiMode(
+                uiModeType = android.content.res.Configuration.UI_MODE_TYPE_NORMAL,
+            ),
+        )
+    }
 }

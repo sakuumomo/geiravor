@@ -24,6 +24,8 @@ import androidx.compose.ui.unit.sp
 fun SettingsScreen(
     autoStartOnPlug: Boolean,
     onAutoStartOnPlug: (Boolean) -> Unit,
+    autoStartInVehicle: Boolean,
+    onAutoStartInVehicle: (Boolean) -> Unit,
     versionName: String,
     modifier: Modifier = Modifier,
 ) {
@@ -40,27 +42,16 @@ fun SettingsScreen(
             colors = CardDefaults.cardColors(containerColor = RadioTheme.surface),
             border = BorderStroke(1.dp, RadioTheme.border),
         ) {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(16.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Text(
-                    text = "Auto-start on plug",
-                    color = RadioTheme.text,
-                    fontSize = 16.sp,
-                    modifier = Modifier.weight(1f),
-                )
-                Switch(
+            Column(modifier = Modifier.fillMaxWidth()) {
+                SettingToggle(
+                    label = "Auto-start on plug",
                     checked = autoStartOnPlug,
                     onCheckedChange = onAutoStartOnPlug,
-                    colors = SwitchDefaults.colors(
-                        checkedThumbColor = RadioTheme.text,
-                        checkedTrackColor = RadioTheme.blue,
-                        uncheckedThumbColor = RadioTheme.muted,
-                        uncheckedTrackColor = RadioTheme.border,
-                    ),
+                )
+                SettingToggle(
+                    label = "Auto-start in vehicle",
+                    checked = autoStartInVehicle,
+                    onCheckedChange = onAutoStartInVehicle,
                 )
             }
         }
@@ -81,5 +72,36 @@ fun SettingsScreen(
                 Text(versionName, color = RadioTheme.muted, fontSize = 14.sp)
             }
         }
+    }
+}
+
+@Composable
+private fun SettingToggle(
+    label: String,
+    checked: Boolean,
+    onCheckedChange: (Boolean) -> Unit,
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(16.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(
+            text = label,
+            color = RadioTheme.text,
+            fontSize = 16.sp,
+            modifier = Modifier.weight(1f),
+        )
+        Switch(
+            checked = checked,
+            onCheckedChange = onCheckedChange,
+            colors = SwitchDefaults.colors(
+                checkedThumbColor = RadioTheme.text,
+                checkedTrackColor = RadioTheme.blue,
+                uncheckedThumbColor = RadioTheme.muted,
+                uncheckedTrackColor = RadioTheme.border,
+            ),
+        )
     }
 }

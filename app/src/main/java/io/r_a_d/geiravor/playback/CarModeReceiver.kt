@@ -1,5 +1,6 @@
 package io.r_a_d.geiravor.playback
 
+import android.app.UiModeManager
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
@@ -11,22 +12,21 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
-class HeadsetReceiver : BroadcastReceiver() {
+class CarModeReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
-        if (intent.action != Intent.ACTION_HEADSET_PLUG) {
+        if (intent.action != UiModeManager.ACTION_ENTER_CAR_MODE) {
             return
         }
-        val plugged = SettingsPolicy.isHeadsetPlugged(intent.getIntExtra("state", 0))
         val sticky = isInitialStickyBroadcast
-        if (!SettingsPolicy.shouldStartOnPlug(enabled = true, pluggedIn = plugged, isInitialSticky = sticky)) {
+        if (!SettingsPolicy.shouldStartInVehicle(enabled = true, enteredCar = true, isInitialSticky = sticky)) {
             return
         }
         val pending = goAsync()
         val appContext = context.applicationContext
         CoroutineScope(Dispatchers.IO).launch {
             try {
-                val enabled = SettingsStore(appContext).autoStartOnPlug.first()
-                if (!SettingsPolicy.shouldStartOnPlug(enabled, plugged, sticky)) {
+                val enabled = SettingsStore(appContext).autoStartInVehicle.first()
+                if (!SettingsPolicy.shouldStartInVehicle(enabled, enteredCar = true, sticky)) {
                     return@launch
                 }
                 withContext(Dispatchers.Main) {
