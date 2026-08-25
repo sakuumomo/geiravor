@@ -93,7 +93,7 @@ class PlaybackService : MediaLibraryService() {
         session = MediaLibraryService.MediaLibrarySession.Builder(
             this,
             player,
-            LibraryCallback { radio.snapshot() },
+            LibraryCallback({ radio.snapshot() }, player),
         )
             .setId("geiravor")
             .setSessionActivity(activity)
@@ -148,11 +148,13 @@ class PlaybackService : MediaLibraryService() {
 
     private class LibraryCallback(
         private val status: () -> Status?,
+        private val player: LiveStationPlayer,
     ) : MediaLibraryService.MediaLibrarySession.Callback {
         override fun onPlaybackResumption(
             session: MediaSession,
             controller: MediaSession.ControllerInfo,
         ): ListenableFuture<MediaSession.MediaItemsWithStartPosition> {
+            player.ignoreNextPlay()
             return Futures.immediateFuture(livePlaylist())
         }
 
@@ -170,9 +172,11 @@ class PlaybackService : MediaLibraryService() {
                 )
             }
             if (!playLive) {
-                return Futures.immediateFailedFuture(
-                    UnsupportedOperationException("display only"),
-                )
+                player.ignoreNextPlay()
+                return Futures.immediateFuture(currentOrLive(session))
+            }
+            if (!player.wantsPlayback) {
+                player.ignoreNextPlay()
             }
             return Futures.immediateFuture(livePlaylist())
         }
@@ -240,6 +244,20 @@ class PlaybackService : MediaLibraryService() {
                 .setUri(LivePlaybackPolicy.STREAM_URL)
                 .setMediaMetadata(metadata.build())
                 .build()
+        }
+
+        private fun currentOrLive(
+            session: MediaSession,
+        ): MediaSession.MediaItemsWithStartPosition {
+            val current = session.player.currentMediaItem
+            if (current != null) {
+                return MediaSession.MediaItemsWithStartPosition(
+                    listOf(current),
+                    0,
+                    C.TIME_UNSET,
+                )
+            }
+            return livePlaylist()
         }
 
         private fun livePlaylist(): MediaSession.MediaItemsWithStartPosition {

@@ -36,7 +36,7 @@ Tapping previous/next must not exist as a command. The subtitle is reference onl
 
 ## Default view
 
-The session now-playing card is the default (same as the phone Now Playing tab): play/pause, `np`, DJ, **Prev/Next text**. Do **not** put Now Playing in the browse tree. Opening the app must not require tapping a Now Playing row.
+The session now-playing card is the default (same as the phone Now Playing tab): play/pause, `np`, DJ, **Prev/Next text**. Do **not** put Now Playing in the browse tree. The Auto app icon (top left) returns to this default. Showing the default must **not** start playback; Play is explicit, or Settings auto-start.
 
 ## Browse tree
 
@@ -45,7 +45,7 @@ Same sections as the phone Songs tab:
 1. Last Played (browsable folder)
 2. Queue — **only if `isafkstream`**. Same hide rule as Songs.
 
-Last Played / Queue **rows are reference only**: not playable, not browsable. Tapping a song must not play, must not replace the live stream, and must not look like a valid playable entry.
+Last Played / Queue **rows are reference only**: not playable, not browsable. Tapping a song is a no-op (no error, no play). Only the live stream ever plays.
 
 No request, news, thread, search, or settings in Auto.
 

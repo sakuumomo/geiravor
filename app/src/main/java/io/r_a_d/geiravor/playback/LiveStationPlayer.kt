@@ -24,6 +24,8 @@ internal class LiveStationPlayer(
     var onWantsPlayback: ((Boolean) -> Unit)? = null
 
     private val mainHandler = Handler(exo.applicationLooper)
+    private val clearIgnorePlay = Runnable { ignorePlay = false }
+    private var ignorePlay = false
     private val reconnect = Runnable {
         if (!LivePlaybackPolicy.shouldReconnect(wantsPlayback)) {
             return@Runnable
@@ -77,7 +79,16 @@ internal class LiveStationPlayer(
             .build()
     }
 
+    fun ignoreNextPlay() {
+        ignorePlay = true
+        mainHandler.removeCallbacks(clearIgnorePlay)
+        mainHandler.postDelayed(clearIgnorePlay, 750)
+    }
+
     override fun play() {
+        if (consumeIgnorePlay()) {
+            return
+        }
         setWantsPlayback(true)
         ensureLiveItem()
         super.play()
@@ -101,6 +112,9 @@ internal class LiveStationPlayer(
             return
         }
         if (playWhenReady) {
+            if (consumeIgnorePlay()) {
+                return
+            }
             setWantsPlayback(true)
             ensureLiveItem()
         }
@@ -160,6 +174,15 @@ internal class LiveStationPlayer(
         }
         mainHandler.removeCallbacks(reconnect)
         mainHandler.postDelayed(reconnect, LivePlaybackPolicy.reconnectDelayMs())
+    }
+
+    private fun consumeIgnorePlay(): Boolean {
+        if (!ignorePlay) {
+            return false
+        }
+        ignorePlay = false
+        mainHandler.removeCallbacks(clearIgnorePlay)
+        return true
     }
 
     private fun setWantsPlayback(value: Boolean) {

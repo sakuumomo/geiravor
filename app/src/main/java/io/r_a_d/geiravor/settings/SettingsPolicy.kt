@@ -5,6 +5,8 @@ import android.content.res.Configuration
 object SettingsPolicy {
     const val AUTO_START_DEFAULT = false
     const val AUTO_START_VEHICLE_DEFAULT = false
+    const val ABOUT_NAME = "Geiravor"
+    const val ABOUT_LINE = "Based on r/a/dio's Valkyrie"
 
     fun shouldStartOnPlug(
         enabled: Boolean,

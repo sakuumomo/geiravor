@@ -23,6 +23,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import io.r_a_d.geiravor.settings.SettingsPolicy
 
 @Composable
 fun SettingsScreen(
@@ -93,6 +94,8 @@ private fun GeneralSettings(
             ) {
                 Text("About", color = RadioTheme.text, fontSize = 18.sp)
                 Text("r/a/dio", color = RadioTheme.muted, fontSize = 14.sp)
+                Text(SettingsPolicy.ABOUT_NAME, color = RadioTheme.text, fontSize = 14.sp)
+                Text(SettingsPolicy.ABOUT_LINE, color = RadioTheme.muted, fontSize = 13.sp)
                 Text(versionName, color = RadioTheme.muted, fontSize = 14.sp)
             }
         }

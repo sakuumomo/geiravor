@@ -10,7 +10,7 @@ Persist with DataStore (not `SharedPreferences` directly).
 | Auto-start on plug | bool | **false** | Settings → General (wired headset) |
 | Auto-start in vehicle | bool | **false** | Settings → Auto (Android Auto / car mode; USB or wireless) |
 
-Show app `versionName` (semver) in Settings → General.
+Show app `versionName` (semver) in Settings → General, plus the project name **Geiravor** and that it is based on r/a/dio’s Valkyrie.
 
 ## 0.2.0
 

@@ -1,5 +1,6 @@
 package io.r_a_d.geiravor.settings
 
+import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -8,6 +9,12 @@ class SettingsPolicyTest {
     @Test
     fun autoStartOnPlugDefaultsOff() {
         assertFalse(SettingsPolicy.AUTO_START_DEFAULT)
+    }
+
+    @Test
+    fun aboutNamesGeiravorAfterValkyrie() {
+        assertEquals("Geiravor", SettingsPolicy.ABOUT_NAME)
+        assertEquals("Based on r/a/dio's Valkyrie", SettingsPolicy.ABOUT_LINE)
     }
 
     @Test
