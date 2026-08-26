@@ -124,13 +124,7 @@ class PlaybackService : MediaLibraryService() {
             .setSessionActivity(activity)
             .setBitmapLoader(CacheBitmapLoader(DjArtworkLoader(this)))
             .build()
-        setShowNotificationForIdlePlayer(
-            if (LivePlaybackPolicy.keepNotificationAfterStop()) {
-                SHOW_NOTIFICATION_FOR_IDLE_PLAYER_AFTER_STOP_OR_ERROR
-            } else {
-                SHOW_NOTIFICATION_FOR_IDLE_PLAYER_NEVER
-            },
-        )
+        setShowNotificationForIdlePlayer(SHOW_NOTIFICATION_FOR_IDLE_PLAYER_AFTER_STOP_OR_ERROR)
         scope.launch {
             settings.gain.collect { gain ->
                 exo.volume = gain
@@ -264,9 +258,6 @@ class PlaybackService : MediaLibraryService() {
             session: MediaSession,
             controller: MediaSession.ControllerInfo,
         ): ListenableFuture<MediaSession.MediaItemsWithStartPosition> {
-            if (LivePlaybackPolicy.ignorePlayOnPlaybackResumption()) {
-                player.ignoreNextPlay()
-            }
             return Futures.immediateFuture(livePlaylist())
         }
 
@@ -292,9 +283,6 @@ class PlaybackService : MediaLibraryService() {
             if (!playLive) {
                 player.ignoreNextPlay()
                 return Futures.immediateFuture(currentOrLive(session))
-            }
-            if (LivePlaybackPolicy.ignorePlayOnLiveItemSet()) {
-                player.ignoreNextPlay()
             }
             return Futures.immediateFuture(livePlaylist())
         }

@@ -21,7 +21,6 @@ class GeiravorApp : Application() {
         super.onCreate()
         radio = RadioCore()
         radio.start(RadioStore)
-        radio.setUiVisible(true)
         ContextCompat.registerReceiver(
             this,
             headset,

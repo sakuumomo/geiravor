@@ -21,9 +21,6 @@ object LivePlaybackPolicy {
         REJECT,
     }
 
-    val advertised: Set<Command> =
-        setOf(Command.PLAY, Command.PAUSE, Command.STOP)
-
     fun onPause(): Action = Action.STOP
 
     fun onStop(): Action = Action.STOP
@@ -45,27 +42,13 @@ object LivePlaybackPolicy {
 
     fun volumeLabel(gain: Float): String = toPercent(gain).toInt().toString()
 
-    fun hideQueueChrome(): Boolean = true
-
     fun faveIsStub(): Boolean = true
 
     fun shouldReconnect(userWantsPlay: Boolean): Boolean = userWantsPlay
 
     fun reconnectDelayMs(): Long = 2_000L
 
-    fun playRequiresNotificationPermission(): Boolean = false
-
-    fun keepNotificationAfterStop(): Boolean = true
-
-    fun leaveUnpreparedLiveItemAfterStop(): Boolean = true
-
     fun leavePlaybackCommand(): Command = Command.PAUSE
-
-    fun clearPlaylistOnStop(): Boolean = false
-
-    fun ignorePlayOnPlaybackResumption(): Boolean = false
-
-    fun ignorePlayOnLiveItemSet(): Boolean = false
 
     data class SessionPlaybackState(
         val state: Int,
@@ -82,19 +65,12 @@ object LivePlaybackPolicy {
         val hold = holdAsPaused &&
             !wantsPlayback &&
             hasLiveItem &&
-            leaveUnpreparedLiveItemAfterStop() &&
             (playbackState == Player.STATE_IDLE || playbackState == Player.STATE_ENDED)
         if (!hold) {
             return SessionPlaybackState(playbackState, playWhenReady)
         }
         return SessionPlaybackState(Player.STATE_READY, playWhenReady = false)
     }
-
-    fun isAutoPackage(packageName: String): Boolean =
-        packageName == "com.google.android.projection.gearhead" ||
-            packageName.startsWith("com.google.android.projection.") ||
-            packageName == "com.android.car.media" ||
-            packageName == "com.android.car.carlauncher"
 
     fun showAsPlaying(playbackState: Int, isPlaying: Boolean, playWhenReady: Boolean): Boolean {
         if (playbackState == Player.STATE_IDLE || playbackState == Player.STATE_ENDED) {

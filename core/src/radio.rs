@@ -9,15 +9,16 @@ use crate::reducer::{NowPlayingEvent, NowPlayingState};
 use crate::status::{parse_status, Status, API_URL};
 use crate::USER_AGENT;
 
-pub trait Fetcher: Send + Sync {
+/// HTTP for `/api` now; 0.2.0 search/request/faves add methods here (`006-requests-faves.md`).
+pub trait ApiClient: Send + Sync {
     fn get(&self, url: &str) -> Result<String, String>;
 }
 
-struct ReqwestFetcher {
+struct ReqwestApiClient {
     client: reqwest::blocking::Client,
 }
 
-impl ReqwestFetcher {
+impl ReqwestApiClient {
     fn new() -> Result<Self, String> {
         let client = reqwest::blocking::Client::builder()
             .user_agent(USER_AGENT)
@@ -27,7 +28,7 @@ impl ReqwestFetcher {
     }
 }
 
-impl Fetcher for ReqwestFetcher {
+impl ApiClient for ReqwestApiClient {
     fn get(&self, url: &str) -> Result<String, String> {
         self.client
             .get(url)
@@ -45,7 +46,7 @@ pub trait StatusListener: Send + Sync {
 
 #[derive(uniffi::Object)]
 pub struct RadioCore {
-    fetcher: Arc<dyn Fetcher>,
+    client: Arc<dyn ApiClient>,
     state: Mutex<NowPlayingState>,
     listener: Mutex<Option<Arc<dyn StatusListener>>>,
     ui_visible: AtomicBool,
@@ -56,12 +57,12 @@ pub struct RadioCore {
 }
 
 impl RadioCore {
-    pub fn with_fetcher(fetcher: Arc<dyn Fetcher>) -> Arc<Self> {
+    pub fn with_client(client: Arc<dyn ApiClient>) -> Arc<Self> {
         Arc::new(Self {
-            fetcher,
+            client,
             state: Mutex::new(NowPlayingState::default()),
             listener: Mutex::new(None),
-            ui_visible: AtomicBool::new(true),
+            ui_visible: AtomicBool::new(false),
             playing: AtomicBool::new(false),
             failures: AtomicU32::new(0),
             stop: Arc::new(AtomicBool::new(false)),
@@ -74,7 +75,7 @@ impl RadioCore {
     }
 
     pub fn tick(&self, now: i64) -> Result<(), String> {
-        let body = match self.fetcher.get(API_URL) {
+        let body = match self.client.get(API_URL) {
             Ok(body) => body,
             Err(e) => {
                 self.failures.fetch_add(1, Ordering::Relaxed);
@@ -124,25 +125,29 @@ impl RadioCore {
 impl RadioCore {
     #[uniffi::constructor]
     pub fn new() -> Arc<Self> {
-        let fetcher = ReqwestFetcher::new()
-            .map(|f| Arc::new(f) as Arc<dyn Fetcher>)
+        let client = ReqwestApiClient::new()
+            .map(|c| Arc::new(c) as Arc<dyn ApiClient>)
             .unwrap_or_else(|_| {
                 struct Noop;
-                impl Fetcher for Noop {
+                impl ApiClient for Noop {
                     fn get(&self, _url: &str) -> Result<String, String> {
                         Err("http client unavailable".into())
                     }
                 }
                 Arc::new(Noop)
             });
-        Self::with_fetcher(fetcher)
+        Self::with_client(client)
     }
 
     pub fn start(self: Arc<Self>, listener: Box<dyn StatusListener>) {
         self.set_listener(Arc::from(listener));
+        let mut slot = self.thread.lock().expect("thread");
+        if slot.is_some() {
+            return;
+        }
         self.stop.store(false, Ordering::Relaxed);
         let this = Arc::clone(&self);
-        let handle = thread::spawn(move || {
+        *slot = Some(thread::spawn(move || {
             while !this.stop.load(Ordering::Relaxed) {
                 let _ = this.tick(RadioCore::unix_now());
                 let delay = this.poll_delay();
@@ -155,8 +160,7 @@ impl RadioCore {
                     slept += Duration::from_millis(100);
                 }
             }
-        });
-        *self.thread.lock().expect("thread") = Some(handle);
+        }));
     }
 
     pub fn stop(&self) {

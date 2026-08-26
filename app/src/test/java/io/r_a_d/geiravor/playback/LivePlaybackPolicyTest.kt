@@ -27,18 +27,6 @@ class LivePlaybackPolicyTest {
     }
 
     @Test
-    fun advertisedControlsArePlayPauseStopOnly() {
-        assertEquals(
-            setOf(
-                LivePlaybackPolicy.Command.PLAY,
-                LivePlaybackPolicy.Command.PAUSE,
-                LivePlaybackPolicy.Command.STOP,
-            ),
-            LivePlaybackPolicy.advertised,
-        )
-    }
-
-    @Test
     fun defaultGainMatchesSiteVolumeEighty() {
         assertEquals(0.8f, LivePlaybackPolicy.DEFAULT_GAIN, 0.0001f)
     }
@@ -81,17 +69,6 @@ class LivePlaybackPolicyTest {
     }
 
     @Test
-    fun playDoesNotRequireNotificationPermission() {
-        assertFalse(LivePlaybackPolicy.playRequiresNotificationPermission())
-    }
-
-    @Test
-    fun pauseKeepsIdlePlayTargetSoNotificationCanStay() {
-        assertTrue(LivePlaybackPolicy.keepNotificationAfterStop())
-        assertTrue(LivePlaybackPolicy.leaveUnpreparedLiveItemAfterStop())
-    }
-
-    @Test
     fun autoReconnectsOnlyWhileUserWantsPlay() {
         assertTrue(LivePlaybackPolicy.shouldReconnect(userWantsPlay = true))
         assertFalse(LivePlaybackPolicy.shouldReconnect(userWantsPlay = false))
@@ -129,19 +106,9 @@ class LivePlaybackPolicyTest {
     }
 
     @Test
-    fun autoHidesQueueChromeAndStubsFaveUntilNickFaves() {
-        assertTrue(LivePlaybackPolicy.hideQueueChrome())
+    fun faveIsStubUntilNickFaves() {
         assertEquals("io.r_a_d.geiravor.FAVE", LivePlaybackPolicy.FAVE)
         assertTrue(LivePlaybackPolicy.faveIsStub())
-    }
-
-    @Test
-    fun gearheadIsAutoAndPlayAfterStopIsNotSwallowed() {
-        assertTrue(LivePlaybackPolicy.isAutoPackage("com.google.android.projection.gearhead"))
-        assertFalse(LivePlaybackPolicy.isAutoPackage("io.r_a_d.geiravor"))
-        assertFalse(LivePlaybackPolicy.ignorePlayOnPlaybackResumption())
-        assertFalse(LivePlaybackPolicy.ignorePlayOnLiveItemSet())
-        assertFalse(LivePlaybackPolicy.clearPlaylistOnStop())
     }
 
     @Test

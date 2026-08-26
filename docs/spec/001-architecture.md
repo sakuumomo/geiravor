@@ -22,14 +22,15 @@ Rust owns domain, HTTP to `/api`, JSON, poll policy, now-playing reducer. Kotlin
 
 UniFFI callbacks arrive off the main thread. Kotlin hops to Main before Compose or `MediaSession`.
 
-Tokio lives on a dedicated thread inside `core`. UniFFI public API is sync + callbacks, not UniFFI-async.
+`core` polls on a **dedicated `std::thread`** with **blocking** `reqwest`. UniFFI public API is sync + callbacks, not UniFFI-async. Do not add Tokio unless a later spec needs concurrent 0.2.0 HTTP.
 
 ## HTTP (Rust)
 
-- `reqwest` + `rustls-tls` + `webpki-roots`
+- `reqwest` + `rustls-tls` + `webpki-roots` (`blocking` + `rustls-tls-webpki-roots`)
 - No OpenSSL
 - No `rustls-platform-verifier` in 0.1.0
 - User-Agent `Geiravor/X.Y.Z` (same as `versionName`)
+- Trait `ApiClient` (`get` today). Search/request/faves add methods on this trait (`006-requests-faves.md`).
 
 ## UniFFI on Android
 
@@ -45,4 +46,4 @@ Rust maps transport/parse failures to a small error type (network, http, decode)
 
 ## 0.2.0
 
-Search/request/faves stay behind traits on the same `ApiClient` so 0.1.0 does not have to be rewritten. CSRF cookie jar is specified in `006-requests-faves.md`.
+Search/request/faves add methods on `ApiClient` so 0.1.0 does not have to be rewritten. CSRF cookie jar is specified in `006-requests-faves.md`. Do not add those methods until 0.2.0.

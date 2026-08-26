@@ -88,9 +88,7 @@ internal class LiveStationPlayer(
                 COMMAND_SEEK_TO_DEFAULT_POSITION,
                 COMMAND_SEEK_TO_MEDIA_ITEM,
             )
-        if (LivePlaybackPolicy.hideQueueChrome()) {
-            commands.remove(COMMAND_GET_TIMELINE)
-        }
+            .remove(COMMAND_GET_TIMELINE)
         return commands.build()
     }
 
@@ -314,13 +312,10 @@ internal class LiveStationPlayer(
         mainHandler.removeCallbacks(reconnect)
         ignorePlay = false
         mainHandler.removeCallbacks(clearIgnorePlay)
-        holdAsPaused = LivePlaybackPolicy.leaveUnpreparedLiveItemAfterStop()
+        holdAsPaused = true
         exo.playWhenReady = false
         exo.stop()
-        if (LivePlaybackPolicy.clearPlaylistOnStop()) {
-            exo.clearMediaItems()
-        }
-        if (exo.currentMediaItem == null && LivePlaybackPolicy.leaveUnpreparedLiveItemAfterStop()) {
+        if (exo.currentMediaItem == null) {
             exo.setMediaItem(liveItem())
         }
     }

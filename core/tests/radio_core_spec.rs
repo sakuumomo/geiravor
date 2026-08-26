@@ -1,11 +1,11 @@
 use std::sync::{Arc, Mutex};
 
-use geiravor_core::{poll_interval, Fetcher, RadioCore, Status, StatusListener};
+use geiravor_core::{poll_interval, ApiClient, RadioCore, Status, StatusListener};
 
 struct Switchable {
     next: Mutex<Result<String, String>>,
 }
-impl Fetcher for Switchable {
+impl ApiClient for Switchable {
     fn get(&self, _url: &str) -> Result<String, String> {
         self.next.lock().expect("lock").clone()
     }
@@ -26,7 +26,7 @@ fn tick_notifies_parsed_now_playing() {
     let listener = Arc::new(RecordingListener {
         last: Mutex::new(None),
     });
-    let core = RadioCore::with_fetcher(Arc::new(Switchable {
+    let core = RadioCore::with_client(Arc::new(Switchable {
         next: Mutex::new(Ok(json.to_string())),
     }));
     core.set_listener(listener.clone());
@@ -45,7 +45,7 @@ fn failed_tick_keeps_previous_snapshot_and_backs_off() {
     let fetcher = Arc::new(Switchable {
         next: Mutex::new(Ok(json.to_string())),
     });
-    let core = RadioCore::with_fetcher(fetcher.clone());
+    let core = RadioCore::with_client(fetcher.clone());
     core.tick(10).unwrap();
     *fetcher.next.lock().expect("lock") = Err("network".into());
     assert!(core.tick(11).is_err());
@@ -59,7 +59,7 @@ fn failed_tick_keeps_previous_snapshot_and_backs_off() {
 #[test]
 fn icy_does_not_replace_np() {
     let json = include_str!("fixtures/api_snapshot.json");
-    let core = RadioCore::with_fetcher(Arc::new(Switchable {
+    let core = RadioCore::with_client(Arc::new(Switchable {
         next: Mutex::new(Ok(json.to_string())),
     }));
     core.tick(10).unwrap();

@@ -2,7 +2,7 @@ use std::time::Duration;
 
 use geiravor_core::{
     dj_image_url, parse_status, poll_interval, relative_last_played, relative_queue, song_progress,
-    split_np, NowPlayingEvent, NowPlayingState, USER_AGENT,
+    split_np, NowPlayingEvent, NowPlayingState, API_URL, STREAM_URL, USER_AGENT,
 };
 
 fn snapshot_json() -> &'static str {
@@ -137,8 +137,11 @@ fn stream_error_marks_stream_down_without_clearing_status() {
 }
 
 #[test]
-fn user_agent_and_dj_image_helpers() {
+fn user_agent_and_urls_match_semver_and_spec() {
     assert_eq!(USER_AGENT, "Geiravor/0.1.0");
+    assert_eq!(API_URL, "https://r-a-d.io/api");
+    assert_eq!(STREAM_URL, "https://stream.r-a-d.io/main.mp3");
+    assert!(!STREAM_URL.starts_with("https://r-a-d.io/main"));
     assert_eq!(
         dj_image_url("18-e0177611a37081b5.png"),
         "https://r-a-d.io/api/dj-image/18-e0177611a37081b5.png"

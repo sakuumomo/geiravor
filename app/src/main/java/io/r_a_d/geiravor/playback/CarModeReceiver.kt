@@ -18,7 +18,7 @@ class CarModeReceiver : BroadcastReceiver() {
             return
         }
         val sticky = isInitialStickyBroadcast
-        if (!SettingsPolicy.shouldStartInVehicle(enabled = true, enteredCar = true, isInitialSticky = sticky)) {
+        if (sticky) {
             return
         }
         val pending = goAsync()

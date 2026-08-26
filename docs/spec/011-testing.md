@@ -19,7 +19,7 @@ Must cover:
 
 ## Kotlin
 
-Fake UniFFI core. Cover pause→stop (drop live buffer, no reconnect while stopped), idle notification kept after stop, playlist kept on stop, Play after stop is not swallowed, notification permission path (compat; play does not require it), Auto root Songs+Settings, Queue folder hidden when not AFK, settings toggle rows, auto-start on plug and in vehicle default off (independent), Songs Queue section hidden when not AFK, volume ±5 for Auto, queue chrome hidden, Fave stub, live `MediaItem` carries split `np` / DJ artwork.
+Fake UniFFI core. Cover pause→stop (drop live buffer, no reconnect while stopped), idle notification kept after stop, playlist kept on stop, Play after stop is not swallowed, notification permission path (compat; play does not require it), Auto root Songs+Settings, Queue folder hidden when not AFK, settings toggle rows, auto-start on plug and in vehicle default off (independent), Songs Queue section hidden when not AFK, volume ±5 for Auto, `COMMAND_GET_TIMELINE` removed (no Queue chrome), Fave stub, live `MediaItem` carries split `np` / DJ artwork. Two-pane at ≥840dp.
 
 ## CI
 

@@ -18,7 +18,7 @@ class HeadsetReceiver : BroadcastReceiver() {
         }
         val plugged = SettingsPolicy.isHeadsetPlugged(intent.getIntExtra("state", 0))
         val sticky = isInitialStickyBroadcast
-        if (!SettingsPolicy.shouldStartOnPlug(enabled = true, pluggedIn = plugged, isInitialSticky = sticky)) {
+        if (!plugged || sticky) {
             return
         }
         val pending = goAsync()

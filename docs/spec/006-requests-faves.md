@@ -1,6 +1,6 @@
 # 006 — Requests and favorites (0.2.0)
 
-Not built in 0.1.0. Specced so `ApiClient` can grow without a rewrite.
+Not built in 0.1.0. Specced so `ApiClient` (`core`, `get` for `/api` today) can grow without a rewrite.
 
 ## Search
 

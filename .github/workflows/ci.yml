@@ -1,0 +1,20 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: DeterminateSystems/nix-installer-action@main
+      - name: cargo test
+        run: nix develop -c cargo test --manifest-path core/Cargo.toml
+      - name: assemble debug
+        run: nix develop -c ./gradlew :app:assembleDebug
