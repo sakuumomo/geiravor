@@ -21,6 +21,12 @@ object PagerPolicy {
 
     fun digitCount(n: Int): Int = n.coerceAtLeast(1).toString().length
 
+    fun jumpInput(raw: String, last: Int): String =
+        raw.filter { it.isDigit() }.take(digitCount(last))
+
+    fun pageSlotWidthPx(digits: Int, widestDigitPx: Float): Float =
+        digits.coerceAtLeast(1) * widestDigitPx
+
     fun clampPage(page: Int, last: Int): Int {
         val max = last.coerceAtLeast(1)
         return page.coerceIn(1, max)

@@ -33,6 +33,6 @@ Fake UniFFI core. Cover pause→stop (drop live buffer, no reconnect while stopp
 
 Phone: play/stop, volume, unplug, notification play/pause (stays after pause; play even if permission denied), rotation, airplane, audio-focus interruption, AFK vs live DJ next `???` / queue hide, Settings auto-start on plug / in vehicle (both default off) and version. Tablet (width ≥ 840dp and smallest width ≥ 600dp): Now Playing stays left; Songs/Settings switch the right pane. 16:9 phone landscape stays single-pane.
 
-DHU: keep `nix develop -c ./scripts/dhu.sh` (Waydroid + Android Auto Head Unit Server) as the Auto test rig. App appears, play/stop, no skip buttons, no Queue chrome, title plus artist unfocused / title-artist-DJ focused, Songs and Settings tabs, browse does not change audio. **Not a merge gate.** Phone and real-car work do not wait on DHU. CI does not run DHU.
+DHU: keep `nix develop -c ./scripts/dhu.sh` (Waydroid + Android Auto Head Unit Server) as the Auto test rig. App appears, play/stop, no skip buttons, no Queue chrome, title plus artist unfocused / title-artist-DJ focused, AFK progress bar on unfocused and focused now-playing (none for a live DJ), Songs and Settings tabs, browse does not change audio. Pause/focus-loss drops the Icecast GET. **Not a merge gate.** Phone and real-car work do not wait on DHU. CI does not run DHU.
 
 Projected Android Auto has been run in a real car for 0.1.0. That does not cover every OEM skin.

@@ -14,7 +14,7 @@ import uniffi.geiravor_core.Status
 internal class LiveStationPlayer(
     private val exo: ExoPlayer,
     private val songWindow: () -> SongProgress? = { null },
-    private val shadeMaxChars: () -> Int? = { null },
+    private val shadeSpace: () -> SessionMetadata.ShadeSpace? = { null },
 ) : ForwardingPlayer(exo) {
     @Volatile
     private var apiMetadata: MediaMetadata? = null
@@ -29,6 +29,7 @@ internal class LiveStationPlayer(
     private val clearIgnorePlay = Runnable { ignorePlay = false }
     private var ignorePlay = false
     private var holdAsPaused = false
+    private var tearingDown = false
     private val listeners = IdentityHashMap<Player.Listener, Player.Listener>()
     private val reconnect = Runnable {
         if (!LivePlaybackPolicy.shouldReconnect(wantsPlayback)) {
@@ -38,7 +39,11 @@ internal class LiveStationPlayer(
     }
 
     fun applyStatus(status: Status?) {
-        val meta = SessionMetadata.fromStatus(status, shadeMaxChars())
+        val meta = SessionMetadata.fromStatus(
+            status,
+            shadeSpace(),
+            SessionMetadata.durationMs(songWindow()),
+        )
         apiMetadata = meta
         if (meta != null) {
             exo.setPlaylistMetadata(meta)
@@ -61,6 +66,12 @@ internal class LiveStationPlayer(
                 override fun onPlaybackStateChanged(state: Int) {
                     if (state == STATE_ENDED) {
                         scheduleReconnect()
+                    }
+                }
+
+                override fun onPlayWhenReadyChanged(playWhenReady: Boolean, reason: Int) {
+                    if (!playWhenReady && !tearingDown) {
+                        teardown()
                     }
                 }
             },
@@ -199,9 +210,17 @@ internal class LiveStationPlayer(
 
     override fun getContentPosition(): Long = currentPosition
 
+    override fun getBufferedPosition(): Long =
+        LivePlaybackPolicy.songBufferedPositionMs(currentPosition)
+
+    override fun getContentBufferedPosition(): Long = bufferedPosition
+
+    override fun getTotalBufferedDuration(): Long = 0L
+
     override fun isCurrentMediaItemSeekable(): Boolean = false
 
-    override fun isCurrentMediaItemLive(): Boolean = true
+    override fun isCurrentMediaItemLive(): Boolean =
+        LivePlaybackPolicy.isLiveBroadcast(duration)
 
     override fun setMediaItem(mediaItem: MediaItem) {
         if (skipRedundant(listOf(mediaItem))) {
@@ -278,10 +297,10 @@ internal class LiveStationPlayer(
     }
 
     private fun ensureLiveItem() {
-        if (exo.currentMediaItem == null) {
-            exo.setMediaItem(liveItem())
-        }
-        if (exo.playbackState == STATE_IDLE || exo.playbackState == STATE_ENDED) {
+        val running = exo.playWhenReady &&
+            (exo.playbackState == STATE_READY || exo.playbackState == STATE_BUFFERING)
+        if (!running || exo.currentMediaItem == null) {
+            exo.setMediaItem(liveItem(), /* resetPosition = */ true)
             exo.prepare()
         }
     }
@@ -312,15 +331,21 @@ internal class LiveStationPlayer(
     }
 
     private fun teardown() {
-        setWantsPlayback(false)
-        mainHandler.removeCallbacks(reconnect)
-        ignorePlay = false
-        mainHandler.removeCallbacks(clearIgnorePlay)
-        holdAsPaused = true
-        exo.playWhenReady = false
-        exo.stop()
-        if (exo.currentMediaItem == null) {
-            exo.setMediaItem(liveItem())
+        if (tearingDown) {
+            return
+        }
+        tearingDown = true
+        try {
+            setWantsPlayback(false)
+            mainHandler.removeCallbacks(reconnect)
+            ignorePlay = false
+            mainHandler.removeCallbacks(clearIgnorePlay)
+            holdAsPaused = true
+            exo.playWhenReady = false
+            exo.stop()
+            exo.setMediaItem(liveItem(), /* resetPosition = */ true)
+        } finally {
+            tearingDown = false
         }
     }
 

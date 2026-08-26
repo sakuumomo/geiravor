@@ -21,6 +21,7 @@ Grep `Compat:` when raising minSdk and delete.
 | `POST_NOTIFICATIONS` | 33 | Ask so the media notification can appear. Do **not** block play/pause if denied. |
 | FGS `mediaPlayback` start | 34 | `startForeground` type |
 | Edge-to-edge / insets | 35 | Status/nav bars |
+| Display width (`WindowMetrics`) | 30 | Shade text area; `getRealSize` below 30 |
 
 ## 0.2.0
 

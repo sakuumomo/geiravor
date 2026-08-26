@@ -118,6 +118,18 @@ class LivePlaybackPolicyTest {
     }
 
     @Test
+    fun afkSongWindowIsNotReportedAsLiveBroadcast() {
+        assertFalse(LivePlaybackPolicy.isLiveBroadcast(durationMs = 180_000L))
+        assertTrue(LivePlaybackPolicy.isLiveBroadcast(durationMs = androidx.media3.common.C.TIME_UNSET))
+        assertTrue(LivePlaybackPolicy.isLiveBroadcast(durationMs = 0L))
+    }
+
+    @Test
+    fun songBufferDoesNotUseIcecastDownload() {
+        assertEquals(65_000L, LivePlaybackPolicy.songBufferedPositionMs(positionMs = 65_000L))
+    }
+
+    @Test
     fun afterPauseIdleLiveItemHoldsAsPausedNotIdle() {
         val held = LivePlaybackPolicy.sessionPlaybackState(
             playbackState = Player.STATE_IDLE,

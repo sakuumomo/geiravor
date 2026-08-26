@@ -65,20 +65,50 @@ class SessionMetadataTest {
     fun shadeArtistKeepsPipeAndDjWhenEllipsizing() {
         val card = requireNotNull(SessionMetadata.card(sampleStatus()))
         assertEquals("Hirasawa Susumu | Hanyuu-sama", SessionMetadata.shadeArtist(card))
-        val tight = SessionMetadata.shadeArtist(card, maxChars = 22)
+        val tight = SessionMetadata.shadeArtist(card, charSpace(22f))
         assertTrue(tight.endsWith(" | Hanyuu-sama"))
         assertTrue(tight.contains("…"))
         assertFalse(tight.contains("Hirasawa Susumu |"))
-        val noRoom = SessionMetadata.ellipsizeKeepingSuffix("Hirasawa Susumu", " | Hanyuu-sama", 8)
+        val noRoom = SessionMetadata.ellipsizeKeepingSuffix(
+            "Hirasawa Susumu",
+            " | Hanyuu-sama",
+            charSpace(8f),
+        )
         assertEquals("… | Hanyuu-sama", noRoom)
     }
 
     @Test
-    fun shadeMaxCharsFollowsDisplayWidth() {
-        val wide = SessionMetadata.shadeMaxChars(widthPx = 1080, density = 3f, fontScale = 1f)
-        val narrow = SessionMetadata.shadeMaxChars(widthPx = 480, density = 1.5f, fontScale = 1f)
+    fun shadeArtistUsesMeasuredWidthNotACharacterCap() {
+        val narrow = SessionMetadata.ShadeSpace(
+            maxWidthPx = 30f,
+            widthOf = { text ->
+                text.sumOf { ch -> if (ch == 'W') 8.0 else 1.0 }.toFloat()
+            },
+        )
+        val card = NowPlayingCard(
+            title = "Gats",
+            artist = "iiiiiiiiiiiiiiiiiiii",
+            albumArtist = "DJ",
+            artworkUrl = "https://r-a-d.io/api/dj-image/18.png",
+        )
+        assertEquals("iiiiiiiiiiiiiiiiiiii | DJ", SessionMetadata.shadeArtist(card, narrow))
+    }
+
+    @Test
+    fun shadeTextWidthIsSpaceLeftAfterArtworkAndPlay() {
+        val wide = SessionMetadata.shadeTextMaxWidthPx(
+            widthPx = 1080,
+            largeIconPx = 192f,
+            compactActionPx = 192f,
+        )
+        val narrow = SessionMetadata.shadeTextMaxWidthPx(
+            widthPx = 720,
+            largeIconPx = 128f,
+            compactActionPx = 128f,
+        )
+        assertEquals(1080f - 192f - 192f, wide)
+        assertEquals(720f - 128f - 128f, narrow)
         assertTrue(wide > narrow)
-        assertTrue(narrow >= 8)
     }
 
     @Test
@@ -113,7 +143,27 @@ class SessionMetadataTest {
             SessionMetadata.durationMs(uniffi.geiravor_core.SongProgress(elapsedSecs = 10, durationSecs = null)),
         )
     }
+
+    @Test
+    fun afkDurationLivesOnMediaMetadataForAutoProgress() {
+        val card = requireNotNull(SessionMetadata.card(sampleStatus()))
+        val withDuration = SessionMetadata.withSongDuration(
+            SessionMetadata.sessionMetadata(card),
+            180_000L,
+        )
+        assertEquals(180_000L, withDuration.durationMs)
+        val liveDj = SessionMetadata.withSongDuration(
+            SessionMetadata.sessionMetadata(card),
+            androidx.media3.common.C.TIME_UNSET,
+        )
+        assertNull(liveDj.durationMs)
+    }
 }
+
+private fun charSpace(maxWidthPx: Float) = SessionMetadata.ShadeSpace(
+    maxWidthPx = maxWidthPx,
+    widthOf = { it.length.toFloat() },
+)
 
 internal fun sampleStatus(
     isAfkStream: Boolean = true,

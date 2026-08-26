@@ -9,7 +9,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.AlertDialog
@@ -26,7 +26,11 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 
@@ -48,13 +52,14 @@ fun PageTabs(
         it.kind != PagerPolicy.Kind.Prev && it.kind != PagerPolicy.Kind.Next
     }
     val digits = PagerPolicy.digitCount(last)
+    val pageMinWidth = pageSlotMinWidth(digits)
     Row(
         modifier = modifier
             .fillMaxWidth()
             .padding(vertical = 4.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        PagerChip(item = prev, widthDp = 40, onClick = {
+        PagerChip(item = prev, onClick = {
             onPage(PagerPolicy.clampPage(prev.page, last))
         })
         Box(
@@ -71,12 +76,11 @@ fun PageTabs(
                         when (item.kind) {
                             PagerPolicy.Kind.Jump -> PagerChip(
                                 item = item,
-                                widthDp = 40,
                                 onClick = { jumpOpen = true },
                             )
                             else -> PagerChip(
                                 item = item,
-                                widthDp = 12 * digits + 8,
+                                minWidth = pageMinWidth,
                                 onClick = { onPage(PagerPolicy.clampPage(item.page, last)) },
                             )
                         }
@@ -84,7 +88,7 @@ fun PageTabs(
                 }
             }
         }
-        PagerChip(item = next, widthDp = 40, onClick = {
+        PagerChip(item = next, onClick = {
             onPage(PagerPolicy.clampPage(next.page, last))
         })
     }
@@ -101,25 +105,40 @@ fun PageTabs(
     }
 }
 
+private val PagerTextSize = 14.sp
+
+@Composable
+private fun pageSlotMinWidth(digits: Int): Dp {
+    val measurer = rememberTextMeasurer()
+    val density = LocalDensity.current
+    val widest = remember(measurer, density) {
+        val style = TextStyle(fontSize = PagerTextSize)
+        (0..9).maxOf { digit ->
+            measurer.measure(digit.toString(), style).size.width
+        }.toFloat()
+    }
+    return with(density) { PagerPolicy.pageSlotWidthPx(digits, widest).toDp() }
+}
+
 @Composable
 private fun PagerChip(
     item: PagerPolicy.Item,
-    widthDp: Int,
     onClick: () -> Unit,
+    minWidth: Dp? = null,
 ) {
     val selected = item.current
     Text(
         PagerPolicy.label(item),
         color = if (item.enabled) RadioTheme.text else RadioTheme.muted.copy(alpha = 0.35f),
-        fontSize = 14.sp,
+        fontSize = PagerTextSize,
         textAlign = TextAlign.Center,
         maxLines = 1,
         modifier = Modifier
-            .width(widthDp.dp)
+            .then(if (minWidth != null) Modifier.widthIn(min = minWidth) else Modifier)
             .clip(RoundedCornerShape(4.dp))
             .background(if (selected) RadioTheme.blue else RadioTheme.surface)
             .clickable(enabled = item.enabled && !selected, onClick = onClick)
-            .padding(vertical = 8.dp),
+            .padding(horizontal = 8.dp, vertical = 8.dp),
     )
 }
 
@@ -139,7 +158,7 @@ private fun JumpPageDialog(
                 OutlinedTextField(
                     value = text,
                     onValueChange = { incoming ->
-                        text = incoming.filter { it.isDigit() }.take(6)
+                        text = PagerPolicy.jumpInput(incoming, last)
                     },
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth(),

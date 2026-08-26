@@ -14,9 +14,10 @@ Never download the `.mp3` in unit tests or CI.
 
 There is one playable `MediaItem`: the stream URL. Last played / queue items are display-only.
 
-- **Play** connects (or reconnects) to live with a new HTTP GET. Do not resume a paused buffer.
+- **Play** connects (or reconnects) to live with a new HTTP GET. Do not resume a paused buffer. After idle/stop, `prepare` a fresh source (same URL, new GET to the live edge).
 - **Pause** (Auto, notification, headset UI) **stops**: `stop` + drop the live buffer so Icecast is not left downloading or cached (`playWhenReady = false` is wrong). Keep the same live `MediaItem` **without** `prepare` (do not `clearMediaItems`). Explicit Play `prepare`s a new GET. Do not swallow that Play with `ignoreNextPlay`.
 - **Stop** is the same teardown.
+- The same teardown applies to every pause of **actual playback** (not mute / gain 0): audio-focus loss (phone call, another app), becoming-noisy (unplug), and Auto ↔ phone handoff that pauses the inner player. Those paths must not leave ExoPlayer paused-but-loading. Mute is volume only.
 - **Seek**, skip next, skip previous are not advertised and are rejected.
 - While the user wants play, player error or stream end **auto-reconnects** (2s delay). After pause/stop, do **not** reconnect. Player error still marks stream-down even while reconnecting. Clear stream-down when the player is actually playing again.
 
@@ -24,7 +25,9 @@ AudioAttributes: `USAGE_MEDIA`, `CONTENT_TYPE_MUSIC`. ExoPlayer wake mode for ne
 
 ## Progress
 
-Song window comes from `/api` (`002-api.md`), converted to milliseconds for Media3 metadata, **only while AFK**. Live DJ: duration `TIME_UNSET`, no track clock. ExoPlayer position is **not** the song progress. Seek on the session is rejected.
+Song window comes from `/api` (`002-api.md`), converted to milliseconds for Media3 metadata **and** `MediaMetadata.durationMs`, **only while AFK**. Live DJ: duration `TIME_UNSET`, no track clock. ExoPlayer position is **not** the song progress. Seek on the session is rejected.
+
+Report `isCurrentMediaItemLive` only when that duration is unknown. Icecast is still a live GET; the AFK song window is what Auto and the shade use for a **non-seekable** progress bar. Do not report Icecast buffered bytes as the song buffer.
 
 ## Focus and noisy
 
@@ -40,7 +43,7 @@ Manifest: `FOREGROUND_SERVICE` + `FOREGROUND_SERVICE_MEDIA_PLAYBACK`. Start type
 
 ## Notification
 
-Media3 media notification. Title is the current track (up to two lines). Second line is `artist | dj.djname` (one line; newlines are not rendered). Ellipsize the artist so `| DJ` stays visible; do not ellipsize away the `|`. No artist (`""` or whitespace): DJ only, no pipe. No next/prev on the shade. Artwork uses the Coil DJ-image cache. On API 33+ we may ask `POST_NOTIFICATIONS` on Play so the shade can show it. Playback does **not** wait on grant; deny or ignore still plays and pauses. Channel for playback.
+Media3 media notification. Title is the current track (up to two lines). Second line is `artist | dj.djname` (one line; newlines are not rendered). Ellipsize the artist so `| DJ` stays visible; do not ellipsize away the `|`. Fit that line to remaining shade width (notification Line2 typeface and letter spacing; window width minus the system large-icon slot and the compact play control). Do not use a character cap. No artist (`""` or whitespace): DJ only, no pipe. No next/prev on the shade. Artwork uses the Coil DJ-image cache. On API 33+ we may ask `POST_NOTIFICATIONS` on Play so the shade can show it. Playback does **not** wait on grant; deny or ignore still plays and pauses. Channel for playback.
 
 After pause/stop: keep that notification as the play target (unprepared live item, no Icecast GET). Play on it reconnects. Shade dismiss follows the platform session; do not custom-handle swipe.
 

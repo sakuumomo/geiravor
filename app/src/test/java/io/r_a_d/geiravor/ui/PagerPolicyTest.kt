@@ -67,4 +67,19 @@ class PagerPolicyTest {
         assertEquals(2, PagerPolicy.digitCount(10))
         assertEquals(3, PagerPolicy.digitCount(512))
     }
+
+    @Test
+    fun jumpInputUsesLastPageDigitCount() {
+        assertEquals("12", PagerPolicy.jumpInput("12", 12))
+        assertEquals("12", PagerPolicy.jumpInput("123", 12))
+        assertEquals("9", PagerPolicy.jumpInput("99", 8))
+        assertEquals("10", PagerPolicy.jumpInput("10a", 12))
+        assertEquals("", PagerPolicy.jumpInput("ab", 10))
+    }
+
+    @Test
+    fun pageSlotWidthIsMeasuredDigitsNotADpGuess() {
+        assertEquals(16f, PagerPolicy.pageSlotWidthPx(digits = 2, widestDigitPx = 8f))
+        assertEquals(24f, PagerPolicy.pageSlotWidthPx(digits = 3, widestDigitPx = 8f))
+    }
 }

@@ -1,5 +1,6 @@
 package io.r_a_d.geiravor.playback
 
+import androidx.media3.common.C
 import androidx.media3.common.Player
 
 object LivePlaybackPolicy {
@@ -45,6 +46,11 @@ object LivePlaybackPolicy {
     fun faveIsStub(): Boolean = true
 
     fun shouldReconnect(userWantsPlay: Boolean): Boolean = userWantsPlay
+
+    fun isLiveBroadcast(durationMs: Long): Boolean =
+        durationMs == C.TIME_UNSET || durationMs <= 0L
+
+    fun songBufferedPositionMs(positionMs: Long): Long = positionMs
 
     fun reconnectDelayMs(): Long = 2_000L
 

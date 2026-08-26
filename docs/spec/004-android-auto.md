@@ -31,7 +31,7 @@ App gain is the same as the phone (0–100, default 80, DataStore). Auto exposes
 - No artist (`""` or whitespace): subtitle is DJ only, no description line. Do not leave a blank artist line.
 - No next/prev on Auto chrome. Artwork = DJ image (mystery-DJ fallback).
 - Those fields live on the stream `MediaItem`. Auto only uses subtitle/description when `displayTitle` is set.
-- Duration/position from the AFK API window (`002-api.md`). Live DJ: unknown duration (`TIME_UNSET`).
+- Duration/position from the AFK API window (`002-api.md`) on both **unfocused** and **focused** now-playing so the platform can draw a progress bar. Not seekable. Live DJ: unknown duration (`TIME_UNSET`), no bar.
 
 Tapping previous/next must not exist as a command.
 

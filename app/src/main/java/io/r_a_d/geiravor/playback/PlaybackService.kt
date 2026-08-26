@@ -63,9 +63,15 @@ class PlaybackService : MediaLibraryService() {
             .setWakeMode(C.WAKE_MODE_NETWORK)
             .build()
         exo.volume = LivePlaybackPolicy.DEFAULT_GAIN
-        val shadeMaxChars = { SessionMetadata.shadeMaxChars(resources) }
-        exo.setMediaItem(SessionMetadata.liveMediaItem(radio.snapshot(), shadeMaxChars = shadeMaxChars()))
-        val player = LiveStationPlayer(exo, { radio.progress() }, shadeMaxChars)
+        val shadeSpace = { SessionMetadata.shadeSpace(this) }
+        exo.setMediaItem(
+            SessionMetadata.liveMediaItem(
+                radio.snapshot(),
+                shade = shadeSpace(),
+                durationMs = SessionMetadata.durationMs(radio.progress()),
+            ),
+        )
+        val player = LiveStationPlayer(exo, { radio.progress() }, shadeSpace)
         player.onWantsPlayback = { radio.setPlaying(it) }
         player.applyStatus(radio.snapshot())
         player.addListener(
@@ -385,7 +391,10 @@ class PlaybackService : MediaLibraryService() {
         }
 
         private fun livePlaylist(): MediaSession.MediaItemsWithStartPosition {
-            val item = SessionMetadata.liveMediaItem(status())
+            val item = SessionMetadata.liveMediaItem(
+                status(),
+                durationMs = player.duration,
+            )
             return MediaSession.MediaItemsWithStartPosition(listOf(item), 0, C.TIME_UNSET)
         }
     }
