@@ -146,6 +146,23 @@ fn can_request_uses_capital_main_endpoint() {
 }
 
 #[test]
+fn favorites_empty_nick_skips_http_kethsar_hits_api() {
+    let client = Arc::new(UrlClient {
+        last: Mutex::new(String::new()),
+        body: include_str!("fixtures/faves.json").into(),
+    });
+    let core = RadioCore::with_client(client.clone());
+    assert!(core.favorites("  ".into(), 1).unwrap().is_empty());
+    assert!(client.last.lock().expect("lock").is_empty());
+    let rows = core.favorites("Kethsar".into(), 1).unwrap();
+    assert_eq!(rows[0].tracks_id, Some(6130));
+    assert_eq!(
+        *client.last.lock().expect("lock"),
+        "https://r-a-d.io/faves?nick=Kethsar&page=1&dl=true"
+    );
+}
+
+#[test]
 fn request_posts_track_id_after_csrf_bootstrap() {
     let client = Arc::new(UrlClient {
         last: Mutex::new(String::new()),

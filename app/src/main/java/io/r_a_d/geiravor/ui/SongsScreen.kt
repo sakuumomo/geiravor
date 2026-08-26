@@ -26,6 +26,9 @@ fun SongsScreen(
     streamDown: Boolean,
     canRequest: Boolean?,
     onCanRequest: (Boolean?) -> Unit,
+    favesNick: String,
+    onFavesNick: (String) -> Unit,
+    onFavesNickPersist: (String) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val afk = status?.isAfkStream == true
@@ -64,7 +67,16 @@ fun SongsScreen(
                     onCanRequest = onCanRequest,
                     modifier = Modifier.fillMaxWidth(),
                 )
-                SectionLayout.SongsSection.Favorites -> PlaceholderPane(section.label)
+                SectionLayout.SongsSection.Favorites -> FavoritesPane(
+                    radio = radio,
+                    status = status,
+                    nick = favesNick,
+                    onNick = onFavesNick,
+                    onNickPersist = onFavesNickPersist,
+                    canRequest = canRequest,
+                    onCanRequest = onCanRequest,
+                    modifier = Modifier.fillMaxWidth(),
+                )
                 else -> SongPane(
                     status = status,
                     section = section,
@@ -74,16 +86,6 @@ fun SongsScreen(
             }
         }
     }
-}
-
-@Composable
-private fun PlaceholderPane(label: String, modifier: Modifier = Modifier) {
-    Text(
-        label,
-        color = RadioTheme.muted,
-        fontSize = 16.sp,
-        modifier = modifier.padding(24.dp),
-    )
 }
 
 @Composable

@@ -4,6 +4,7 @@ use std::thread::{self, JoinHandle};
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use crate::csrf::{CSRF_BOOTSTRAP_URL, extract_csrf_token, post_with_csrf};
+use crate::favorites::{FavoriteRow, faves_url, parse_faves};
 use crate::http::{ApiError, blocking_client};
 use crate::poll::poll_interval;
 use crate::progress::{SongProgress, song_progress};
@@ -259,6 +260,14 @@ impl RadioCore {
 
     pub fn can_request(&self) -> Result<bool, ApiError> {
         parse_can_request(&self.client.get(CAN_REQUEST_URL)?)
+    }
+
+    pub fn favorites(&self, nick: String, page: i32) -> Result<Vec<FavoriteRow>, ApiError> {
+        let nick = nick.trim();
+        if nick.is_empty() {
+            return Ok(Vec::new());
+        }
+        parse_faves(&self.client.get(&faves_url(nick, page))?)
     }
 
     pub fn request(&self, track_id: i64) -> Result<RequestResult, ApiError> {

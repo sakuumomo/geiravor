@@ -1,6 +1,7 @@
 uniffi::setup_scaffolding!();
 
 mod csrf;
+mod favorites;
 mod http;
 mod np;
 mod poll;
@@ -11,6 +12,7 @@ mod search;
 mod status;
 
 pub use csrf::{CSRF_BOOTSTRAP_URL, CSRF_COOKIE, CSRF_HEADER, extract_csrf_token, post_with_csrf};
+pub use favorites::{FAVES_URL, FavoriteRow, faves_url, parse_faves};
 pub use http::ApiError;
 pub use np::split_np;
 pub use poll::poll_interval;

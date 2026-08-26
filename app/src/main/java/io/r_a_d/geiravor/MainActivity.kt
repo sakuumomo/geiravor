@@ -53,6 +53,7 @@ import io.r_a_d.geiravor.ui.SettingsScreen
 import io.r_a_d.geiravor.ui.SongsScreen
 import io.r_a_d.geiravor.ui.TabLabel
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
@@ -77,6 +78,7 @@ private fun GeiravorRoot() {
     var controller by remember { mutableStateOf<MediaController?>(null) }
     var playing by remember { mutableStateOf(false) }
     var sliding by remember { mutableStateOf(false) }
+    var favesNick by remember { mutableStateOf("") }
 
     LaunchedEffect(Unit) {
         settings.gain.collect { stored ->
@@ -97,6 +99,9 @@ private fun GeiravorRoot() {
             runCatching { app.radio.canRequest() }.getOrNull()
         }
         RadioStore.setCanRequest(allowed)
+    }
+    LaunchedEffect(Unit) {
+        favesNick = settings.favesNick.first()
     }
 
     LifecycleResumeEffect(app) {
@@ -227,6 +232,11 @@ private fun GeiravorRoot() {
                     streamDown = radioState.streamDown,
                     canRequest = radioState.canRequest,
                     onCanRequest = RadioStore::setCanRequest,
+                    favesNick = favesNick,
+                    onFavesNick = { favesNick = it },
+                    onFavesNickPersist = { nick ->
+                        scope.launch { settings.setFavesNick(nick) }
+                    },
                     modifier = modifier,
                 )
             }
