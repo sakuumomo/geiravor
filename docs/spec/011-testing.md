@@ -27,8 +27,8 @@ Fake UniFFI core. Cover pause→stop (drop live buffer, no reconnect while stopp
 
 ## Manual (0.1.0)
 
-Phone: play/stop, volume, unplug, notification play/pause (stays after pause; play even if permission denied), rotation, airplane, audio-focus interruption, AFK vs live DJ next `???` / queue hide, Settings auto-start on plug / in vehicle (both default off) and version.
+Phone: play/stop, volume, unplug, notification play/pause (stays after pause; play even if permission denied), rotation, airplane, audio-focus interruption, AFK vs live DJ next `???` / queue hide, Settings auto-start on plug / in vehicle (both default off) and version. Width ≥ 840dp: Now Playing stays left; Songs/Settings switch the right pane.
 
-DHU (optional): `nix develop -c ./scripts/dhu.sh` with Waydroid + Android Auto Head Unit Server. App appears, play/stop, no skip buttons, no Queue chrome, title plus artist unfocused / title-artist-DJ focused, Songs and Settings tabs, browse does not change audio. Not a merge gate for phone work.
+DHU: keep `nix develop -c ./scripts/dhu.sh` (Waydroid + Android Auto Head Unit Server) as the Auto test rig. App appears, play/stop, no skip buttons, no Queue chrome, title plus artist unfocused / title-artist-DJ focused, Songs and Settings tabs, browse does not change audio. **Not a merge gate.** Phone and real-car work do not wait on DHU. CI does not run DHU.
 
-Do not claim real-car Auto until someone runs it.
+Projected Android Auto has been run in a real car for 0.1.0. That does not cover every OEM skin.

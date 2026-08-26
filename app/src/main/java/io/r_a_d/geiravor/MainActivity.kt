@@ -6,7 +6,10 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.systemBarsPadding
@@ -16,6 +19,7 @@ import androidx.compose.material3.NavigationBarItemDefaults
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.VerticalDivider
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -26,6 +30,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.compose.LifecycleResumeEffect
 import androidx.media3.common.Player
@@ -39,6 +44,7 @@ import io.r_a_d.geiravor.playback.PlaybackService
 import io.r_a_d.geiravor.radio.RadioStore
 import io.r_a_d.geiravor.settings.SettingsPolicy
 import io.r_a_d.geiravor.settings.SettingsStore
+import io.r_a_d.geiravor.ui.AppLayout
 import io.r_a_d.geiravor.ui.AppTab
 import io.r_a_d.geiravor.ui.NowPlayingScreen
 import io.r_a_d.geiravor.ui.RadioTheme
@@ -154,6 +160,8 @@ private fun GeiravorRoot() {
         }
     }
     var tab by remember { mutableStateOf(AppTab.NowPlaying) }
+    val twoPane = AppLayout.twoPane(LocalConfiguration.current.screenWidthDp)
+    val shown = AppLayout.clampTab(tab, twoPane)
 
     Surface(modifier = Modifier.fillMaxSize(), color = RadioTheme.background) {
         Scaffold(
@@ -162,9 +170,9 @@ private fun GeiravorRoot() {
             contentWindowInsets = WindowInsets(0, 0, 0, 0),
             bottomBar = {
                 NavigationBar(containerColor = RadioTheme.surface) {
-                    AppTab.entries.forEach { dest ->
+                    AppLayout.tabs(twoPane).forEach { dest ->
                         NavigationBarItem(
-                            selected = tab == dest,
+                            selected = shown == dest,
                             onClick = { tab = dest },
                             icon = { Text(dest.icon) },
                             label = { Text(dest.label) },
@@ -180,8 +188,9 @@ private fun GeiravorRoot() {
                 }
             },
         ) { padding ->
-            when (tab) {
-                AppTab.NowPlaying -> NowPlayingScreen(
+            val paneModifier = Modifier.padding(padding)
+            val nowPlaying: @Composable (Modifier) -> Unit = { modifier ->
+                NowPlayingScreen(
                     radio = app.radio,
                     status = radioState.status,
                     streamDown = radioState.streamDown,
@@ -190,14 +199,18 @@ private fun GeiravorRoot() {
                     onGain = onGain,
                     onGainFinished = onGainFinished,
                     onPlayToggle = onPlayToggle,
-                    modifier = Modifier.padding(padding),
+                    modifier = modifier,
                 )
-                AppTab.Songs -> SongsScreen(
+            }
+            val songs: @Composable (Modifier) -> Unit = { modifier ->
+                SongsScreen(
                     status = radioState.status,
                     streamDown = radioState.streamDown,
-                    modifier = Modifier.padding(padding),
+                    modifier = modifier,
                 )
-                AppTab.Settings -> SettingsScreen(
+            }
+            val settings: @Composable (Modifier) -> Unit = { modifier ->
+                SettingsScreen(
                     autoStartOnPlug = autoStartOnPlug,
                     onAutoStartOnPlug = { enabled ->
                         autoStartOnPlug = enabled
@@ -209,8 +222,26 @@ private fun GeiravorRoot() {
                         scope.launch { settings.setAutoStartInVehicle(enabled) }
                     },
                     versionName = BuildConfig.VERSION_NAME,
-                    modifier = Modifier.padding(padding),
+                    modifier = modifier,
                 )
+            }
+            if (twoPane) {
+                Row(modifier = paneModifier.fillMaxSize()) {
+                    nowPlaying(Modifier.weight(1f).fillMaxHeight())
+                    VerticalDivider(color = RadioTheme.border)
+                    Box(modifier = Modifier.weight(1f).fillMaxHeight()) {
+                        when (shown) {
+                            AppTab.Settings -> settings(Modifier.fillMaxSize())
+                            else -> songs(Modifier.fillMaxSize())
+                        }
+                    }
+                }
+            } else {
+                when (shown) {
+                    AppTab.NowPlaying -> nowPlaying(paneModifier)
+                    AppTab.Songs -> songs(paneModifier)
+                    AppTab.Settings -> settings(paneModifier)
+                }
             }
         }
     }

@@ -68,4 +68,6 @@ In `nix develop`, `extras-google-auto` provides `desktop-head-unit` (FHS-wrapped
 2. Android Auto → ⋮ → **Start head unit server** (once per session).
 3. `./scripts/dhu.sh` (adb connect + `adb forward tcp:5277 tcp:5277` + DHU).
 
-Unknown sources still apply inside Waydroid. Phone features must not wait on DHU (`011-testing.md`).
+Unknown sources still apply inside Waydroid. DHU is the Auto test rig. It is **not** a merge gate (`011-testing.md`). Phone features must not wait on it.
+
+Projected Auto has been run in a real car for 0.1.0. Sideload + Unknown sources still apply on a phone that is not from Play.

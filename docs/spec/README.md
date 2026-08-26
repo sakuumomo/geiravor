@@ -16,7 +16,7 @@ These files are **normative**. Code implements them. Live [r-a-d.io](https://r-a
 | [001-architecture.md](001-architecture.md) | Rust/Kotlin split, UniFFI, process |
 | [002-api.md](002-api.md) | Endpoints, DTOs, poll, clocks |
 | [003-playback.md](003-playback.md) | Live stream, pause=stop, focus, FGS |
-| [004-android-auto.md](004-android-auto.md) | Browse tree, no skip, prev/next text |
+| [004-android-auto.md](004-android-auto.md) | Browse tree, no skip, session now-playing |
 | [005-ui.md](005-ui.md) | Screens, `default-dark` tokens |
 | [006-requests-faves.md](006-requests-faves.md) | 0.2.0 search / request / nick faves |
 | [007-news.md](007-news.md) | 0.2.0 news |
