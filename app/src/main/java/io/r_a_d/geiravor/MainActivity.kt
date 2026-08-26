@@ -52,7 +52,9 @@ import io.r_a_d.geiravor.ui.RadioTheme
 import io.r_a_d.geiravor.ui.SettingsScreen
 import io.r_a_d.geiravor.ui.SongsScreen
 import io.r_a_d.geiravor.ui.TabLabel
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -89,6 +91,12 @@ private fun GeiravorRoot() {
     }
     LaunchedEffect(Unit) {
         settings.autoStartInVehicle.collect { autoStartInVehicle = it }
+    }
+    LaunchedEffect(Unit) {
+        val allowed = withContext(Dispatchers.IO) {
+            runCatching { app.radio.canRequest() }.getOrNull()
+        }
+        RadioStore.setCanRequest(allowed)
     }
 
     LifecycleResumeEffect(app) {
@@ -217,6 +225,8 @@ private fun GeiravorRoot() {
                     radio = app.radio,
                     status = radioState.status,
                     streamDown = radioState.streamDown,
+                    canRequest = radioState.canRequest,
+                    onCanRequest = RadioStore::setCanRequest,
                     modifier = modifier,
                 )
             }

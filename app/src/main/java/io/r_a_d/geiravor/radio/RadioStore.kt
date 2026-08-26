@@ -11,6 +11,7 @@ import uniffi.geiravor_core.StatusListener
 data class RadioUiState(
     val status: Status? = null,
     val streamDown: Boolean = false,
+    val canRequest: Boolean? = null,
 )
 
 object RadioStore : StatusListener {
@@ -20,7 +21,16 @@ object RadioStore : StatusListener {
 
     override fun onUpdate(status: Status, streamDown: Boolean) {
         main.post {
-            _state.value = RadioUiState(status, streamDown)
+            _state.value = _state.value.copy(status = status, streamDown = streamDown)
+        }
+    }
+
+    fun setCanRequest(canRequest: Boolean?) {
+        val apply = { _state.value = _state.value.copy(canRequest = canRequest) }
+        if (Looper.myLooper() == main.looper) {
+            apply()
+        } else {
+            main.post(apply)
         }
     }
 }

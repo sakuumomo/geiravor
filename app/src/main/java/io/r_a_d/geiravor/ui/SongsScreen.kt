@@ -24,6 +24,8 @@ fun SongsScreen(
     radio: RadioCore,
     status: Status?,
     streamDown: Boolean,
+    canRequest: Boolean?,
+    onCanRequest: (Boolean?) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val afk = status?.isAfkStream == true
@@ -58,6 +60,8 @@ fun SongsScreen(
                 SectionLayout.SongsSection.Request -> RequestPane(
                     radio = radio,
                     status = status,
+                    canRequest = canRequest,
+                    onCanRequest = onCanRequest,
                     modifier = Modifier.fillMaxWidth(),
                 )
                 SectionLayout.SongsSection.Favorites -> PlaceholderPane(section.label)

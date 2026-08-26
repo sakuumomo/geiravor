@@ -33,12 +33,13 @@ import uniffi.geiravor_core.Status
 fun RequestPane(
     radio: RadioCore,
     status: Status?,
+    canRequest: Boolean?,
+    onCanRequest: (Boolean?) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val scope = rememberCoroutineScope()
     var query by remember { mutableStateOf("") }
     var hits by remember { mutableStateOf(listOf<SearchHit>()) }
-    var canRequest by remember { mutableStateOf<Boolean?>(null) }
     var message by remember { mutableStateOf<Pair<Boolean, String>?>(null) }
     var busyId by remember { mutableStateOf<Long?>(null) }
     var searching by remember { mutableStateOf(false) }
@@ -53,11 +54,6 @@ fun RequestPane(
         canRequest = canRequest,
     )
 
-    LaunchedEffect(Unit) {
-        canRequest = withContext(Dispatchers.IO) {
-            runCatching { radio.canRequest() }.getOrNull()
-        }
-    }
     LaunchedEffect(query) {
         val trimmed = query.trim()
         if (trimmed.isEmpty()) {
@@ -130,7 +126,9 @@ fun RequestPane(
                         busyId = null
                         result.onSuccess { done ->
                             message = done.ok to done.message
-                            canRequest = RequestPolicy.canRequestAfterRequest(done.ok, canRequest)
+                            onCanRequest(
+                                RequestPolicy.canRequestAfterRequest(done.ok, canRequest),
+                            )
                         }.onFailure { err ->
                             message = false to (err.message ?: "Request failed")
                         }
