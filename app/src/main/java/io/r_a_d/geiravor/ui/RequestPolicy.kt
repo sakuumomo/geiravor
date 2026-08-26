@@ -24,4 +24,8 @@ object RequestPolicy {
 
     fun rowCanRequest(allowed: Boolean, requestable: Boolean): Boolean =
         allowed && requestable
+
+    /** A successful POST spends the IP cooldown. Do not wait on GET /api/can-request. */
+    fun canRequestAfterRequest(success: Boolean, previous: Boolean?): Boolean? =
+        if (success) false else previous
 }

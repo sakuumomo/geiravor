@@ -1,5 +1,6 @@
 package io.r_a_d.geiravor.ui
 
+import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -81,6 +82,25 @@ class RequestPolicyTest {
                 requesting = true,
                 canRequest = false,
             ),
+        )
+    }
+
+    @Test
+    fun successfulRequestImpliesCooldownWithoutWaitingOnCanRequest() {
+        assertEquals(
+            false,
+            RequestPolicy.canRequestAfterRequest(success = true, previous = true),
+        )
+        assertTrue(
+            RequestPolicy.showRequestsOff(
+                isAfkStream = true,
+                requesting = true,
+                canRequest = RequestPolicy.canRequestAfterRequest(success = true, previous = true),
+            ),
+        )
+        assertEquals(
+            true,
+            RequestPolicy.canRequestAfterRequest(success = false, previous = true),
         )
     }
 

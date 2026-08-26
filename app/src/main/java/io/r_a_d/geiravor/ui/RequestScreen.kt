@@ -130,11 +130,7 @@ fun RequestPane(
                         busyId = null
                         result.onSuccess { done ->
                             message = done.ok to done.message
-                            if (done.ok) {
-                                canRequest = withContext(Dispatchers.IO) {
-                                    runCatching { radio.canRequest() }.getOrNull() ?: canRequest
-                                }
-                            }
+                            canRequest = RequestPolicy.canRequestAfterRequest(done.ok, canRequest)
                         }.onFailure { err ->
                             message = false to (err.message ?: "Request failed")
                         }
