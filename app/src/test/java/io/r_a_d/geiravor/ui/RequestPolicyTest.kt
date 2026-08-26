@@ -1,7 +1,9 @@
 package io.r_a_d.geiravor.ui
 
+import kotlin.coroutines.cancellation.CancellationException
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -102,6 +104,12 @@ class RequestPolicyTest {
             true,
             RequestPolicy.canRequestAfterRequest(success = false, previous = true),
         )
+    }
+
+    @Test
+    fun cancellationIsNotAUserFacingError() {
+        assertNull(RequestPolicy.userFacingError(CancellationException("StandaloneCoroutine was cancelled")))
+        assertEquals("boom", RequestPolicy.userFacingError(IllegalStateException("boom")))
     }
 
     @Test

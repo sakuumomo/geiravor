@@ -21,6 +21,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import kotlin.coroutines.cancellation.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -62,17 +63,19 @@ fun RequestPane(
             return@LaunchedEffect
         }
         searching = true
-        delay(350)
-        runCatching {
-            withContext(Dispatchers.IO) { radio.search(trimmed, 1) }
-        }.onSuccess { page ->
+        try {
+            delay(350)
+            val page = withContext(Dispatchers.IO) { radio.search(trimmed, 1) }
             hits = page.data
             message = null
-        }.onFailure { err ->
+            searching = false
+        } catch (err: CancellationException) {
+            throw err
+        } catch (err: Exception) {
             hits = emptyList()
-            message = false to (err.message ?: "Search failed")
+            message = false to (RequestPolicy.userFacingError(err) ?: "Search failed")
+            searching = false
         }
-        searching = false
     }
 
     Column(
@@ -130,7 +133,12 @@ fun RequestPane(
                                 RequestPolicy.canRequestAfterRequest(done.ok, canRequest),
                             )
                         }.onFailure { err ->
-                            message = false to (err.message ?: "Request failed")
+                            if (err is CancellationException) {
+                                throw err
+                            }
+                            RequestPolicy.userFacingError(err)?.let { text ->
+                                message = false to text
+                            }
                         }
                     }
                 },

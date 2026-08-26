@@ -1,5 +1,7 @@
 package io.r_a_d.geiravor.ui
 
+import kotlin.coroutines.cancellation.CancellationException
+
 object RequestPolicy {
     fun requestsAllowed(
         isAfkStream: Boolean,
@@ -28,4 +30,12 @@ object RequestPolicy {
     /** A successful POST spends the IP cooldown. Do not wait on GET /api/can-request. */
     fun canRequestAfterRequest(success: Boolean, previous: Boolean?): Boolean? =
         if (success) false else previous
+
+    /** Cancellation from debounce / leaving the pane is not a user-facing error. */
+    fun userFacingError(err: Throwable): String? {
+        if (err is CancellationException) {
+            return null
+        }
+        return err.message?.takeIf { it.isNotBlank() } ?: "Request failed"
+    }
 }
