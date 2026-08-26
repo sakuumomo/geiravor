@@ -4,6 +4,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -17,8 +18,11 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import kotlin.coroutines.cancellation.CancellationException
@@ -167,30 +171,34 @@ private fun FavoriteRowView(
     Row(
         modifier = Modifier
             .fillMaxWidth()
+            .heightIn(min = ButtonDefaults.MinHeight)
             .padding(vertical = 4.dp),
         horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically,
     ) {
         Text(
             row.meta,
             color = RadioTheme.text,
             fontSize = 14.sp,
+            maxLines = 2,
+            overflow = TextOverflow.Ellipsis,
             modifier = Modifier
                 .weight(1f)
                 .padding(end = 8.dp),
         )
-        if (row.tracksId != null) {
-            Button(
-                onClick = onRequest,
-                enabled = enabled,
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = RadioTheme.blue,
-                    contentColor = RadioTheme.text,
-                    disabledContainerColor = RadioTheme.border,
-                    disabledContentColor = RadioTheme.muted,
-                ),
-            ) {
-                Text("Request", fontSize = 12.sp)
-            }
+        val requestable = row.tracksId != null
+        Button(
+            onClick = onRequest,
+            enabled = enabled && requestable,
+            modifier = Modifier.alpha(if (requestable) 1f else 0f),
+            colors = ButtonDefaults.buttonColors(
+                containerColor = RadioTheme.blue,
+                contentColor = RadioTheme.text,
+                disabledContainerColor = RadioTheme.border,
+                disabledContentColor = RadioTheme.muted,
+            ),
+        ) {
+            Text("Request", fontSize = 12.sp)
         }
     }
 }
