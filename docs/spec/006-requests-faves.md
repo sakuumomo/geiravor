@@ -28,9 +28,18 @@ Also honor `main.requesting` / `isafkstream` from the snapshot: no requests duri
 
 `POST https://r-a-d.io/request/{TrackID}`
 
-Production uses **gorilla csrf**: cookie `_gorilla_csrf` (HttpOnly; Secure; SameSite=Lax; 7 days) plus header `X-CSRF-Token`, base62. A compatibility shim also accepts JSON `{ "_token": "..." }`. CSRF is **not** skipped on `/request`.
+Production uses **gorilla csrf**. CSRF is **not** skipped on `/request`. There is no JSON token endpoint. Do not copy an old app’s `<form` scraper. Do not GET `/v1/search` (navbar HTML).
 
-There is no JSON token endpoint. HTML scrape of `<form` is fragile. **0.2.0 starts with a spike:** cookie jar + how to obtain a token from a cheap GET. Do not copy an old app’s scraper as architecture. If the token is only in HTML, a **minimal** extract of that one field is allowed after the spike documents it — not a general HTML client.
+**Token source (spiked 2026-08-26 against live r-a-d.io):**
+
+| Piece | Where |
+|---|---|
+| Cookie `_gorilla_csrf` | `Set-Cookie` on almost every GET, including `GET /api` (HttpOnly; Secure; SameSite=Lax; 7 days). Cookie jar already on the process-wide client. The cookie value is **not** the header token. |
+| Header `X-CSRF-Token` | **Not** returned on `GET /api`, `/`, `/help`, `/news`. Live HTML embeds `<input type="hidden" name="gorilla.csrf.Token" value="…">`. Cheapest page that has it: **`GET https://r-a-d.io/search`** (as of the spike, that input sits in an HTML comment; extract the attributes, do not parse the document). `GET /v1/search` also embeds it in request buttons — the app still does not use that path. |
+
+Bootstrap: `GET /search` on the **same** reqwest client as the later POST so the jar’s cookie matches that page’s token. Then `POST https://r-a-d.io/request/{TrackID}` with cookie (jar) + `X-CSRF-Token: <extracted>`. A compatibility shim also accepts JSON `{ "_token": "..." }`; 0.2.0 sends the header. On CSRF 403, GET `/search` again and retry once.
+
+Extract is a one-field look for `name="gorilla.csrf.Token"` then `value="…"` — not a general HTML client, not a WebView.
 
 JSON error/success keys from the legacy POST: `success` or `error` strings (song cooldown, user cooldown, requests disabled).
 

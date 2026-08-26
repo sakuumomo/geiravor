@@ -17,7 +17,7 @@ Must cover:
 
 `cargo test` on the host; no NDK. Do not open `r-a-d.io`, `irc.rizon.net`, or Icecast from unit tests. Emulate online behavior locally: JSON fixtures for HTTP; `IrcIo` scripts plus a localhost TLS listener that speaks enough IRC (001, PING, Hanyuu NOTICE) for add-fave (`006-requests-faves.md`). Self-signed bouncer cert fails unless **Allow insecure TLS** is on.
 
-0.2.0 fixtures also cover search, can-request (`Main`), request CSRF, `/faves`, news.
+0.2.0 fixtures also cover search, can-request (`Main`), request CSRF (`gorilla.csrf.Token` HTML snippet, not a live homepage scrape), `/faves`, news.
 
 ## Kotlin
 
