@@ -38,7 +38,7 @@ fun RequestPane(
     val scope = rememberCoroutineScope()
     var query by remember { mutableStateOf("") }
     var hits by remember { mutableStateOf(listOf<SearchHit>()) }
-    var canRequest by remember { mutableStateOf(false) }
+    var canRequest by remember { mutableStateOf<Boolean?>(null) }
     var message by remember { mutableStateOf<Pair<Boolean, String>?>(null) }
     var busyId by remember { mutableStateOf<Long?>(null) }
     var searching by remember { mutableStateOf(false) }
@@ -47,10 +47,15 @@ fun RequestPane(
         requesting = status?.requesting == true,
         canRequest = canRequest,
     )
+    val showOff = RequestPolicy.showRequestsOff(
+        isAfkStream = status?.isAfkStream,
+        requesting = status?.requesting,
+        canRequest = canRequest,
+    )
 
     LaunchedEffect(Unit) {
         canRequest = withContext(Dispatchers.IO) {
-            runCatching { radio.canRequest() }.getOrDefault(false)
+            runCatching { radio.canRequest() }.getOrNull()
         }
     }
     LaunchedEffect(query) {
@@ -94,7 +99,7 @@ fun RequestPane(
                 unfocusedPlaceholderColor = RadioTheme.muted,
             ),
         )
-        if (!allowed) {
+        if (showOff) {
             Text(
                 "Requests are off (live DJ or cooldown).",
                 color = RadioTheme.muted,
@@ -127,7 +132,7 @@ fun RequestPane(
                             message = done.ok to done.message
                             if (done.ok) {
                                 canRequest = withContext(Dispatchers.IO) {
-                                    runCatching { radio.canRequest() }.getOrDefault(false)
+                                    runCatching { radio.canRequest() }.getOrNull() ?: canRequest
                                 }
                             }
                         }.onFailure { err ->

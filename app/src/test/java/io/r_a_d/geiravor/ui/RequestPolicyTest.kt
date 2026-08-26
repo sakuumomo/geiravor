@@ -54,4 +54,44 @@ class RequestPolicyTest {
         assertFalse(RequestPolicy.rowCanRequest(allowed = true, requestable = false))
         assertTrue(RequestPolicy.rowCanRequest(allowed = true, requestable = true))
     }
+
+    @Test
+    fun offBannerDoesNotFlashWhileCanRequestIsUnknown() {
+        assertFalse(
+            RequestPolicy.showRequestsOff(
+                isAfkStream = true,
+                requesting = true,
+                canRequest = null,
+            ),
+        )
+        assertFalse(
+            RequestPolicy.requestsAllowed(
+                isAfkStream = true,
+                requesting = true,
+                canRequest = null,
+            ),
+        )
+    }
+
+    @Test
+    fun offBannerOnceCanRequestIsFalse() {
+        assertTrue(
+            RequestPolicy.showRequestsOff(
+                isAfkStream = true,
+                requesting = true,
+                canRequest = false,
+            ),
+        )
+    }
+
+    @Test
+    fun offBannerImmediateForLiveDj() {
+        assertTrue(
+            RequestPolicy.showRequestsOff(
+                isAfkStream = false,
+                requesting = true,
+                canRequest = null,
+            ),
+        )
+    }
 }
