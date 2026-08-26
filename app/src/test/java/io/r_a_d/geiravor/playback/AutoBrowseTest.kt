@@ -2,6 +2,7 @@ package io.r_a_d.geiravor.playback
 
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import uniffi.geiravor_core.ListEntry
@@ -58,6 +59,48 @@ class AutoBrowseTest {
         assertEquals("Hirasawa Susumu - Gats", children[0].title)
         assertFalse(children[0].playable)
         assertFalse(children[0].browsable)
+    }
+
+    @Test
+    fun browseChildrenEqualOnlyWhenRowsUnchanged() {
+        val first = sampleStatus(
+            lastPlayed = listOf(entry("A"), entry("B")),
+            queue = listOf(entry("C")),
+        )
+        val same = sampleStatus(
+            lastPlayed = listOf(entry("A"), entry("B")),
+            queue = listOf(entry("C")),
+        )
+        val moved = sampleStatus(
+            lastPlayed = listOf(entry("B"), entry("D")),
+            queue = listOf(entry("A")),
+        )
+        val off = AutoSettingsSnapshot(vehicleOn = false, plugOn = true, versionName = "0.1.0")
+        val on = AutoSettingsSnapshot(vehicleOn = true, plugOn = true, versionName = "0.1.0")
+        assertEquals(
+            AutoBrowse.children(AutoBrowse.LAST_PLAYED, first),
+            AutoBrowse.children(AutoBrowse.LAST_PLAYED, same),
+        )
+        assertNotEquals(
+            AutoBrowse.children(AutoBrowse.LAST_PLAYED, first),
+            AutoBrowse.children(AutoBrowse.LAST_PLAYED, moved),
+        )
+        assertEquals(
+            AutoBrowse.children(AutoBrowse.QUEUE, first),
+            AutoBrowse.children(AutoBrowse.QUEUE, same),
+        )
+        assertNotEquals(
+            AutoBrowse.children(AutoBrowse.QUEUE, first),
+            AutoBrowse.children(AutoBrowse.QUEUE, moved),
+        )
+        assertEquals(
+            AutoBrowse.children(AutoBrowse.SETTINGS, first, off),
+            AutoBrowse.children(AutoBrowse.SETTINGS, moved, off),
+        )
+        assertNotEquals(
+            AutoBrowse.children(AutoBrowse.SETTINGS, first, off),
+            AutoBrowse.children(AutoBrowse.SETTINGS, first, on),
+        )
     }
 
     @Test

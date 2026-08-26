@@ -39,6 +39,7 @@ import kotlinx.coroutines.launch
 
 class PlaybackService : MediaLibraryService() {
     private var session: MediaLibraryService.MediaLibrarySession? = null
+    private val lastBrowse = mutableMapOf<String, List<BrowseNode>>()
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
 
     override fun onCreate() {
@@ -93,15 +94,14 @@ class PlaybackService : MediaLibraryService() {
         val settings = SettingsStore(this)
         var vehicleOn = SettingsPolicy.AUTO_START_VEHICLE_DEFAULT
         var plugOn = SettingsPolicy.AUTO_START_DEFAULT
+        fun settingsSnapshot() = AutoSettingsSnapshot(
+            vehicleOn = vehicleOn,
+            plugOn = plugOn,
+            versionName = BuildConfig.VERSION_NAME,
+        )
         val callback = LibraryCallback(
             status = { radio.snapshot() },
-            settings = {
-                AutoSettingsSnapshot(
-                    vehicleOn = vehicleOn,
-                    plugOn = plugOn,
-                    versionName = BuildConfig.VERSION_NAME,
-                )
-            },
+            settings = { settingsSnapshot() },
             player = player,
             onNudgeVolume = { up ->
                 val next = LivePlaybackPolicy.nudgeGain(player.volume, up)
@@ -120,7 +120,7 @@ class PlaybackService : MediaLibraryService() {
                         scope.launch { settings.setAutoStartOnPlug(plugOn) }
                     }
                 }
-                session?.notifyChildrenChanged(AutoBrowse.SETTINGS, 3, null)
+                publishBrowse(radio.snapshot(), settingsSnapshot(), listOf(AutoBrowse.SETTINGS))
             },
         )
         session = MediaLibraryService.MediaLibrarySession.Builder(this, player, callback)
@@ -138,49 +138,43 @@ class PlaybackService : MediaLibraryService() {
         scope.launch {
             settings.autoStartInVehicle.collect { enabled ->
                 vehicleOn = enabled
-                session?.notifyChildrenChanged(AutoBrowse.SETTINGS, 3, null)
+                publishBrowse(radio.snapshot(), settingsSnapshot(), listOf(AutoBrowse.SETTINGS))
             }
         }
         scope.launch {
             settings.autoStartOnPlug.collect { enabled ->
                 plugOn = enabled
-                session?.notifyChildrenChanged(AutoBrowse.SETTINGS, 3, null)
+                publishBrowse(radio.snapshot(), settingsSnapshot(), listOf(AutoBrowse.SETTINGS))
             }
         }
         scope.launch {
             RadioStore.state.collect { state ->
                 player.applyStatus(state.status)
-                val library = session ?: return@collect
-                val snapshot = AutoSettingsSnapshot(
-                    vehicleOn = vehicleOn,
-                    plugOn = plugOn,
-                    versionName = BuildConfig.VERSION_NAME,
+                publishBrowse(
+                    state.status,
+                    settingsSnapshot(),
+                    listOf(
+                        AutoBrowse.ROOT,
+                        AutoBrowse.SONGS,
+                        AutoBrowse.LAST_PLAYED,
+                        AutoBrowse.QUEUE,
+                    ),
                 )
-                library.notifyChildrenChanged(
-                    AutoBrowse.ROOT,
-                    AutoBrowse.children(AutoBrowse.ROOT, state.status, snapshot).size,
-                    null,
-                )
-                library.notifyChildrenChanged(
-                    AutoBrowse.SONGS,
-                    AutoBrowse.children(AutoBrowse.SONGS, state.status, snapshot).size,
-                    null,
-                )
-                library.notifyChildrenChanged(
-                    AutoBrowse.LAST_PLAYED,
-                    AutoBrowse.children(AutoBrowse.LAST_PLAYED, state.status, snapshot).size,
-                    null,
-                )
-                library.notifyChildrenChanged(
-                    AutoBrowse.QUEUE,
-                    AutoBrowse.children(AutoBrowse.QUEUE, state.status, snapshot).size,
-                    null,
-                )
-                library.notifyChildrenChanged(
-                    AutoBrowse.SETTINGS,
-                    AutoBrowse.children(AutoBrowse.SETTINGS, state.status, snapshot).size,
-                    null,
-                )
+            }
+        }
+    }
+
+    private fun publishBrowse(
+        status: Status?,
+        snapshot: AutoSettingsSnapshot,
+        parents: List<String>,
+    ) {
+        val library = session ?: return
+        parents.forEach { parent ->
+            val kids = AutoBrowse.children(parent, status, snapshot)
+            if (lastBrowse[parent] != kids) {
+                lastBrowse[parent] = kids
+                library.notifyChildrenChanged(parent, kids.size, null)
             }
         }
     }
