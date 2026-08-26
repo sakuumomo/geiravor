@@ -120,7 +120,7 @@ Local only: `IrcIo` scripts and a localhost TLS listener that speaks 001 / PING 
 
 ## UI
 
-Search results + favorites can request when `requestable` / AFK. Show server error strings. Cooldown from can-request + snapshot.
+Search results + favorites can request when `requestable` / AFK. Show server error strings. Cooldown from can-request + snapshot. Faves JSON has no `requestable`; gray the Request button like search using the station delay (`requestcount` vs `lastplayed` / `lastrequested`, now = snapshot `current`).
 
 Search and favorites paginate. Fetch `?page=` (search) / `&page=` (faves). Bottom bar, last page > 1: previous `<` and next `>` stay pinned at the bar edges; first page, a sliding window of nearby pages, `...` (jump-to-page), last page sit in the middle. Page numbers use a width for the last page’s digit count so 9→10 does not shift prev/next. Search `last_page` is in the JSON. Faves last page: HTML pagination (above). Returning to Request or Favorites in the same process restores the cached query/nick, page, rows, and last page immediately.
 

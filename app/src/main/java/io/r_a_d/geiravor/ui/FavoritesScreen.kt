@@ -38,6 +38,7 @@ import kotlinx.coroutines.withContext
 import uniffi.geiravor_core.FavoriteRow
 import uniffi.geiravor_core.RadioCore
 import uniffi.geiravor_core.Status
+import uniffi.geiravor_core.songRequestable
 
 @Composable
 fun FavoritesPane(
@@ -176,7 +177,16 @@ fun FavoritesPane(
             ) { _, row ->
                 FavoriteRowView(
                     row = row,
-                    enabled = FavoritesPolicy.rowCanRequest(allowed, row.tracksId) && busyId == null,
+                    enabled = FavoritesPolicy.rowCanRequest(
+                        allowed = allowed,
+                        tracksId = row.tracksId,
+                        requestable = songRequestable(
+                            lastPlayed = row.lastPlayed,
+                            lastRequested = row.lastRequested,
+                            requestCount = row.requestCount,
+                            now = status?.current ?: 0,
+                        ),
+                    ) && busyId == null,
                     onRequest = {
                         val id = row.tracksId ?: return@FavoriteRowView
                         busyId = id

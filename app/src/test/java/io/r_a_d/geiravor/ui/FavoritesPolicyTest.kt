@@ -14,8 +14,14 @@ class FavoritesPolicyTest {
 
     @Test
     fun nullTrackIdCannotRequest() {
-        assertFalse(FavoritesPolicy.rowCanRequest(allowed = true, tracksId = null))
-        assertTrue(FavoritesPolicy.rowCanRequest(allowed = true, tracksId = 6130))
-        assertFalse(FavoritesPolicy.rowCanRequest(allowed = false, tracksId = 6130))
+        assertFalse(FavoritesPolicy.rowCanRequest(allowed = true, tracksId = null, requestable = true))
+        assertTrue(FavoritesPolicy.rowCanRequest(allowed = true, tracksId = 6130, requestable = true))
+        assertFalse(FavoritesPolicy.rowCanRequest(allowed = false, tracksId = 6130, requestable = true))
+    }
+
+    @Test
+    fun songCooldownDisablesRowEvenWhenAllowed() {
+        assertFalse(FavoritesPolicy.rowCanRequest(allowed = true, tracksId = 6130, requestable = false))
+        assertTrue(FavoritesPolicy.rowCanRequest(allowed = true, tracksId = 6130, requestable = true))
     }
 }
