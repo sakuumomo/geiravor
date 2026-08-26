@@ -23,11 +23,11 @@ Fake UniFFI core. Cover pause→stop (drop live buffer, no reconnect while stopp
 
 ## CI
 
-`nix develop -c cargo test` and `nix develop -c ./gradlew :app:assembleDebug`. No emulator. Do not GET the Icecast URL.
+`nix develop -c cargo test --manifest-path core/Cargo.toml`, `nix develop -c ./gradlew :app:testDebugUnitTest`, and `nix develop -c ./gradlew :app:assembleDebug`. No emulator. Do not GET the Icecast URL. DHU FHS wrap is Linux-only.
 
 ## Manual (0.1.0)
 
-Phone: play/stop, volume, unplug, notification play/pause (stays after pause; play even if permission denied), rotation, airplane, audio-focus interruption, AFK vs live DJ next `???` / queue hide, Settings auto-start on plug / in vehicle (both default off) and version. Width ≥ 840dp: Now Playing stays left; Songs/Settings switch the right pane.
+Phone: play/stop, volume, unplug, notification play/pause (stays after pause; play even if permission denied), rotation, airplane, audio-focus interruption, AFK vs live DJ next `???` / queue hide, Settings auto-start on plug / in vehicle (both default off) and version. Tablet (width ≥ 840dp and smallest width ≥ 600dp): Now Playing stays left; Songs/Settings switch the right pane. 16:9 phone landscape stays single-pane.
 
 DHU: keep `nix develop -c ./scripts/dhu.sh` (Waydroid + Android Auto Head Unit Server) as the Auto test rig. App appears, play/stop, no skip buttons, no Queue chrome, title plus artist unfocused / title-artist-DJ focused, Songs and Settings tabs, browse does not change audio. **Not a merge gate.** Phone and real-car work do not wait on DHU. CI does not run DHU.
 

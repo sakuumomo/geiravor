@@ -18,7 +18,7 @@ There is one playable `MediaItem`: the stream URL. Last played / queue items are
 - **Pause** (Auto, notification, headset UI) **stops**: `stop` + drop the live buffer so Icecast is not left downloading or cached (`playWhenReady = false` is wrong). Keep the same live `MediaItem` **without** `prepare` (do not `clearMediaItems`). Explicit Play `prepare`s a new GET. Do not swallow that Play with `ignoreNextPlay`.
 - **Stop** is the same teardown.
 - **Seek**, skip next, skip previous are not advertised and are rejected.
-- While the user wants play, player error or stream end **auto-reconnects**. After pause/stop, do **not** reconnect.
+- While the user wants play, player error or stream end **auto-reconnects** (2s delay). After pause/stop, do **not** reconnect. Player error still marks stream-down even while reconnecting. Clear stream-down when the player is actually playing again.
 
 AudioAttributes: `USAGE_MEDIA`, `CONTENT_TYPE_MUSIC`. ExoPlayer wake mode for network while playing.
 

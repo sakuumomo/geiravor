@@ -89,8 +89,12 @@ internal class LiveStationPlayer(
                 COMMAND_SEEK_TO_MEDIA_ITEM,
             )
             .remove(COMMAND_GET_TIMELINE)
+            .remove(COMMAND_CHANGE_MEDIA_ITEMS)
         return commands.build()
     }
+
+    override fun isCommandAvailable(command: Int): Boolean =
+        getAvailableCommands().contains(command)
 
     override fun addListener(listener: Player.Listener) {
         val wrapped = HeldPausedListener(listener)
@@ -342,6 +346,10 @@ internal class LiveStationPlayer(
 
         override fun onIsPlayingChanged(isPlaying: Boolean) {
             delegate.onIsPlayingChanged(isPlaying())
+        }
+
+        override fun onAvailableCommandsChanged(availableCommands: Player.Commands) {
+            delegate.onAvailableCommandsChanged(getAvailableCommands())
         }
 
         override fun onMediaMetadataChanged(mediaMetadata: MediaMetadata) {

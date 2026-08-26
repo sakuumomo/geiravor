@@ -137,6 +137,18 @@ fn stream_error_marks_stream_down_without_clearing_status() {
 }
 
 #[test]
+fn snapshot_does_not_clear_stream_down() {
+    let s = parse_status(snapshot_json()).expect("parse");
+    let mut state = NowPlayingState::default();
+    state.apply(NowPlayingEvent::Snapshot(s.clone()), 0);
+    state.apply(NowPlayingEvent::StreamError, 1);
+    state.apply(NowPlayingEvent::Snapshot(s), 2);
+    assert!(state.stream_down);
+    state.apply(NowPlayingEvent::StreamRecovered, 3);
+    assert!(!state.stream_down);
+}
+
+#[test]
 fn user_agent_and_urls_match_semver_and_spec() {
     assert_eq!(USER_AGENT, "Geiravor/0.1.0");
     assert_eq!(API_URL, "https://r-a-d.io/api");

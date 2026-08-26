@@ -7,11 +7,13 @@ import org.junit.Test
 
 class AppLayoutTest {
     @Test
-    fun twoPaneStartsAtExpandedWidth() {
-        assertFalse(AppLayout.twoPane(411))
-        assertFalse(AppLayout.twoPane(839))
-        assertTrue(AppLayout.twoPane(840))
-        assertTrue(AppLayout.twoPane(1280))
+    fun twoPaneIsTabletWideNotPhoneLandscape() {
+        assertFalse(AppLayout.twoPane(widthDp = 411, smallestWidthDp = 411))
+        assertFalse(AppLayout.twoPane(widthDp = 839, smallestWidthDp = 411))
+        assertFalse(AppLayout.twoPane(widthDp = 915, smallestWidthDp = 411))
+        assertFalse(AppLayout.twoPane(widthDp = 840, smallestWidthDp = 411))
+        assertTrue(AppLayout.twoPane(widthDp = 840, smallestWidthDp = 600))
+        assertTrue(AppLayout.twoPane(widthDp = 1280, smallestWidthDp = 800))
     }
 
     @Test

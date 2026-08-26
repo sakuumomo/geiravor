@@ -125,8 +125,7 @@
               pkgs.cargo-ndk
               pkgs.pkg-config
               pkgs.llvmPackages.libclang
-              dhuFhs
-            ];
+            ] ++ nixpkgs.lib.optionals pkgs.stdenv.hostPlatform.isLinux [ dhuFhs ];
 
             JAVA_HOME = "${pkgs.jdk21}";
             ANDROID_HOME = sdkRoot;

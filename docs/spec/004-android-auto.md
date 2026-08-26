@@ -43,14 +43,18 @@ Pause still **stops** Icecast. Keep the live `MediaItem`. After the user pauses,
 
 ## Browse tree
 
+Library root is browsable, **not** playable, and has no stream URI. Showing the default must not start playback.
+
 Root tabs (both `FLAG_BROWSABLE`, never playable):
 
 1. **Songs** — Last Played folder; Queue folder only if `isafkstream` (same hide as the phone Songs tab).
 2. **Settings** — Auto-start in vehicle, Auto-start on plug (subtitle On/Off), About.
 
-Last Played / Queue **rows are reference only**: not playable, not browsable. Auto still shows **No items** if a row is tapped (the platform has no inert track). Do not play and do not open now-playing. Only the live stream ever plays.
+Last Played / Queue **rows are reference only**: not playable, not browsable. Auto still shows **No items** if a row is tapped (the platform has no inert track). Do not play and do not open now-playing. Only the live stream ever plays. A tap must not return the live `MediaItem`.
 
-Settings auto-start rows are playable **function** items (not the live stream). Tap flips the DataStore flag. While the stream is actually playing, do not replace or re-prepare the live item. After pause (real idle), Play must be allowed to `setMediaItem`/`prepare` again. Auto may still open now-playing; Back shows the updated On/Off subtitle. About is display-only. `getChildren` is read-only and must not return a node as a child of itself.
+Settings auto-start rows are playable **function** items (not the live stream). Tap flips the DataStore flag. While the stream is actually playing, do not replace or re-prepare the live item. After pause (real idle), Play must be allowed to `setMediaItem`/`prepare` again. Do not swallow that Play with a timer. Auto may still open now-playing; suppress only the follow-up Play from that settings tap while paused. Back shows the updated On/Off subtitle. About is display-only. `getChildren` is read-only and must not return a node as a child of itself.
+
+When **Auto-start in vehicle** is on, projected Auto session connect starts the live stream. Connect with the setting off must not play.
 
 Do not advertise `COMMAND_GET_TIMELINE` (hides Auto’s empty Queue button). Do not add-to-playlist.
 

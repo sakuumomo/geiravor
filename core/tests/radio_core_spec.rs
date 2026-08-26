@@ -57,6 +57,19 @@ fn failed_tick_keeps_previous_snapshot_and_backs_off() {
 }
 
 #[test]
+fn decode_failure_counts_toward_backoff() {
+    let fetcher = Arc::new(Switchable {
+        next: Mutex::new(Ok("not json".to_string())),
+    });
+    let core = RadioCore::with_client(fetcher);
+    assert!(core.tick(10).is_err());
+    assert_eq!(
+        core.poll_delay().as_secs(),
+        poll_interval(false, false, 1).as_secs()
+    );
+}
+
+#[test]
 fn icy_does_not_replace_np() {
     let json = include_str!("fixtures/api_snapshot.json");
     let core = RadioCore::with_client(Arc::new(Switchable {

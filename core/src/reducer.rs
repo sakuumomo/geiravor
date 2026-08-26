@@ -5,6 +5,7 @@ pub enum NowPlayingEvent {
     Snapshot(Status),
     IcyTitle(String),
     StreamError,
+    StreamRecovered,
 }
 
 #[derive(Debug, Clone, Default)]
@@ -23,7 +24,6 @@ impl NowPlayingState {
                 self.status = Some(status);
                 self.local_at_fetch = local_now;
                 self.refetch = false;
-                self.stream_down = false;
                 self.last_icy = None;
             }
             NowPlayingEvent::IcyTitle(title) => {
@@ -31,14 +31,16 @@ impl NowPlayingState {
                     return;
                 }
                 self.last_icy = Some(title.clone());
-                if let Some(status) = &self.status {
-                    if status.np != title {
-                        self.refetch = true;
-                    }
+                match &self.status {
+                    Some(status) if status.np == title => {}
+                    _ => self.refetch = true,
                 }
             }
             NowPlayingEvent::StreamError => {
                 self.stream_down = true;
+            }
+            NowPlayingEvent::StreamRecovered => {
+                self.stream_down = false;
             }
         }
     }

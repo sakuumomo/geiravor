@@ -50,6 +50,12 @@ object LivePlaybackPolicy {
 
     fun leavePlaybackCommand(): Command = Command.PAUSE
 
+    fun isAutoPackage(packageName: String): Boolean =
+        packageName == "com.google.android.projection.gearhead" ||
+            packageName.startsWith("com.google.android.projection.") ||
+            packageName == "com.android.car.media" ||
+            packageName == "com.android.car.carlauncher"
+
     data class SessionPlaybackState(
         val state: Int,
         val playWhenReady: Boolean,

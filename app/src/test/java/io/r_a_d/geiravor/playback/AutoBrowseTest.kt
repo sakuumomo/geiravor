@@ -39,7 +39,8 @@ class AutoBrowseTest {
                 uri = LivePlaybackPolicy.STREAM_URL,
             ),
         )
-        assertTrue(
+        assertFalse(AutoBrowse.allowsPlayback(mediaId = AutoBrowse.ROOT, uri = null))
+        assertFalse(
             AutoBrowse.allowsPlayback(
                 mediaId = AutoBrowse.ROOT,
                 uri = LivePlaybackPolicy.STREAM_URL,
@@ -150,9 +151,17 @@ class AutoBrowseTest {
     }
 
     @Test
+    fun referenceTapsAreNotTheLiveStream() {
+        assertTrue(AutoBrowse.isReferenceTap("lp:0"))
+        assertTrue(AutoBrowse.isReferenceTap(AutoBrowse.SETTING_ABOUT))
+        assertFalse(AutoBrowse.isReferenceTap(AutoBrowse.SETTING_VEHICLE))
+        assertFalse(AutoBrowse.isReferenceTap(AutoBrowse.NOW_PLAYING))
+    }
+
+    @Test
     fun liveStreamIdsAreThePlayableNowPlayingItem() {
         assertTrue(AutoBrowse.isLiveStream(AutoBrowse.NOW_PLAYING))
-        assertTrue(AutoBrowse.isLiveStream(AutoBrowse.ROOT))
+        assertFalse(AutoBrowse.isLiveStream(AutoBrowse.ROOT))
         assertFalse(AutoBrowse.isLiveStream(AutoBrowse.LAST_PLAYED))
         assertFalse(AutoBrowse.isLiveStream("lp:0"))
     }

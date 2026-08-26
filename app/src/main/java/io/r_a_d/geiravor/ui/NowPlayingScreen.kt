@@ -55,7 +55,9 @@ fun NowPlayingScreen(
     gain: Float,
     onGain: (Float) -> Unit,
     onGainFinished: (Float) -> Unit,
+    onSliding: (Boolean) -> Unit = {},
     onPlayToggle: () -> Unit,
+    showThread: Boolean = true,
     modifier: Modifier = Modifier,
 ) {
     var progress by remember { mutableStateOf<SongProgress?>(null) }
@@ -118,11 +120,13 @@ fun NowPlayingScreen(
                 value = percent,
                 onValueChange = { value ->
                     sliding = true
+                    onSliding(true)
                     percent = value
                     onGain(LivePlaybackPolicy.fromPercent(value))
                 },
                 onValueChangeFinished = {
                     sliding = false
+                    onSliding(false)
                     onGainFinished(LivePlaybackPolicy.fromPercent(percent))
                 },
                 valueRange = 0f..100f,
@@ -201,7 +205,7 @@ fun NowPlayingScreen(
             }
         }
         val context = LocalContext.current
-        status?.thread?.let { url ->
+        if (showThread) status?.thread?.let { url ->
             Text(
                 text = url,
                 color = RadioTheme.link,

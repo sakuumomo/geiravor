@@ -22,6 +22,8 @@ impl ReqwestApiClient {
     fn new() -> Result<Self, String> {
         let client = reqwest::blocking::Client::builder()
             .user_agent(USER_AGENT)
+            .connect_timeout(Duration::from_secs(5))
+            .timeout(Duration::from_secs(10))
             .build()
             .map_err(|e| e.to_string())?;
         Ok(Self { client })
@@ -75,6 +77,14 @@ impl RadioCore {
     }
 
     pub fn tick(&self, now: i64) -> Result<(), String> {
+        self.fetch_and_apply(|| now)
+    }
+
+    fn poll_once(&self) -> Result<(), String> {
+        self.fetch_and_apply(Self::unix_now)
+    }
+
+    fn fetch_and_apply(&self, fetched_at: impl FnOnce() -> i64) -> Result<(), String> {
         let body = match self.client.get(API_URL) {
             Ok(body) => body,
             Err(e) => {
@@ -82,7 +92,14 @@ impl RadioCore {
                 return Err(e);
             }
         };
-        let status = parse_status(&body).map_err(|e| e.0)?;
+        let status = match parse_status(&body) {
+            Ok(status) => status,
+            Err(e) => {
+                self.failures.fetch_add(1, Ordering::Relaxed);
+                return Err(e.0);
+            }
+        };
+        let now = fetched_at();
         let mut state = self.state.lock().expect("state");
         state.apply(NowPlayingEvent::Snapshot(status.clone()), now);
         self.failures.store(0, Ordering::Relaxed);
@@ -110,6 +127,17 @@ impl RadioCore {
     fn notify(&self, status: Status, stream_down: bool) {
         if let Some(listener) = self.listener.lock().expect("listener").clone() {
             listener.on_update(status, stream_down);
+        }
+    }
+
+    fn apply_stream_flag(&self, event: NowPlayingEvent) {
+        let mut state = self.state.lock().expect("state");
+        state.apply(event, Self::unix_now());
+        let down = state.stream_down;
+        let status = state.status.clone();
+        drop(state);
+        if let Some(status) = status {
+            self.notify(status, down);
         }
     }
 
@@ -149,7 +177,7 @@ impl RadioCore {
         let this = Arc::clone(&self);
         *slot = Some(thread::spawn(move || {
             while !this.stop.load(Ordering::Relaxed) {
-                let _ = this.tick(RadioCore::unix_now());
+                let _ = this.poll_once();
                 let delay = this.poll_delay();
                 let mut slept = Duration::ZERO;
                 while slept < delay && !this.stop.load(Ordering::Relaxed) {
@@ -186,14 +214,11 @@ impl RadioCore {
     }
 
     pub fn on_stream_error(&self) {
-        let mut state = self.state.lock().expect("state");
-        state.apply(NowPlayingEvent::StreamError, Self::unix_now());
-        let down = state.stream_down;
-        let status = state.status.clone();
-        drop(state);
-        if let Some(status) = status {
-            self.notify(status, down);
-        }
+        self.apply_stream_flag(NowPlayingEvent::StreamError)
+    }
+
+    pub fn on_stream_recovered(&self) {
+        self.apply_stream_flag(NowPlayingEvent::StreamRecovered)
     }
 
     pub fn snapshot(&self) -> Option<Status> {

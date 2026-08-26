@@ -16,5 +16,7 @@ jobs:
       - uses: DeterminateSystems/nix-installer-action@main
       - name: cargo test
         run: nix develop -c cargo test --manifest-path core/Cargo.toml
+      - name: kotlin tests
+        run: nix develop -c ./gradlew :app:testDebugUnitTest
       - name: assemble debug
         run: nix develop -c ./gradlew :app:assembleDebug

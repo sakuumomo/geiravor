@@ -106,6 +106,12 @@ class LivePlaybackPolicyTest {
     }
 
     @Test
+    fun gearheadIsAuto() {
+        assertTrue(LivePlaybackPolicy.isAutoPackage("com.google.android.projection.gearhead"))
+        assertFalse(LivePlaybackPolicy.isAutoPackage("io.r_a_d.geiravor"))
+    }
+
+    @Test
     fun faveIsStubUntilNickFaves() {
         assertEquals("io.r_a_d.geiravor.FAVE", LivePlaybackPolicy.FAVE)
         assertTrue(LivePlaybackPolicy.faveIsStub())

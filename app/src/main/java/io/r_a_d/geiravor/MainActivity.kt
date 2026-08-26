@@ -72,11 +72,14 @@ private fun GeiravorRoot() {
     var autoStartInVehicle by remember { mutableStateOf(SettingsPolicy.AUTO_START_VEHICLE_DEFAULT) }
     var controller by remember { mutableStateOf<MediaController?>(null) }
     var playing by remember { mutableStateOf(false) }
+    var sliding by remember { mutableStateOf(false) }
 
     LaunchedEffect(Unit) {
         settings.gain.collect { stored ->
-            gain = stored
-            controller?.volume = stored
+            if (!sliding) {
+                gain = stored
+                controller?.volume = stored
+            }
         }
     }
     LaunchedEffect(Unit) {
@@ -152,15 +155,18 @@ private fun GeiravorRoot() {
                 LivePlaybackPolicy.Command.PLAY -> controller?.play()
             }
         } else {
-            playing = true
-            controller?.play()
-            if (Notifications.shouldRequest(Notifications.needed, Notifications.granted(context))) {
-                permission.launch(Notifications.permission())
+            controller?.let { c ->
+                playing = true
+                c.play()
+                if (Notifications.shouldRequest(Notifications.needed, Notifications.granted(context))) {
+                    permission.launch(Notifications.permission())
+                }
             }
         }
     }
     var tab by remember { mutableStateOf(AppTab.NowPlaying) }
-    val twoPane = AppLayout.twoPane(LocalConfiguration.current.screenWidthDp)
+    val configuration = LocalConfiguration.current
+    val twoPane = AppLayout.twoPane(configuration.screenWidthDp, configuration.smallestScreenWidthDp)
     val shown = AppLayout.clampTab(tab, twoPane)
 
     Surface(modifier = Modifier.fillMaxSize(), color = RadioTheme.background) {
@@ -198,7 +204,9 @@ private fun GeiravorRoot() {
                     gain = gain,
                     onGain = onGain,
                     onGainFinished = onGainFinished,
+                    onSliding = { sliding = it },
                     onPlayToggle = onPlayToggle,
+                    showThread = !twoPane,
                     modifier = modifier,
                 )
             }

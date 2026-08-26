@@ -73,10 +73,14 @@ class PlaybackService : MediaLibraryService() {
                     IcyMetadata.titleFrom(metadata)?.let { radio.onIcyTitle(it) }
                 }
 
-                override fun onPlayerError(error: PlaybackException) {
-                    if (!LivePlaybackPolicy.shouldReconnect(player.wantsPlayback)) {
-                        radio.onStreamError()
+                override fun onIsPlayingChanged(isPlaying: Boolean) {
+                    if (isPlaying) {
+                        radio.onStreamRecovered()
                     }
+                }
+
+                override fun onPlayerError(error: PlaybackException) {
+                    radio.onStreamError()
                 }
             },
         )
@@ -213,6 +217,7 @@ class PlaybackService : MediaLibraryService() {
                 .add(SessionCommand(LivePlaybackPolicy.VOLUME_UP, Bundle.EMPTY))
                 .add(SessionCommand(LivePlaybackPolicy.VOLUME_DOWN, Bundle.EMPTY))
                 .add(SessionCommand(LivePlaybackPolicy.FAVE, Bundle.EMPTY))
+                .remove(SessionCommand.COMMAND_CODE_LIBRARY_SEARCH)
                 .build()
             return MediaSession.ConnectionResult.accept(sessionCommands, player.availableCommands)
         }
@@ -222,6 +227,13 @@ class PlaybackService : MediaLibraryService() {
             controller: MediaSession.ControllerInfo,
         ) {
             session.setCustomLayout(controller, nowPlayingButtons(player.volume))
+            if (
+                LivePlaybackPolicy.isAutoPackage(controller.packageName) &&
+                settings().vehicleOn &&
+                !player.wantsPlayback
+            ) {
+                player.play()
+            }
         }
 
         override fun onCustomCommand(
@@ -271,8 +283,15 @@ class PlaybackService : MediaLibraryService() {
             val toggle = mediaItems.map { it.mediaId }.firstOrNull { AutoBrowse.isSettingsToggle(it) }
             if (toggle != null) {
                 onToggleSetting(toggle)
-                player.ignoreNextPlay()
+                if (!player.wantsPlayback) {
+                    player.ignoreNextPlay()
+                }
                 return Futures.immediateFuture(currentOrLive(session))
+            }
+            if (mediaItems.any { AutoBrowse.isReferenceTap(it.mediaId) }) {
+                return Futures.immediateFailedFuture(
+                    UnsupportedOperationException("reference only"),
+                )
             }
             val playLive = mediaItems.any { item ->
                 AutoBrowse.allowsPlayback(
@@ -281,8 +300,9 @@ class PlaybackService : MediaLibraryService() {
                 )
             }
             if (!playLive) {
-                player.ignoreNextPlay()
-                return Futures.immediateFuture(currentOrLive(session))
+                return Futures.immediateFailedFuture(
+                    UnsupportedOperationException("not the live stream"),
+                )
             }
             return Futures.immediateFuture(livePlaylist())
         }
@@ -344,16 +364,14 @@ class PlaybackService : MediaLibraryService() {
                     MediaConstants.EXTRAS_VALUE_CONTENT_STYLE_LIST_ITEM,
                 )
             }
-            val metadata = (SessionMetadata.fromStatus(status())
-                ?: MediaMetadata.Builder().setTitle("r/a/dio").build())
-                .buildUpon()
+            val metadata = MediaMetadata.Builder()
+                .setTitle("r/a/dio")
                 .setIsBrowsable(true)
-                .setIsPlayable(true)
+                .setIsPlayable(false)
                 .setExtras(extras)
                 .build()
             return MediaItem.Builder()
                 .setMediaId(AutoBrowse.ROOT)
-                .setUri(LivePlaybackPolicy.STREAM_URL)
                 .setMediaMetadata(metadata)
                 .build()
         }

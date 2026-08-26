@@ -40,7 +40,7 @@ While `MAJOR == 0`, MINOR may add features; 0.x is not API-stable.
 
 - Play/stop `https://stream.r-a-d.io/main.mp3` (HTTPS `audio/mpeg`). No seek, no skip. Pause control **stops**.
 - Now playing from `GET https://r-a-d.io/api`: split `np`, collapsible tags, unix-second progress (AFK only), listeners, `dj.djname`, DJ image, thread on phone only, next (`queue[0]`, or `???` for a live DJ) then previous (`lp[0]`).
-- Songs tab: last played (5) and queue (5) from `timestamp`, relative times. Hide queue when `isafkstream == false`. Mark `type == 1` as `/r/`. Phone: bottom tabs (Now Playing \| Songs \| Settings). Width ≥ 840dp: Now Playing stays the left pane; Songs \| Settings switch the right pane. Songs/Settings use section tabs at every width.
+- Songs tab: last played (5) and queue (5) from `timestamp`, relative times. Hide queue when `isafkstream == false`. Mark `type == 1` as `/r/`. Phone: bottom tabs (Now Playing \| Songs \| Settings). Tablet (width ≥ 840dp and smallest width ≥ 600dp): Now Playing stays the left pane; Songs \| Settings switch the right pane. Songs/Settings use section tabs at every width.
 - Volume 0–100, default 80, on now-playing and Android Auto (same persisted gain).
 - Media notification, lockscreen, Bluetooth. Unplug and audio-focus loss stop playback. Optional auto-start on plug and in vehicle (independent, both default off).
 - Android Auto: play/stop, metadata (unfocused title/artist; focused title/artist/DJ), browse **Songs** (Last Played, Queue when AFK) and **Settings**. Session Queue chrome is hidden. Fave on the now-playing card is a stub until 0.2.0 nick faves.

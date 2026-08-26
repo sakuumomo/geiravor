@@ -58,17 +58,23 @@ object AutoBrowse {
     fun isSettingsToggle(mediaId: String): Boolean =
         mediaId == SETTING_VEHICLE || mediaId == SETTING_PLUG
 
-    fun isLiveStream(mediaId: String): Boolean =
-        mediaId == NOW_PLAYING || mediaId == ROOT
+    fun isLiveStream(mediaId: String): Boolean = mediaId == NOW_PLAYING
+
+    fun isReferenceTap(mediaId: String): Boolean =
+        mediaId == LAST_PLAYED ||
+            mediaId == QUEUE ||
+            mediaId == SONGS ||
+            mediaId == SETTINGS ||
+            mediaId == SETTING_ABOUT ||
+            mediaId.startsWith("lp:") ||
+            mediaId.startsWith("queue:")
 
     fun allowsPlayback(mediaId: String, uri: String?): Boolean {
-        if (isDisplayOnly(mediaId)) {
+        if (isDisplayOnly(mediaId) || mediaId == ROOT) {
             return false
         }
-        if (uri == LivePlaybackPolicy.STREAM_URL) {
-            return true
-        }
-        return isLiveStream(mediaId)
+        return isLiveStream(mediaId) ||
+            (mediaId == NOW_PLAYING && uri == LivePlaybackPolicy.STREAM_URL)
     }
 
     fun skipRedundantLiveSet(
