@@ -33,9 +33,11 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
+import coil.request.ImageRequest
 import io.r_a_d.geiravor.R
 import io.r_a_d.geiravor.playback.LivePlaybackPolicy
 import kotlinx.coroutines.delay
@@ -146,6 +148,8 @@ fun NowPlayingScreen(
                 color = RadioTheme.text,
                 fontSize = 22.sp,
                 textAlign = TextAlign.Center,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis,
                 modifier = Modifier.weight(1f),
             )
             if (!status?.tags.isNullOrEmpty()) {
@@ -196,8 +200,8 @@ fun NowPlayingScreen(
                 Text(text = clock, color = RadioTheme.text)
             }
         }
+        val context = LocalContext.current
         status?.thread?.let { url ->
-            val context = LocalContext.current
             Text(
                 text = url,
                 color = RadioTheme.link,
@@ -206,11 +210,18 @@ fun NowPlayingScreen(
                 },
             )
         }
+        val djUrl = status?.let { djImageUrl(it.dj.image) }
         AsyncImage(
-            model = status?.let { djImageUrl(it.dj.image) },
+            model = ImageRequest.Builder(context)
+                .data(djUrl)
+                .crossfade(false)
+                .memoryCacheKey(djUrl)
+                .diskCacheKey(djUrl)
+                .placeholderMemoryCacheKey(djUrl)
+                .error(R.drawable.mystery_dj)
+                .fallback(R.drawable.mystery_dj)
+                .build(),
             contentDescription = status?.dj?.name,
-            placeholder = painterResource(R.drawable.mystery_dj),
-            error = painterResource(R.drawable.mystery_dj),
             contentScale = ContentScale.Crop,
             modifier = Modifier.size(160.dp),
         )
@@ -218,6 +229,10 @@ fun NowPlayingScreen(
             text = status?.dj?.name ?: "",
             color = RadioTheme.text,
             fontSize = 20.sp,
+            textAlign = TextAlign.Center,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.fillMaxWidth(),
         )
         if (StreamStatus.showBanner(streamDown)) {
             Text(StreamStatus.banner, color = RadioTheme.red)
@@ -227,20 +242,24 @@ fun NowPlayingScreen(
             nextInQueueMeta = status?.queue?.firstOrNull()?.meta,
             isAfkStream = status?.isAfkStream,
         )
-        Text("Previous", color = RadioTheme.muted, fontSize = 12.sp)
-        Text(
-            text = neighbors.previous,
-            color = RadioTheme.text,
-            fontSize = 14.sp,
-            textAlign = TextAlign.Center,
-            modifier = Modifier.fillMaxWidth(),
-        )
         Text("Next", color = RadioTheme.muted, fontSize = 12.sp)
         Text(
             text = neighbors.next,
             color = RadioTheme.text,
             fontSize = 14.sp,
             textAlign = TextAlign.Center,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.fillMaxWidth(),
+        )
+        Text("Previous", color = RadioTheme.muted, fontSize = 12.sp)
+        Text(
+            text = neighbors.previous,
+            color = RadioTheme.text,
+            fontSize = 14.sp,
+            textAlign = TextAlign.Center,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
             modifier = Modifier.fillMaxWidth(),
         )
         Spacer(Modifier.height(8.dp))

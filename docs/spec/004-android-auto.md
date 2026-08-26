@@ -26,20 +26,18 @@ App gain is the same as the phone (0–100, default 80, DataStore). Auto exposes
 
 ## Now playing card
 
-- Title / artist from split `np`
-- Album artist = `dj.djname`
-- Artwork = DJ image (mystery-DJ fallback)
-- Those fields live on the stream `MediaItem` (same card as the phone shade). Playlist-only metadata is not enough for Auto.
-- Subtitle, truncated: `Prev: <lp[0]> · Next: <queue[0]>`
-- Live DJ (`isafkstream == false`): `Next: ???` (same as the phone Now Playing screen). Do not use `queue[0]`.
-- Omit `Prev:` if last-played is empty. Omit `Next:` only when AFK and the queue is empty.
+- Title = split `np` title. Subtitle = artist. Description = `dj.djname`. No `| DJ` on Auto (the phone shade owns that compact line).
+- Unfocused now-playing is title and artist. Focused now-playing is title, artist, then DJ on its own line.
+- No artist (`""` or whitespace): subtitle is DJ only, no description line. Do not leave a blank artist line.
+- No next/prev on Auto chrome. Artwork = DJ image (mystery-DJ fallback).
+- Those fields live on the stream `MediaItem`. Auto only uses subtitle/description when `displayTitle` is set.
 - Duration/position from the AFK API window (`002-api.md`). Live DJ: unknown duration (`TIME_UNSET`).
 
-Tapping previous/next must not exist as a command. The subtitle is reference only.
+Tapping previous/next must not exist as a command.
 
 ## Default view
 
-The session now-playing card is the default (same as the phone Now Playing tab): play/pause, `np`, DJ, **Prev/Next text**. Do **not** put Now Playing in the browse tree. The Auto app icon (top left) returns to this default. Showing the default must **not** start playback; Play is explicit, or Settings auto-start.
+The session now-playing card is the default (same as the phone Now Playing tab): play/pause, `np`, DJ. Do **not** put Now Playing in the browse tree. The Auto app icon (top left) returns to this default. Showing the default must **not** start playback; Play is explicit, or Settings auto-start.
 
 Pause still **stops** Icecast. Keep the live `MediaItem`. After the user pauses, report that item as paused `STATE_READY` (not idle) so Auto keeps now-playing and the bottom-right control. Do **not** do this on Auto connect. Play `prepare`s a new GET. Settings taps must not be required to restore the card.
 

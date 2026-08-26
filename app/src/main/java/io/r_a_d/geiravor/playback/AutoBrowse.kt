@@ -147,25 +147,6 @@ object AutoBrowse {
             SettingsPolicy.ABOUT_LINE,
         ).joinToString(" · ")
 
-    fun subtitle(
-        lastPlayedMeta: String?,
-        nextInQueueMeta: String?,
-        isAfkStream: Boolean?,
-    ): String? {
-        val parts = mutableListOf<String>()
-        if (lastPlayedMeta != null) {
-            parts.add("Prev: $lastPlayedMeta")
-        }
-        when (isAfkStream) {
-            false -> parts.add("Next: ???")
-            true -> if (nextInQueueMeta != null) {
-                parts.add("Next: $nextInQueueMeta")
-            }
-            null -> Unit
-        }
-        return parts.takeIf { it.isNotEmpty() }?.joinToString(" · ")
-    }
-
     private fun displayEntries(prefix: String, entries: List<ListEntry>): List<BrowseNode> =
         entries.mapIndexed { index, entry ->
             BrowseNode(

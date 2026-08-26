@@ -2,7 +2,6 @@ package io.r_a_d.geiravor.playback
 
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
-import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import uniffi.geiravor_core.ListEntry
@@ -103,61 +102,6 @@ class AutoBrowseTest {
                 sampleStatus(),
                 AutoSettingsSnapshot(vehicleOn = true, plugOn = false),
             ).isEmpty(),
-        )
-    }
-
-    @Test
-    fun subtitleShowsPrevAndNextWhenAfk() {
-        assertEquals(
-            "Prev: Hirasawa Susumu - Gats · Next: Aimer - ninelie",
-            AutoBrowse.subtitle(
-                lastPlayedMeta = "Hirasawa Susumu - Gats",
-                nextInQueueMeta = "Aimer - ninelie",
-                isAfkStream = true,
-            ),
-        )
-    }
-
-    @Test
-    fun subtitleOmitsPrevWhenLastPlayedEmpty() {
-        assertEquals(
-            "Next: Aimer - ninelie",
-            AutoBrowse.subtitle(
-                lastPlayedMeta = null,
-                nextInQueueMeta = "Aimer - ninelie",
-                isAfkStream = true,
-            ),
-        )
-    }
-
-    @Test
-    fun subtitleLiveDjNextIsUnknown() {
-        assertEquals(
-            "Prev: Previous - Song · Next: ???",
-            AutoBrowse.subtitle(
-                lastPlayedMeta = "Previous - Song",
-                nextInQueueMeta = "Should Be Hidden - Track",
-                isAfkStream = false,
-            ),
-        )
-    }
-
-    @Test
-    fun subtitleOmitsNextOnlyWhenAfkQueueEmpty() {
-        assertEquals(
-            "Prev: Hirasawa Susumu - Gats",
-            AutoBrowse.subtitle(
-                lastPlayedMeta = "Hirasawa Susumu - Gats",
-                nextInQueueMeta = null,
-                isAfkStream = true,
-            ),
-        )
-        assertNull(
-            AutoBrowse.subtitle(
-                lastPlayedMeta = null,
-                nextInQueueMeta = null,
-                isAfkStream = true,
-            ),
         )
     }
 

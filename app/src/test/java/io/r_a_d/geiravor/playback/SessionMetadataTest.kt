@@ -4,6 +4,7 @@ import androidx.media3.common.MediaMetadata
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Test
 import uniffi.geiravor_core.Dj
 import uniffi.geiravor_core.ListEntry
@@ -23,14 +24,21 @@ class SessionMetadataTest {
     }
 
     @Test
-    fun emptyArtistStaysEmpty() {
-        val card = requireNotNull(
-            SessionMetadata.card(
-                sampleStatus().copy(np = "just a title", artist = "", title = "just a title"),
-            ),
-        )
-        assertEquals("just a title", card.title)
-        assertEquals("", card.artist)
+    fun blankArtistIsDjOnlyOnShadeAndAuto() {
+        for (artist in listOf("", " ")) {
+            val card = requireNotNull(
+                SessionMetadata.card(
+                    sampleStatus().copy(np = "just a title", artist = artist, title = "just a title"),
+                ),
+            )
+            assertEquals("just a title", card.title)
+            assertEquals("", card.artist)
+            assertEquals("Hanyuu-sama", SessionMetadata.shadeArtist(card))
+            val meta = SessionMetadata.sessionMetadata(card)
+            assertEquals("Hanyuu-sama", meta.artist.toString())
+            assertEquals("Hanyuu-sama", meta.subtitle.toString())
+            assertNull(meta.description)
+        }
     }
 
     @Test
@@ -39,26 +47,38 @@ class SessionMetadataTest {
     }
 
     @Test
-    fun cardSubtitleFollowsAutoPrevNext() {
-        val afk = requireNotNull(
-            SessionMetadata.card(
-                sampleStatus(
-                    lastPlayed = listOf(ListEntry("Hirasawa Susumu - Gats", "Hirasawa Susumu", "Gats", 1, false)),
-                    queue = listOf(ListEntry("Aimer - ninelie", "Aimer", "ninelie", 2, false)),
-                ),
-            ),
-        )
-        assertEquals("Prev: Hirasawa Susumu - Gats · Next: Aimer - ninelie", afk.subtitle)
-        val liveDj = requireNotNull(
-            SessionMetadata.card(
-                sampleStatus(
-                    isAfkStream = false,
-                    lastPlayed = listOf(ListEntry("Previous - Song", "", "Previous - Song", 1, false)),
-                    queue = listOf(ListEntry("Hidden - Track", "", "Hidden - Track", 2, false)),
-                ),
-            ),
-        )
-        assertEquals("Prev: Previous - Song · Next: ???", liveDj.subtitle)
+    fun sessionMetadataIsTitleArtistAndDj() {
+        val card = requireNotNull(SessionMetadata.card(sampleStatus()))
+        val meta = SessionMetadata.sessionMetadata(card)
+        assertEquals("Gats", meta.title.toString())
+        assertEquals("Gats", meta.displayTitle.toString())
+        assertEquals("Hirasawa Susumu | Hanyuu-sama", meta.artist.toString())
+        assertEquals("Hirasawa Susumu", meta.subtitle.toString())
+        assertEquals("Hanyuu-sama", meta.description.toString())
+        assertEquals("Hanyuu-sama", meta.albumArtist.toString())
+        assertFalse(meta.subtitle.toString().contains(" | "))
+        assertFalse(meta.description.toString().startsWith("DJ:"))
+        assertFalse(meta.subtitle.toString().contains("Next:"))
+    }
+
+    @Test
+    fun shadeArtistKeepsPipeAndDjWhenEllipsizing() {
+        val card = requireNotNull(SessionMetadata.card(sampleStatus()))
+        assertEquals("Hirasawa Susumu | Hanyuu-sama", SessionMetadata.shadeArtist(card))
+        val tight = SessionMetadata.shadeArtist(card, maxChars = 22)
+        assertTrue(tight.endsWith(" | Hanyuu-sama"))
+        assertTrue(tight.contains("…"))
+        assertFalse(tight.contains("Hirasawa Susumu |"))
+        val noRoom = SessionMetadata.ellipsizeKeepingSuffix("Hirasawa Susumu", " | Hanyuu-sama", 8)
+        assertEquals("… | Hanyuu-sama", noRoom)
+    }
+
+    @Test
+    fun shadeMaxCharsFollowsDisplayWidth() {
+        val wide = SessionMetadata.shadeMaxChars(widthPx = 1080, density = 3f, fontScale = 1f)
+        val narrow = SessionMetadata.shadeMaxChars(widthPx = 480, density = 1.5f, fontScale = 1f)
+        assertTrue(wide > narrow)
+        assertTrue(narrow >= 8)
     }
 
     @Test

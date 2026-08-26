@@ -14,6 +14,7 @@ import uniffi.geiravor_core.Status
 internal class LiveStationPlayer(
     private val exo: ExoPlayer,
     private val songWindow: () -> SongProgress? = { null },
+    private val shadeMaxChars: () -> Int? = { null },
 ) : ForwardingPlayer(exo) {
     @Volatile
     private var apiMetadata: MediaMetadata? = null
@@ -37,7 +38,7 @@ internal class LiveStationPlayer(
     }
 
     fun applyStatus(status: Status?) {
-        val meta = SessionMetadata.fromStatus(status)
+        val meta = SessionMetadata.fromStatus(status, shadeMaxChars())
         apiMetadata = meta
         if (meta != null) {
             exo.setPlaylistMetadata(meta)

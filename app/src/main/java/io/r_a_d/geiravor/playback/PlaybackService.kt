@@ -62,8 +62,9 @@ class PlaybackService : MediaLibraryService() {
             .setWakeMode(C.WAKE_MODE_NETWORK)
             .build()
         exo.volume = LivePlaybackPolicy.DEFAULT_GAIN
-        exo.setMediaItem(SessionMetadata.liveMediaItem(radio.snapshot()))
-        val player = LiveStationPlayer(exo) { radio.progress() }
+        val shadeMaxChars = { SessionMetadata.shadeMaxChars(resources) }
+        exo.setMediaItem(SessionMetadata.liveMediaItem(radio.snapshot(), shadeMaxChars = shadeMaxChars()))
+        val player = LiveStationPlayer(exo, { radio.progress() }, shadeMaxChars)
         player.onWantsPlayback = { radio.setPlaying(it) }
         player.applyStatus(radio.snapshot())
         player.addListener(
@@ -355,20 +356,17 @@ class PlaybackService : MediaLibraryService() {
                     MediaConstants.EXTRAS_VALUE_CONTENT_STYLE_LIST_ITEM,
                 )
             }
-            val card = SessionMetadata.card(status())
-            val metadata = MediaMetadata.Builder()
-                .setTitle(card?.title ?: "r/a/dio")
-                .setArtist(card?.artist)
-                .setAlbumArtist(card?.albumArtist)
+            val metadata = (SessionMetadata.fromStatus(status())
+                ?: MediaMetadata.Builder().setTitle("r/a/dio").build())
+                .buildUpon()
                 .setIsBrowsable(true)
                 .setIsPlayable(true)
                 .setExtras(extras)
-            card?.subtitle?.let { metadata.setSubtitle(it) }
-            card?.artworkUrl?.let { metadata.setArtworkUri(android.net.Uri.parse(it)) }
+                .build()
             return MediaItem.Builder()
                 .setMediaId(AutoBrowse.ROOT)
                 .setUri(LivePlaybackPolicy.STREAM_URL)
-                .setMediaMetadata(metadata.build())
+                .setMediaMetadata(metadata)
                 .build()
         }
 

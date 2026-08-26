@@ -3,14 +3,14 @@ package io.r_a_d.geiravor.playback
 import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
+import android.graphics.drawable.BitmapDrawable
 import android.net.Uri
 import androidx.media3.common.MediaMetadata
 import androidx.media3.common.util.BitmapLoader
-import androidx.media3.datasource.DataSourceBitmapLoader
-import com.google.common.util.concurrent.FutureCallback
+import coil.imageLoader
+import coil.request.ImageRequest
 import com.google.common.util.concurrent.Futures
 import com.google.common.util.concurrent.ListenableFuture
-import com.google.common.util.concurrent.MoreExecutors
 import com.google.common.util.concurrent.SettableFuture
 import io.r_a_d.geiravor.R
 
@@ -41,27 +41,37 @@ object DjArtwork {
 internal class DjArtworkLoader(
     private val context: Context,
 ) : BitmapLoader {
-    private val http = DataSourceBitmapLoader(context)
+    override fun supportsMimeType(mimeType: String): Boolean = mimeType.startsWith("image/")
 
-    override fun supportsMimeType(mimeType: String): Boolean = http.supportsMimeType(mimeType)
-
-    override fun decodeBitmap(data: ByteArray): ListenableFuture<Bitmap> = http.decodeBitmap(data)
+    override fun decodeBitmap(data: ByteArray): ListenableFuture<Bitmap> {
+        val bitmap = BitmapFactory.decodeByteArray(data, 0, data.size, DjArtwork.decodeOptions())
+        return Futures.immediateFuture(
+            bitmap?.let { DjArtwork.softwareCopy(it) } ?: DjArtwork.mystery(context),
+        )
+    }
 
     override fun loadBitmap(uri: Uri): ListenableFuture<Bitmap> {
         val out = SettableFuture.create<Bitmap>()
-        Futures.addCallback(
-            http.loadBitmap(uri),
-            object : FutureCallback<Bitmap> {
-                override fun onSuccess(result: Bitmap) {
-                    out.set(DjArtwork.softwareCopy(result))
-                }
-
-                override fun onFailure(t: Throwable) {
+        val key = uri.toString()
+        val request = ImageRequest.Builder(context)
+            .data(uri)
+            .size(DjArtwork.MAX_EDGE_PX)
+            .allowHardware(false)
+            .memoryCacheKey(key)
+            .diskCacheKey(key)
+            .target(
+                onSuccess = { drawable ->
+                    val bitmap = (drawable as? BitmapDrawable)?.bitmap
+                    out.set(
+                        bitmap?.let { DjArtwork.softwareCopy(it) } ?: DjArtwork.mystery(context),
+                    )
+                },
+                onError = {
                     out.set(DjArtwork.mystery(context))
-                }
-            },
-            MoreExecutors.directExecutor(),
-        )
+                },
+            )
+            .build()
+        context.imageLoader.enqueue(request)
         return out
     }
 

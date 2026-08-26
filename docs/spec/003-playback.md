@@ -40,7 +40,7 @@ Manifest: `FOREGROUND_SERVICE` + `FOREGROUND_SERVICE_MEDIA_PLAYBACK`. Start type
 
 ## Notification
 
-Media3 media notification. Title / artist / album artist (DJ) / DJ artwork come from `/api` on the live `MediaItem` (mystery-DJ fallback if the image fails). Do not leave those only on playlist metadata: Auto and the shade read the item and ExoPlayer’s metadata event, where item fields win. On API 33+ we may ask `POST_NOTIFICATIONS` on Play so the shade can show it. Playback does **not** wait on grant; deny or ignore still plays and pauses. Channel for playback.
+Media3 media notification. Title is the current track (up to two lines). Second line is `artist | dj.djname` (one line; newlines are not rendered). Ellipsize the artist so `| DJ` stays visible; do not ellipsize away the `|`. No artist (`""` or whitespace): DJ only, no pipe. No next/prev on the shade. Artwork uses the Coil DJ-image cache. On API 33+ we may ask `POST_NOTIFICATIONS` on Play so the shade can show it. Playback does **not** wait on grant; deny or ignore still plays and pauses. Channel for playback.
 
 After pause/stop: keep that notification as the play target (unprepared live item, no Icecast GET). Play on it reconnects. Shade dismiss follows the platform session; do not custom-handle swipe.
 
