@@ -1,6 +1,8 @@
 package io.r_a_d.geiravor.playback
 
+import androidx.media3.common.MediaMetadata
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Test
 import uniffi.geiravor_core.Dj
@@ -57,6 +59,27 @@ class SessionMetadataTest {
             ),
         )
         assertEquals("Prev: Previous - Song · Next: ???", liveDj.subtitle)
+    }
+
+    @Test
+    fun djArtworkDecodeDoesNotDensityScale() {
+        assertFalse(DjArtwork.decodeOptions().inScaled)
+        assertEquals(android.graphics.Bitmap.Config.ARGB_8888, DjArtwork.decodeOptions().inPreferredConfig)
+    }
+
+    @Test
+    fun publishedMetadataPrefersApiCardOverExoCombined() {
+        val api = MediaMetadata.Builder()
+            .setTitle("Gats")
+            .setArtist("Hirasawa Susumu")
+            .setAlbumArtist("Hanyuu-sama")
+            .build()
+        val exo = MediaMetadata.Builder().setTitle("r/a/dio").setArtist("r/a/dio").build()
+        val published = SessionMetadata.published(api, exo)
+        assertEquals("Gats", published.title.toString())
+        assertEquals("Hirasawa Susumu", published.artist.toString())
+        assertEquals("Hanyuu-sama", published.albumArtist.toString())
+        assertEquals("r/a/dio", SessionMetadata.published(null, exo).title.toString())
     }
 
     @Test

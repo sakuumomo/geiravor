@@ -15,7 +15,7 @@ Never download the `.mp3` in unit tests or CI.
 There is one playable `MediaItem`: the stream URL. Last played / queue items are display-only.
 
 - **Play** connects (or reconnects) to live with a new HTTP GET. Do not resume a paused buffer.
-- **Pause** (Auto, notification, headset UI) **stops**: `stop` + drop the live buffer so Icecast is not left downloading or cached (`playWhenReady = false` is wrong). Then set the live `MediaItem` **without** `prepare` so the notification/Auto play target remains. Explicit Play `prepare`s a new GET (`onPlaybackResumption` if the item is missing).
+- **Pause** (Auto, notification, headset UI) **stops**: `stop` + drop the live buffer so Icecast is not left downloading or cached (`playWhenReady = false` is wrong). Keep the same live `MediaItem` **without** `prepare` (do not `clearMediaItems`). Explicit Play `prepare`s a new GET. Do not swallow that Play with `ignoreNextPlay`.
 - **Stop** is the same teardown.
 - **Seek**, skip next, skip previous are not advertised and are rejected.
 - While the user wants play, player error or stream end **auto-reconnects**. After pause/stop, do **not** reconnect.
@@ -40,7 +40,7 @@ Manifest: `FOREGROUND_SERVICE` + `FOREGROUND_SERVICE_MEDIA_PLAYBACK`. Start type
 
 ## Notification
 
-Media3 media notification. On API 33+ we may ask `POST_NOTIFICATIONS` on Play so the shade can show it. Playback does **not** wait on grant; deny or ignore still plays and pauses. Channel for playback.
+Media3 media notification. Title / artist / album artist (DJ) / DJ artwork come from `/api` on the live `MediaItem` (mystery-DJ fallback if the image fails). Do not leave those only on playlist metadata: Auto and the shade read the item and ExoPlayer’s metadata event, where item fields win. On API 33+ we may ask `POST_NOTIFICATIONS` on Play so the shade can show it. Playback does **not** wait on grant; deny or ignore still plays and pauses. Channel for playback.
 
 After pause/stop: keep that notification as the play target (unprepared live item, no Icecast GET). Play on it reconnects. Shade dismiss follows the platform session; do not custom-handle swipe.
 

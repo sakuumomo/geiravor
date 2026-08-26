@@ -9,13 +9,21 @@ import uniffi.geiravor_core.ListEntry
 
 class AutoBrowseTest {
     @Test
-    fun browseRootMirrorsSongsSections() {
-        val afk = AutoBrowse.rootChildren(isAfkStream = true)
+    fun browseRootIsSongsAndSettingsTabs() {
+        val root = AutoBrowse.rootChildren()
+        assertEquals(listOf(AutoBrowse.SONGS, AutoBrowse.SETTINGS), root.map { it.id })
+        assertTrue(root.all { it.browsable && !it.playable })
+        assertTrue(root.none { it.id == AutoBrowse.NOW_PLAYING })
+        assertTrue(root.none { it.id == AutoBrowse.QUEUE })
+    }
+
+    @Test
+    fun songsFolderMirrorsPhoneSongsSections() {
+        val afk = AutoBrowse.children(AutoBrowse.SONGS, sampleStatus(isAfkStream = true))
         assertEquals(listOf(AutoBrowse.LAST_PLAYED, AutoBrowse.QUEUE), afk.map { it.id })
         assertTrue(afk.all { it.browsable && !it.playable })
-        val liveDj = AutoBrowse.rootChildren(isAfkStream = false)
+        val liveDj = AutoBrowse.children(AutoBrowse.SONGS, sampleStatus(isAfkStream = false))
         assertEquals(listOf(AutoBrowse.LAST_PLAYED), liveDj.map { it.id })
-        assertTrue(liveDj.none { it.id == AutoBrowse.NOW_PLAYING })
     }
 
     @Test
@@ -23,6 +31,9 @@ class AutoBrowseTest {
         assertFalse(AutoBrowse.allowsPlayback(mediaId = "lp:0", uri = null))
         assertFalse(AutoBrowse.allowsPlayback(mediaId = AutoBrowse.LAST_PLAYED, uri = null))
         assertFalse(AutoBrowse.allowsPlayback(mediaId = AutoBrowse.QUEUE, uri = null))
+        assertFalse(AutoBrowse.allowsPlayback(mediaId = AutoBrowse.SONGS, uri = null))
+        assertFalse(AutoBrowse.allowsPlayback(mediaId = AutoBrowse.SETTINGS, uri = null))
+        assertFalse(AutoBrowse.allowsPlayback(mediaId = AutoBrowse.SETTING_VEHICLE, uri = LivePlaybackPolicy.STREAM_URL))
         assertTrue(
             AutoBrowse.allowsPlayback(
                 mediaId = AutoBrowse.NOW_PLAYING,
@@ -55,8 +66,44 @@ class AutoBrowseTest {
             isAfkStream = false,
             queue = listOf(entry("Should Be Hidden - Track")),
         )
-        assertTrue(AutoBrowse.children(AutoBrowse.ROOT, liveDj).none { it.id == AutoBrowse.QUEUE })
+        assertTrue(AutoBrowse.children(AutoBrowse.SONGS, liveDj).none { it.id == AutoBrowse.QUEUE })
         assertTrue(AutoBrowse.children(AutoBrowse.QUEUE, liveDj).isEmpty())
+        assertTrue(AutoBrowse.rootChildren().none { it.id == AutoBrowse.QUEUE })
+    }
+
+    @Test
+    fun settingsTogglesArePlayableButNeverTheLiveStream() {
+        val off = AutoBrowse.children(
+            AutoBrowse.SETTINGS,
+            sampleStatus(),
+            AutoSettingsSnapshot(vehicleOn = false, plugOn = true, versionName = "0.1.0"),
+        )
+        assertEquals(
+            listOf(AutoBrowse.SETTING_VEHICLE, AutoBrowse.SETTING_PLUG, AutoBrowse.SETTING_ABOUT),
+            off.map { it.id },
+        )
+        assertEquals("Off", off[0].subtitle)
+        assertEquals("On", off[1].subtitle)
+        assertTrue(off[0].playable && !off[0].browsable)
+        assertTrue(off[1].playable && !off[1].browsable)
+        assertFalse(off[2].playable)
+        assertFalse(off[2].browsable)
+        assertTrue(AutoBrowse.isSettingsToggle(AutoBrowse.SETTING_VEHICLE))
+        assertTrue(AutoBrowse.isSettingsToggle(AutoBrowse.SETTING_PLUG))
+        assertFalse(AutoBrowse.isSettingsToggle(AutoBrowse.SETTING_ABOUT))
+        assertFalse(
+            AutoBrowse.allowsPlayback(
+                mediaId = AutoBrowse.SETTING_VEHICLE,
+                uri = "content://io.r_a_d.geiravor/settings/vehicle",
+            ),
+        )
+        assertTrue(
+            AutoBrowse.children(
+                AutoBrowse.SETTING_VEHICLE,
+                sampleStatus(),
+                AutoSettingsSnapshot(vehicleOn = true, plugOn = false),
+            ).isEmpty(),
+        )
     }
 
     @Test
@@ -110,6 +157,50 @@ class AutoBrowseTest {
                 lastPlayedMeta = null,
                 nextInQueueMeta = null,
                 isAfkStream = true,
+            ),
+        )
+    }
+
+    @Test
+    fun skipReplacingLiveStreamOnlyWhileActuallyPlaying() {
+        assertTrue(
+            AutoBrowse.skipRedundantLiveSet(
+                currentMediaId = AutoBrowse.NOW_PLAYING,
+                currentUri = LivePlaybackPolicy.STREAM_URL,
+                incoming = listOf(AutoBrowse.NOW_PLAYING to LivePlaybackPolicy.STREAM_URL),
+                activelyPlaying = true,
+            ),
+        )
+        assertTrue(
+            AutoBrowse.skipRedundantLiveSet(
+                currentMediaId = AutoBrowse.NOW_PLAYING,
+                currentUri = LivePlaybackPolicy.STREAM_URL,
+                incoming = listOf(AutoBrowse.SETTING_VEHICLE to "content://io.r_a_d.geiravor/settings/vehicle"),
+                activelyPlaying = true,
+            ),
+        )
+        assertFalse(
+            AutoBrowse.skipRedundantLiveSet(
+                currentMediaId = AutoBrowse.NOW_PLAYING,
+                currentUri = LivePlaybackPolicy.STREAM_URL,
+                incoming = listOf(AutoBrowse.NOW_PLAYING to LivePlaybackPolicy.STREAM_URL),
+                activelyPlaying = false,
+            ),
+        )
+        assertTrue(
+            AutoBrowse.skipRedundantLiveSet(
+                currentMediaId = AutoBrowse.NOW_PLAYING,
+                currentUri = LivePlaybackPolicy.STREAM_URL,
+                incoming = listOf(AutoBrowse.SETTING_PLUG to "content://io.r_a_d.geiravor/settings/plug"),
+                activelyPlaying = false,
+            ),
+        )
+        assertFalse(
+            AutoBrowse.skipRedundantLiveSet(
+                currentMediaId = null,
+                currentUri = null,
+                incoming = listOf(AutoBrowse.NOW_PLAYING to LivePlaybackPolicy.STREAM_URL),
+                activelyPlaying = true,
             ),
         )
     }

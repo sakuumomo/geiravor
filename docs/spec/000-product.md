@@ -43,7 +43,7 @@ While `MAJOR == 0`, MINOR may add features; 0.x is not API-stable.
 - Songs tab: last played (5) and queue (5) from `timestamp`, relative times. Hide queue when `isafkstream == false`. Mark `type == 1` as `/r/`. Bottom tabs (Now Playing \| Songs \| Settings). Songs/Settings use section tabs at every width.
 - Volume 0–100, default 80, on now-playing and Android Auto (same persisted gain).
 - Media notification, lockscreen, Bluetooth. Unplug and audio-focus loss stop playback. Optional auto-start on plug and in vehicle (independent, both default off).
-- Android Auto: play/stop, metadata, prev/next **text**, browse Last Played and (when AFK) Queue.
+- Android Auto: play/stop, metadata, prev/next **text**, browse **Songs** (Last Played, Queue when AFK) and **Settings**. Session Queue chrome is hidden. Fave on the now-playing card is a stub until 0.2.0 nick faves.
 - Stream-down / offline as a state (player/HTTP error — not a magic title).
 - Process-wide `/api` poller.
 

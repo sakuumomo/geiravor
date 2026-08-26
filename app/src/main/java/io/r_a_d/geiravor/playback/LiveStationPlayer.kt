@@ -7,6 +7,7 @@ import androidx.media3.common.MediaMetadata
 import androidx.media3.common.PlaybackException
 import androidx.media3.common.Player
 import androidx.media3.exoplayer.ExoPlayer
+import java.util.IdentityHashMap
 import uniffi.geiravor_core.SongProgress
 import uniffi.geiravor_core.Status
 
@@ -26,6 +27,8 @@ internal class LiveStationPlayer(
     private val mainHandler = Handler(exo.applicationLooper)
     private val clearIgnorePlay = Runnable { ignorePlay = false }
     private var ignorePlay = false
+    private var holdAsPaused = false
+    private val listeners = IdentityHashMap<Player.Listener, Player.Listener>()
     private val reconnect = Runnable {
         if (!LivePlaybackPolicy.shouldReconnect(wantsPlayback)) {
             return@Runnable
@@ -38,6 +41,12 @@ internal class LiveStationPlayer(
         apiMetadata = meta
         if (meta != null) {
             exo.setPlaylistMetadata(meta)
+        }
+        val current = exo.currentMediaItem
+        val updated = SessionMetadata.replaceLiveMetadata(current, meta)
+        val index = exo.currentMediaItemIndex
+        if (updated != null && index >= 0) {
+            exo.replaceMediaItem(index, updated)
         }
     }
 
@@ -58,7 +67,7 @@ internal class LiveStationPlayer(
     }
 
     override fun getAvailableCommands(): Player.Commands {
-        return super.getAvailableCommands().buildUpon()
+        val commands = super.getAvailableCommands().buildUpon()
             .addAll(
                 COMMAND_PLAY_PAUSE,
                 COMMAND_PREPARE,
@@ -78,8 +87,32 @@ internal class LiveStationPlayer(
                 COMMAND_SEEK_TO_DEFAULT_POSITION,
                 COMMAND_SEEK_TO_MEDIA_ITEM,
             )
-            .build()
+        if (LivePlaybackPolicy.hideQueueChrome()) {
+            commands.remove(COMMAND_GET_TIMELINE)
+        }
+        return commands.build()
     }
+
+    override fun addListener(listener: Player.Listener) {
+        val wrapped = HeldPausedListener(listener)
+        listeners[listener] = wrapped
+        super.addListener(wrapped)
+    }
+
+    override fun removeListener(listener: Player.Listener) {
+        super.removeListener(listeners.remove(listener) ?: listener)
+    }
+
+    override fun getPlaybackState(): Int = sessionState().state
+
+    override fun getPlayWhenReady(): Boolean = sessionState().playWhenReady
+
+    override fun isPlaying(): Boolean =
+        LivePlaybackPolicy.showAsPlaying(
+            playbackState = getPlaybackState(),
+            isPlaying = super.isPlaying(),
+            playWhenReady = getPlayWhenReady(),
+        )
 
     fun ignoreNextPlay() {
         ignorePlay = true
@@ -91,6 +124,7 @@ internal class LiveStationPlayer(
         if (consumeIgnorePlay()) {
             return
         }
+        holdAsPaused = false
         setWantsPlayback(true)
         ensureLiveItem()
         super.play()
@@ -117,6 +151,7 @@ internal class LiveStationPlayer(
             if (consumeIgnorePlay()) {
                 return
             }
+            holdAsPaused = false
             setWantsPlayback(true)
             ensureLiveItem()
         }
@@ -145,7 +180,12 @@ internal class LiveStationPlayer(
     }
 
     override fun getMediaMetadata(): MediaMetadata {
-        return apiMetadata ?: super.getMediaMetadata()
+        return SessionMetadata.published(apiMetadata, super.getMediaMetadata())
+    }
+
+    override fun getCurrentMediaItem(): MediaItem? {
+        val current = super.getCurrentMediaItem() ?: return null
+        return SessionMetadata.replaceLiveMetadata(current, apiMetadata) ?: current
     }
 
     override fun getDuration(): Long = SessionMetadata.durationMs(songWindow())
@@ -160,12 +200,85 @@ internal class LiveStationPlayer(
 
     override fun isCurrentMediaItemLive(): Boolean = true
 
-    private fun liveItem(): MediaItem = MediaItem.fromUri(LivePlaybackPolicy.STREAM_URL)
+    override fun setMediaItem(mediaItem: MediaItem) {
+        if (skipRedundant(listOf(mediaItem))) {
+            return
+        }
+        super.setMediaItem(mediaItem)
+    }
+
+    override fun setMediaItem(mediaItem: MediaItem, resetPosition: Boolean) {
+        if (skipRedundant(listOf(mediaItem))) {
+            return
+        }
+        super.setMediaItem(mediaItem, resetPosition)
+    }
+
+    override fun setMediaItem(mediaItem: MediaItem, startPositionMs: Long) {
+        if (skipRedundant(listOf(mediaItem))) {
+            return
+        }
+        super.setMediaItem(mediaItem, startPositionMs)
+    }
+
+    override fun setMediaItems(mediaItems: List<MediaItem>) {
+        if (skipRedundant(mediaItems)) {
+            return
+        }
+        super.setMediaItems(mediaItems)
+    }
+
+    override fun setMediaItems(mediaItems: List<MediaItem>, resetPosition: Boolean) {
+        if (skipRedundant(mediaItems)) {
+            return
+        }
+        super.setMediaItems(mediaItems, resetPosition)
+    }
+
+    override fun setMediaItems(
+        mediaItems: List<MediaItem>,
+        startIndex: Int,
+        startPositionMs: Long,
+    ) {
+        if (skipRedundant(mediaItems)) {
+            return
+        }
+        super.setMediaItems(mediaItems, startIndex, startPositionMs)
+    }
+
+    override fun replaceMediaItem(index: Int, mediaItem: MediaItem) {
+        if (skipRedundant(listOf(mediaItem))) {
+            return
+        }
+        super.replaceMediaItem(index, mediaItem)
+    }
+
+    override fun replaceMediaItems(fromIndex: Int, toIndex: Int, mediaItems: List<MediaItem>) {
+        if (skipRedundant(mediaItems)) {
+            return
+        }
+        super.replaceMediaItems(fromIndex, toIndex, mediaItems)
+    }
+
+    private fun liveItem(): MediaItem = SessionMetadata.liveMediaItem(apiMetadata)
+
+    private fun skipRedundant(items: List<MediaItem>): Boolean {
+        val current = exo.currentMediaItem
+        val activelyPlaying = exo.playWhenReady &&
+            (exo.playbackState == STATE_READY || exo.playbackState == STATE_BUFFERING)
+        return AutoBrowse.skipRedundantLiveSet(
+            currentMediaId = current?.mediaId,
+            currentUri = current?.localConfiguration?.uri?.toString(),
+            incoming = items.map { it.mediaId to it.localConfiguration?.uri?.toString() },
+            activelyPlaying = activelyPlaying,
+        )
+    }
 
     private fun ensureLiveItem() {
-        val idle = exo.playbackState == STATE_IDLE || exo.playbackState == STATE_ENDED
-        if (exo.currentMediaItem == null || idle) {
+        if (exo.currentMediaItem == null) {
             exo.setMediaItem(liveItem())
+        }
+        if (exo.playbackState == STATE_IDLE || exo.playbackState == STATE_ENDED) {
             exo.prepare()
         }
     }
@@ -198,11 +311,45 @@ internal class LiveStationPlayer(
     private fun teardown() {
         setWantsPlayback(false)
         mainHandler.removeCallbacks(reconnect)
+        ignorePlay = false
+        mainHandler.removeCallbacks(clearIgnorePlay)
+        holdAsPaused = LivePlaybackPolicy.leaveUnpreparedLiveItemAfterStop()
         exo.playWhenReady = false
         exo.stop()
-        exo.clearMediaItems()
-        if (LivePlaybackPolicy.leaveUnpreparedLiveItemAfterStop()) {
+        if (LivePlaybackPolicy.clearPlaylistOnStop()) {
+            exo.clearMediaItems()
+        }
+        if (exo.currentMediaItem == null && LivePlaybackPolicy.leaveUnpreparedLiveItemAfterStop()) {
             exo.setMediaItem(liveItem())
+        }
+    }
+
+    private fun sessionState(): LivePlaybackPolicy.SessionPlaybackState =
+        LivePlaybackPolicy.sessionPlaybackState(
+            playbackState = super.getPlaybackState(),
+            playWhenReady = super.getPlayWhenReady(),
+            wantsPlayback = wantsPlayback,
+            hasLiveItem = exo.currentMediaItem != null,
+            holdAsPaused = holdAsPaused,
+        )
+
+    private inner class HeldPausedListener(
+        private val delegate: Player.Listener,
+    ) : Player.Listener by delegate {
+        override fun onPlaybackStateChanged(playbackState: Int) {
+            delegate.onPlaybackStateChanged(getPlaybackState())
+        }
+
+        override fun onPlayWhenReadyChanged(playWhenReady: Boolean, reason: Int) {
+            delegate.onPlayWhenReadyChanged(getPlayWhenReady(), reason)
+        }
+
+        override fun onIsPlayingChanged(isPlaying: Boolean) {
+            delegate.onIsPlayingChanged(isPlaying())
+        }
+
+        override fun onMediaMetadataChanged(mediaMetadata: MediaMetadata) {
+            delegate.onMediaMetadataChanged(SessionMetadata.published(apiMetadata, mediaMetadata))
         }
     }
 }

@@ -19,7 +19,7 @@ Must cover:
 
 ## Kotlin
 
-Fake UniFFI core. Cover pause→stop (drop live buffer, no reconnect while stopped), idle notification kept after stop, notification permission path (compat; play does not require it), Auto browse hiding Queue when not AFK, auto-start on plug and in vehicle default off (independent), Songs Queue section hidden when not AFK, volume ±5 for Auto.
+Fake UniFFI core. Cover pause→stop (drop live buffer, no reconnect while stopped), idle notification kept after stop, playlist kept on stop, Play after stop is not swallowed, notification permission path (compat; play does not require it), Auto root Songs+Settings, Queue folder hidden when not AFK, settings toggle rows, auto-start on plug and in vehicle default off (independent), Songs Queue section hidden when not AFK, volume ±5 for Auto, queue chrome hidden, Fave stub, live `MediaItem` carries split `np` / DJ artwork.
 
 ## CI
 
@@ -29,6 +29,6 @@ Fake UniFFI core. Cover pause→stop (drop live buffer, no reconnect while stopp
 
 Phone: play/stop, volume, unplug, notification play/pause (stays after pause; play even if permission denied), rotation, airplane, audio-focus interruption, AFK vs live DJ next `???` / queue hide, Settings auto-start on plug / in vehicle (both default off) and version.
 
-DHU (optional): `nix develop -c ./scripts/dhu.sh` with Waydroid + Android Auto Head Unit Server. App appears, play/stop, no skip buttons, prev/next text, browse does not change audio. Not a merge gate for phone work.
+DHU (optional): `nix develop -c ./scripts/dhu.sh` with Waydroid + Android Auto Head Unit Server. App appears, play/stop, no skip buttons, no Queue chrome, prev/next text, Songs and Settings tabs, browse does not change audio. Not a merge gate for phone work.
 
 Do not claim real-car Auto until someone runs it.

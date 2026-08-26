@@ -12,6 +12,8 @@ Persist with DataStore (not `SharedPreferences` directly).
 
 Show app `versionName` (semver) in Settings → General, plus the project name **Geiravor** and that it is based on r/a/dio’s Valkyrie.
 
+Android Auto Settings tab surfaces the same two auto-start flags (On/Off subtitle) and About. Tapping an auto-start row flips that flag without playing the stream. About is display-only. Phone Settings → General / Auto still own the same DataStore keys; a switch must turn **off** as well as on.
+
 ## 0.2.0
 
 | Key | Notes |

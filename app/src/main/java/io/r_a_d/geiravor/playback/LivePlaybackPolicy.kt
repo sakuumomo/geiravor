@@ -8,6 +8,7 @@ object LivePlaybackPolicy {
     const val VOLUME_STEP_PERCENT = 5f
     const val VOLUME_UP = "io.r_a_d.geiravor.VOLUME_UP"
     const val VOLUME_DOWN = "io.r_a_d.geiravor.VOLUME_DOWN"
+    const val FAVE = "io.r_a_d.geiravor.FAVE"
 
     enum class Command {
         PLAY,
@@ -44,6 +45,10 @@ object LivePlaybackPolicy {
 
     fun volumeLabel(gain: Float): String = toPercent(gain).toInt().toString()
 
+    fun hideQueueChrome(): Boolean = true
+
+    fun faveIsStub(): Boolean = true
+
     fun shouldReconnect(userWantsPlay: Boolean): Boolean = userWantsPlay
 
     fun reconnectDelayMs(): Long = 2_000L
@@ -55,6 +60,41 @@ object LivePlaybackPolicy {
     fun leaveUnpreparedLiveItemAfterStop(): Boolean = true
 
     fun leavePlaybackCommand(): Command = Command.PAUSE
+
+    fun clearPlaylistOnStop(): Boolean = false
+
+    fun ignorePlayOnPlaybackResumption(): Boolean = false
+
+    fun ignorePlayOnLiveItemSet(): Boolean = false
+
+    data class SessionPlaybackState(
+        val state: Int,
+        val playWhenReady: Boolean,
+    )
+
+    fun sessionPlaybackState(
+        playbackState: Int,
+        playWhenReady: Boolean,
+        wantsPlayback: Boolean,
+        hasLiveItem: Boolean,
+        holdAsPaused: Boolean,
+    ): SessionPlaybackState {
+        val hold = holdAsPaused &&
+            !wantsPlayback &&
+            hasLiveItem &&
+            leaveUnpreparedLiveItemAfterStop() &&
+            (playbackState == Player.STATE_IDLE || playbackState == Player.STATE_ENDED)
+        if (!hold) {
+            return SessionPlaybackState(playbackState, playWhenReady)
+        }
+        return SessionPlaybackState(Player.STATE_READY, playWhenReady = false)
+    }
+
+    fun isAutoPackage(packageName: String): Boolean =
+        packageName == "com.google.android.projection.gearhead" ||
+            packageName.startsWith("com.google.android.projection.") ||
+            packageName == "com.android.car.media" ||
+            packageName == "com.android.car.carlauncher"
 
     fun showAsPlaying(playbackState: Int, isPlaying: Boolean, playWhenReady: Boolean): Boolean {
         if (playbackState == Player.STATE_IDLE || playbackState == Player.STATE_ENDED) {

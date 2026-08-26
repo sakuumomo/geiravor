@@ -104,6 +104,14 @@
                 libxi
                 libxrandr
                 libxfixes
+                libxinerama
+                libxxf86vm
+                libxscrnsaver
+                # DHU 2.1 NEEDED: libc++.so.1 / libc++abi.so.1 (LLVM, not libstdc++).
+                libcxx
+                systemd
+                vulkan-loader
+                libusb1
               ];
             runScript = "${sdkRoot}/extras/google/auto/desktop-head-unit";
           };

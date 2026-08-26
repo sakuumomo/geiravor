@@ -127,4 +127,41 @@ class LivePlaybackPolicyTest {
         assertEquals(0f, LivePlaybackPolicy.nudgeGain(0f, up = false), 0.0001f)
         assertEquals("80", LivePlaybackPolicy.volumeLabel(LivePlaybackPolicy.DEFAULT_GAIN))
     }
+
+    @Test
+    fun autoHidesQueueChromeAndStubsFaveUntilNickFaves() {
+        assertTrue(LivePlaybackPolicy.hideQueueChrome())
+        assertEquals("io.r_a_d.geiravor.FAVE", LivePlaybackPolicy.FAVE)
+        assertTrue(LivePlaybackPolicy.faveIsStub())
+    }
+
+    @Test
+    fun gearheadIsAutoAndPlayAfterStopIsNotSwallowed() {
+        assertTrue(LivePlaybackPolicy.isAutoPackage("com.google.android.projection.gearhead"))
+        assertFalse(LivePlaybackPolicy.isAutoPackage("io.r_a_d.geiravor"))
+        assertFalse(LivePlaybackPolicy.ignorePlayOnPlaybackResumption())
+        assertFalse(LivePlaybackPolicy.ignorePlayOnLiveItemSet())
+        assertFalse(LivePlaybackPolicy.clearPlaylistOnStop())
+    }
+
+    @Test
+    fun afterPauseIdleLiveItemHoldsAsPausedNotIdle() {
+        val held = LivePlaybackPolicy.sessionPlaybackState(
+            playbackState = Player.STATE_IDLE,
+            playWhenReady = false,
+            wantsPlayback = false,
+            hasLiveItem = true,
+            holdAsPaused = true,
+        )
+        assertEquals(Player.STATE_READY, held.state)
+        assertFalse(held.playWhenReady)
+        val beforePlay = LivePlaybackPolicy.sessionPlaybackState(
+            playbackState = Player.STATE_IDLE,
+            playWhenReady = false,
+            wantsPlayback = false,
+            hasLiveItem = true,
+            holdAsPaused = false,
+        )
+        assertEquals(Player.STATE_IDLE, beforePlay.state)
+    }
 }

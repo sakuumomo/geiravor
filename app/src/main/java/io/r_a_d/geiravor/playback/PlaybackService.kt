@@ -16,6 +16,7 @@ import androidx.media3.exoplayer.source.ProgressiveMediaSource
 import androidx.media3.session.CommandButton
 import androidx.media3.session.LibraryResult
 import androidx.media3.session.MediaConstants
+import androidx.media3.session.CacheBitmapLoader
 import androidx.media3.session.MediaLibraryService
 import androidx.media3.session.MediaSession
 import androidx.media3.session.SessionCommand
@@ -27,6 +28,7 @@ import io.r_a_d.geiravor.BuildConfig
 import io.r_a_d.geiravor.GeiravorApp
 import io.r_a_d.geiravor.MainActivity
 import io.r_a_d.geiravor.radio.RadioStore
+import io.r_a_d.geiravor.settings.SettingsPolicy
 import io.r_a_d.geiravor.settings.SettingsStore
 import uniffi.geiravor_core.Status
 import kotlinx.coroutines.CoroutineScope
@@ -60,17 +62,7 @@ class PlaybackService : MediaLibraryService() {
             .setWakeMode(C.WAKE_MODE_NETWORK)
             .build()
         exo.volume = LivePlaybackPolicy.DEFAULT_GAIN
-        exo.setMediaItem(
-            MediaItem.Builder()
-                .setUri(LivePlaybackPolicy.STREAM_URL)
-                .setMediaMetadata(
-                    MediaMetadata.Builder()
-                        .setTitle("r/a/dio")
-                        .setArtist("r/a/dio")
-                        .build(),
-                )
-                .build(),
-        )
+        exo.setMediaItem(SessionMetadata.liveMediaItem(radio.snapshot()))
         val player = LiveStationPlayer(exo) { radio.progress() }
         player.onWantsPlayback = { radio.setPlaying(it) }
         player.applyStatus(radio.snapshot())
@@ -94,19 +86,42 @@ class PlaybackService : MediaLibraryService() {
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
         )
         val settings = SettingsStore(this)
+        var vehicleOn = SettingsPolicy.AUTO_START_VEHICLE_DEFAULT
+        var plugOn = SettingsPolicy.AUTO_START_DEFAULT
         val callback = LibraryCallback(
             status = { radio.snapshot() },
+            settings = {
+                AutoSettingsSnapshot(
+                    vehicleOn = vehicleOn,
+                    plugOn = plugOn,
+                    versionName = BuildConfig.VERSION_NAME,
+                )
+            },
             player = player,
             onNudgeVolume = { up ->
                 val next = LivePlaybackPolicy.nudgeGain(player.volume, up)
                 player.volume = next
                 scope.launch { settings.setGain(next) }
-                session?.setCustomLayout(volumeButtons(next))
+                session?.setCustomLayout(nowPlayingButtons(next))
+            },
+            onToggleSetting = { id ->
+                when (id) {
+                    AutoBrowse.SETTING_VEHICLE -> {
+                        vehicleOn = !vehicleOn
+                        scope.launch { settings.setAutoStartInVehicle(vehicleOn) }
+                    }
+                    AutoBrowse.SETTING_PLUG -> {
+                        plugOn = !plugOn
+                        scope.launch { settings.setAutoStartOnPlug(plugOn) }
+                    }
+                }
+                session?.notifyChildrenChanged(AutoBrowse.SETTINGS, 3, null)
             },
         )
         session = MediaLibraryService.MediaLibrarySession.Builder(this, player, callback)
             .setId("geiravor")
             .setSessionActivity(activity)
+            .setBitmapLoader(CacheBitmapLoader(DjArtworkLoader(this)))
             .build()
         setShowNotificationForIdlePlayer(
             if (LivePlaybackPolicy.keepNotificationAfterStop()) {
@@ -118,24 +133,53 @@ class PlaybackService : MediaLibraryService() {
         scope.launch {
             settings.gain.collect { gain ->
                 exo.volume = gain
-                session?.setCustomLayout(volumeButtons(gain))
+                session?.setCustomLayout(nowPlayingButtons(gain))
+            }
+        }
+        scope.launch {
+            settings.autoStartInVehicle.collect { enabled ->
+                vehicleOn = enabled
+                session?.notifyChildrenChanged(AutoBrowse.SETTINGS, 3, null)
+            }
+        }
+        scope.launch {
+            settings.autoStartOnPlug.collect { enabled ->
+                plugOn = enabled
+                session?.notifyChildrenChanged(AutoBrowse.SETTINGS, 3, null)
             }
         }
         scope.launch {
             RadioStore.state.collect { state ->
                 player.applyStatus(state.status)
                 val library = session ?: return@collect
-                AutoBrowse.children(AutoBrowse.ROOT, state.status).let { nodes ->
-                    library.notifyChildrenChanged(AutoBrowse.ROOT, nodes.size, null)
-                }
+                val snapshot = AutoSettingsSnapshot(
+                    vehicleOn = vehicleOn,
+                    plugOn = plugOn,
+                    versionName = BuildConfig.VERSION_NAME,
+                )
+                library.notifyChildrenChanged(
+                    AutoBrowse.ROOT,
+                    AutoBrowse.children(AutoBrowse.ROOT, state.status, snapshot).size,
+                    null,
+                )
+                library.notifyChildrenChanged(
+                    AutoBrowse.SONGS,
+                    AutoBrowse.children(AutoBrowse.SONGS, state.status, snapshot).size,
+                    null,
+                )
                 library.notifyChildrenChanged(
                     AutoBrowse.LAST_PLAYED,
-                    AutoBrowse.children(AutoBrowse.LAST_PLAYED, state.status).size,
+                    AutoBrowse.children(AutoBrowse.LAST_PLAYED, state.status, snapshot).size,
                     null,
                 )
                 library.notifyChildrenChanged(
                     AutoBrowse.QUEUE,
-                    AutoBrowse.children(AutoBrowse.QUEUE, state.status).size,
+                    AutoBrowse.children(AutoBrowse.QUEUE, state.status, snapshot).size,
+                    null,
+                )
+                library.notifyChildrenChanged(
+                    AutoBrowse.SETTINGS,
+                    AutoBrowse.children(AutoBrowse.SETTINGS, state.status, snapshot).size,
                     null,
                 )
             }
@@ -160,8 +204,10 @@ class PlaybackService : MediaLibraryService() {
 
     private class LibraryCallback(
         private val status: () -> Status?,
+        private val settings: () -> AutoSettingsSnapshot,
         private val player: LiveStationPlayer,
         private val onNudgeVolume: (Boolean) -> Unit,
+        private val onToggleSetting: (String) -> Unit,
     ) : MediaLibraryService.MediaLibrarySession.Callback {
         override fun onConnect(
             session: MediaSession,
@@ -171,6 +217,7 @@ class PlaybackService : MediaLibraryService() {
                 .buildUpon()
                 .add(SessionCommand(LivePlaybackPolicy.VOLUME_UP, Bundle.EMPTY))
                 .add(SessionCommand(LivePlaybackPolicy.VOLUME_DOWN, Bundle.EMPTY))
+                .add(SessionCommand(LivePlaybackPolicy.FAVE, Bundle.EMPTY))
                 .build()
             return MediaSession.ConnectionResult.accept(sessionCommands, player.availableCommands)
         }
@@ -179,7 +226,7 @@ class PlaybackService : MediaLibraryService() {
             session: MediaSession,
             controller: MediaSession.ControllerInfo,
         ) {
-            session.setCustomLayout(controller, volumeButtons(player.volume))
+            session.setCustomLayout(controller, nowPlayingButtons(player.volume))
         }
 
         override fun onCustomCommand(
@@ -191,17 +238,34 @@ class PlaybackService : MediaLibraryService() {
             when (customCommand.customAction) {
                 LivePlaybackPolicy.VOLUME_UP -> onNudgeVolume(true)
                 LivePlaybackPolicy.VOLUME_DOWN -> onNudgeVolume(false)
+                LivePlaybackPolicy.FAVE -> {
+                    if (LivePlaybackPolicy.faveIsStub()) {
+                        return Futures.immediateFuture(SessionResult(SessionResult.RESULT_SUCCESS))
+                    }
+                }
                 else -> return Futures.immediateFuture(
                     SessionResult(SessionResult.RESULT_ERROR_NOT_SUPPORTED),
                 )
             }
             return Futures.immediateFuture(SessionResult(SessionResult.RESULT_SUCCESS))
         }
+
+        override fun onAddMediaItems(
+            session: MediaSession,
+            controller: MediaSession.ControllerInfo,
+            mediaItems: MutableList<MediaItem>,
+        ): ListenableFuture<MutableList<MediaItem>> {
+            return Futures.immediateFailedFuture(
+                UnsupportedOperationException("live stream has no playlist"),
+            )
+        }
         override fun onPlaybackResumption(
             session: MediaSession,
             controller: MediaSession.ControllerInfo,
         ): ListenableFuture<MediaSession.MediaItemsWithStartPosition> {
-            player.ignoreNextPlay()
+            if (LivePlaybackPolicy.ignorePlayOnPlaybackResumption()) {
+                player.ignoreNextPlay()
+            }
             return Futures.immediateFuture(livePlaylist())
         }
 
@@ -212,6 +276,12 @@ class PlaybackService : MediaLibraryService() {
             startIndex: Int,
             startPositionMs: Long,
         ): ListenableFuture<MediaSession.MediaItemsWithStartPosition> {
+            val toggle = mediaItems.map { it.mediaId }.firstOrNull { AutoBrowse.isSettingsToggle(it) }
+            if (toggle != null) {
+                onToggleSetting(toggle)
+                player.ignoreNextPlay()
+                return Futures.immediateFuture(currentOrLive(session))
+            }
             val playLive = mediaItems.any { item ->
                 AutoBrowse.allowsPlayback(
                     item.mediaId,
@@ -222,7 +292,7 @@ class PlaybackService : MediaLibraryService() {
                 player.ignoreNextPlay()
                 return Futures.immediateFuture(currentOrLive(session))
             }
-            if (!player.wantsPlayback) {
+            if (LivePlaybackPolicy.ignorePlayOnLiveItemSet()) {
                 player.ignoreNextPlay()
             }
             return Futures.immediateFuture(livePlaylist())
@@ -244,7 +314,7 @@ class PlaybackService : MediaLibraryService() {
             pageSize: Int,
             params: MediaLibraryService.LibraryParams?,
         ): ListenableFuture<LibraryResult<ImmutableList<MediaItem>>> {
-            val items = AutoBrowse.children(parentId, status()).map { it.toMediaItem() }
+            val items = AutoBrowse.children(parentId, status(), settings()).map { it.toMediaItem() }
             return Futures.immediateFuture(LibraryResult.ofItemList(items, params))
         }
 
@@ -256,9 +326,18 @@ class PlaybackService : MediaLibraryService() {
             if (mediaId == AutoBrowse.ROOT) {
                 return Futures.immediateFuture(LibraryResult.ofItem(libraryRoot(), null))
             }
-            val node = AutoBrowse.children(AutoBrowse.ROOT, status()).find { it.id == mediaId }
-                ?: AutoBrowse.children(AutoBrowse.LAST_PLAYED, status()).find { it.id == mediaId }
-                ?: AutoBrowse.children(AutoBrowse.QUEUE, status()).find { it.id == mediaId }
+            val snapshot = settings()
+            val current = status()
+            val node = listOf(
+                AutoBrowse.ROOT,
+                AutoBrowse.SONGS,
+                AutoBrowse.LAST_PLAYED,
+                AutoBrowse.QUEUE,
+                AutoBrowse.SETTINGS,
+            ).asSequence()
+                .map { AutoBrowse.children(it, current, snapshot) }
+                .flatten()
+                .find { it.id == mediaId }
             if (node == null) {
                 return Futures.immediateFuture(LibraryResult.ofError(LibraryResult.RESULT_ERROR_BAD_VALUE))
             }
@@ -308,16 +387,13 @@ class PlaybackService : MediaLibraryService() {
         }
 
         private fun livePlaylist(): MediaSession.MediaItemsWithStartPosition {
-            val item = MediaItem.Builder()
-                .setMediaId(AutoBrowse.NOW_PLAYING)
-                .setUri(LivePlaybackPolicy.STREAM_URL)
-                .build()
+            val item = SessionMetadata.liveMediaItem(status())
             return MediaSession.MediaItemsWithStartPosition(listOf(item), 0, C.TIME_UNSET)
         }
     }
 }
 
-private fun volumeButtons(gain: Float): List<CommandButton> {
+private fun nowPlayingButtons(gain: Float): List<CommandButton> {
     val label = LivePlaybackPolicy.volumeLabel(gain)
     return listOf(
         CommandButton.Builder(CommandButton.ICON_VOLUME_DOWN)
@@ -330,6 +406,11 @@ private fun volumeButtons(gain: Float): List<CommandButton> {
             .setDisplayName("Vol $label +")
             .setSlots(CommandButton.SLOT_FORWARD_SECONDARY, CommandButton.SLOT_OVERFLOW)
             .build(),
+        CommandButton.Builder(CommandButton.ICON_HEART_UNFILLED)
+            .setSessionCommand(SessionCommand(LivePlaybackPolicy.FAVE, Bundle.EMPTY))
+            .setDisplayName("Fave")
+            .setSlots(CommandButton.SLOT_OVERFLOW)
+            .build(),
     )
 }
 
@@ -338,6 +419,7 @@ private fun BrowseNode.toMediaItem(): MediaItem {
         .setTitle(title)
         .setIsPlayable(playable)
         .setIsBrowsable(browsable)
+    subtitle?.let { metadata.setSubtitle(it) }
     if (browsable && !playable) {
         metadata.setMediaType(MediaMetadata.MEDIA_TYPE_FOLDER_MIXED)
     }
@@ -346,7 +428,11 @@ private fun BrowseNode.toMediaItem(): MediaItem {
         .setMediaId(id)
         .setMediaMetadata(built)
     if (playable) {
-        builder.setUri(LivePlaybackPolicy.STREAM_URL)
+        if (AutoBrowse.isSettingsToggle(id)) {
+            builder.setUri(android.net.Uri.parse("content://io.r_a_d.geiravor/settings/$id"))
+        } else {
+            builder.setUri(LivePlaybackPolicy.STREAM_URL)
+        }
     }
     return builder.build()
 }
