@@ -52,14 +52,29 @@ fun SongsScreen(
                 .padding(16.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
-            SongPane(
-                status = status,
-                section = section,
-                showTitle = false,
-                modifier = Modifier.fillMaxWidth(),
-            )
+            when (section) {
+                SectionLayout.SongsSection.Request,
+                SectionLayout.SongsSection.Favorites,
+                -> PlaceholderPane(section.label)
+                else -> SongPane(
+                    status = status,
+                    section = section,
+                    showTitle = false,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+            }
         }
     }
+}
+
+@Composable
+private fun PlaceholderPane(label: String, modifier: Modifier = Modifier) {
+    Text(
+        label,
+        color = RadioTheme.muted,
+        fontSize = 16.sp,
+        modifier = modifier.padding(24.dp),
+    )
 }
 
 @Composable

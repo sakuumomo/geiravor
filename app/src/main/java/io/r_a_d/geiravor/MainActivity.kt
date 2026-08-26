@@ -46,10 +46,12 @@ import io.r_a_d.geiravor.settings.SettingsPolicy
 import io.r_a_d.geiravor.settings.SettingsStore
 import io.r_a_d.geiravor.ui.AppLayout
 import io.r_a_d.geiravor.ui.AppTab
+import io.r_a_d.geiravor.ui.NewsScreen
 import io.r_a_d.geiravor.ui.NowPlayingScreen
 import io.r_a_d.geiravor.ui.RadioTheme
 import io.r_a_d.geiravor.ui.SettingsScreen
 import io.r_a_d.geiravor.ui.SongsScreen
+import io.r_a_d.geiravor.ui.TabLabel
 import kotlinx.coroutines.launch
 
 class MainActivity : ComponentActivity() {
@@ -181,7 +183,7 @@ private fun GeiravorRoot() {
                             selected = shown == dest,
                             onClick = { tab = dest },
                             icon = { Text(dest.icon) },
-                            label = { Text(dest.label) },
+                            label = { TabLabel(dest.label) },
                             colors = NavigationBarItemDefaults.colors(
                                 selectedIconColor = RadioTheme.blue,
                                 selectedTextColor = RadioTheme.text,
@@ -217,6 +219,9 @@ private fun GeiravorRoot() {
                     modifier = modifier,
                 )
             }
+            val news: @Composable (Modifier) -> Unit = { modifier ->
+                NewsScreen(modifier = modifier)
+            }
             val settings: @Composable (Modifier) -> Unit = { modifier ->
                 SettingsScreen(
                     autoStartOnPlug = autoStartOnPlug,
@@ -239,6 +244,7 @@ private fun GeiravorRoot() {
                     VerticalDivider(color = RadioTheme.border)
                     Box(modifier = Modifier.weight(1f).fillMaxHeight()) {
                         when (shown) {
+                            AppTab.News -> news(Modifier.fillMaxSize())
                             AppTab.Settings -> settings(Modifier.fillMaxSize())
                             else -> songs(Modifier.fillMaxSize())
                         }
@@ -248,6 +254,7 @@ private fun GeiravorRoot() {
                 when (shown) {
                     AppTab.NowPlaying -> nowPlaying(paneModifier)
                     AppTab.Songs -> songs(paneModifier)
+                    AppTab.News -> news(paneModifier)
                     AppTab.Settings -> settings(paneModifier)
                 }
             }

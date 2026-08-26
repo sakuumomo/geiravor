@@ -4,6 +4,8 @@ object SectionLayout {
     enum class SongsSection(val label: String) {
         LastPlayed("Last Played"),
         Queue("Queue"),
+        Request("Request"),
+        Favorites("Favorites"),
     }
 
     enum class SettingsSection(val label: String) {
@@ -13,9 +15,18 @@ object SectionLayout {
 
     fun songsSections(isAfkStream: Boolean): List<SongsSection> =
         if (SongListPolicy.showQueue(isAfkStream)) {
-            listOf(SongsSection.LastPlayed, SongsSection.Queue)
+            listOf(
+                SongsSection.LastPlayed,
+                SongsSection.Queue,
+                SongsSection.Request,
+                SongsSection.Favorites,
+            )
         } else {
-            listOf(SongsSection.LastPlayed)
+            listOf(
+                SongsSection.LastPlayed,
+                SongsSection.Request,
+                SongsSection.Favorites,
+            )
         }
 
     fun clampSongsSection(selected: SongsSection, isAfkStream: Boolean): SongsSection {

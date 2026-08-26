@@ -17,7 +17,7 @@ class AutoBrowseTest {
     }
 
     @Test
-    fun songsFolderMirrorsPhoneSongsSections() {
+    fun songsFolderIsLastPlayedAndQueueOnly() {
         val afk = AutoBrowse.children(AutoBrowse.SONGS, sampleStatus(isAfkStream = true))
         assertEquals(listOf(AutoBrowse.LAST_PLAYED, AutoBrowse.QUEUE), afk.map { it.id })
         assertTrue(afk.all { it.browsable && !it.playable })
