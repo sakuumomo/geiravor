@@ -1,8 +1,8 @@
 use std::time::Duration;
 
 use geiravor_core::{
-    dj_image_url, parse_status, poll_interval, relative_last_played, relative_queue, song_progress,
-    split_np, NowPlayingEvent, NowPlayingState, API_URL, STREAM_URL, USER_AGENT,
+    API_URL, NowPlayingEvent, NowPlayingState, STREAM_URL, USER_AGENT, dj_image_url, parse_status,
+    poll_interval, relative_last_played, relative_queue, song_progress, split_np,
 };
 
 fn snapshot_json() -> &'static str {
@@ -58,7 +58,10 @@ fn parse_live_dj_hides_queue_and_unknown_duration() {
     assert!(!s.is_afk_stream);
     assert!(!s.queue_visible());
     assert!(!s.queue.is_empty(), "API may still send a queue");
-    assert_eq!(s.thread.as_deref(), Some("https://boards.4chan.org/a/thread/1"));
+    assert_eq!(
+        s.thread.as_deref(),
+        Some("https://boards.4chan.org/a/thread/1")
+    );
     let p = song_progress(&s, 1000, 1000);
     assert_eq!(p.elapsed_secs, 0);
     assert_eq!(p.duration_secs, None);
@@ -69,7 +72,10 @@ fn live_dj_ignores_catalog_track_window() {
     let json = live_dj_json().replace("\"end_time\": 0", "\"end_time\": 1500");
     let s = parse_status(&json).expect("parse");
     assert!(!s.is_afk_stream);
-    assert!(s.end_time > s.start_time, "API may still send a catalog length");
+    assert!(
+        s.end_time > s.start_time,
+        "API may still send a catalog length"
+    );
     let p = song_progress(&s, 1000, 1100);
     assert_eq!(p.duration_secs, None);
     assert_eq!(p.elapsed_secs, 0);

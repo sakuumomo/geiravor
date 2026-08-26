@@ -3,15 +3,15 @@ use std::sync::{Arc, Mutex};
 use std::thread::{self, JoinHandle};
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
+use crate::http::{ApiError, blocking_client};
 use crate::poll::poll_interval;
-use crate::progress::{song_progress, SongProgress};
+use crate::progress::{SongProgress, song_progress};
 use crate::reducer::{NowPlayingEvent, NowPlayingState};
-use crate::status::{parse_status, Status, API_URL};
-use crate::USER_AGENT;
+use crate::status::{API_URL, Status, parse_status};
 
 /// HTTP for `/api` now; 0.2.0 search/request/faves add methods here (`006-requests-faves.md`).
 pub trait ApiClient: Send + Sync {
-    fn get(&self, url: &str) -> Result<String, String>;
+    fn get(&self, url: &str) -> Result<String, ApiError>;
 }
 
 struct ReqwestApiClient {
@@ -19,25 +19,22 @@ struct ReqwestApiClient {
 }
 
 impl ReqwestApiClient {
-    fn new() -> Result<Self, String> {
-        let client = reqwest::blocking::Client::builder()
-            .user_agent(USER_AGENT)
-            .connect_timeout(Duration::from_secs(5))
-            .timeout(Duration::from_secs(10))
-            .build()
-            .map_err(|e| e.to_string())?;
-        Ok(Self { client })
+    fn new() -> Result<Self, ApiError> {
+        Ok(Self {
+            client: blocking_client()?,
+        })
     }
 }
 
 impl ApiClient for ReqwestApiClient {
-    fn get(&self, url: &str) -> Result<String, String> {
-        self.client
+    fn get(&self, url: &str) -> Result<String, ApiError> {
+        let response = self
+            .client
             .get(url)
             .send()
             .and_then(|r| r.error_for_status())
-            .and_then(|r| r.text())
-            .map_err(|e| e.to_string())
+            .map_err(ApiError::from_reqwest)?;
+        response.text().map_err(ApiError::from_reqwest)
     }
 }
 
@@ -76,15 +73,15 @@ impl RadioCore {
         *self.listener.lock().expect("listener") = Some(listener);
     }
 
-    pub fn tick(&self, now: i64) -> Result<(), String> {
+    pub fn tick(&self, now: i64) -> Result<(), ApiError> {
         self.fetch_and_apply(|| now)
     }
 
-    fn poll_once(&self) -> Result<(), String> {
+    fn poll_once(&self) -> Result<(), ApiError> {
         self.fetch_and_apply(Self::unix_now)
     }
 
-    fn fetch_and_apply(&self, fetched_at: impl FnOnce() -> i64) -> Result<(), String> {
+    fn fetch_and_apply(&self, fetched_at: impl FnOnce() -> i64) -> Result<(), ApiError> {
         let body = match self.client.get(API_URL) {
             Ok(body) => body,
             Err(e) => {
@@ -96,7 +93,7 @@ impl RadioCore {
             Ok(status) => status,
             Err(e) => {
                 self.failures.fetch_add(1, Ordering::Relaxed);
-                return Err(e.0);
+                return Err(ApiError::from(e));
             }
         };
         let now = fetched_at();
@@ -158,8 +155,10 @@ impl RadioCore {
             .unwrap_or_else(|_| {
                 struct Noop;
                 impl ApiClient for Noop {
-                    fn get(&self, _url: &str) -> Result<String, String> {
-                        Err("http client unavailable".into())
+                    fn get(&self, _url: &str) -> Result<String, ApiError> {
+                        Err(ApiError::Network {
+                            detail: "http client unavailable".into(),
+                        })
                     }
                 }
                 Arc::new(Noop)
@@ -228,7 +227,11 @@ impl RadioCore {
     pub fn progress(&self) -> Option<SongProgress> {
         let state = self.state.lock().expect("state");
         let status = state.status.as_ref()?;
-        Some(song_progress(status, state.local_at_fetch, Self::unix_now()))
+        Some(song_progress(
+            status,
+            state.local_at_fetch,
+            Self::unix_now(),
+        ))
     }
 }
 

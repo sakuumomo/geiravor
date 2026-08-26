@@ -1,12 +1,12 @@
 use std::sync::{Arc, Mutex};
 
-use geiravor_core::{poll_interval, ApiClient, RadioCore, Status, StatusListener};
+use geiravor_core::{ApiClient, ApiError, RadioCore, Status, StatusListener, poll_interval};
 
 struct Switchable {
-    next: Mutex<Result<String, String>>,
+    next: Mutex<Result<String, ApiError>>,
 }
 impl ApiClient for Switchable {
-    fn get(&self, _url: &str) -> Result<String, String> {
+    fn get(&self, _url: &str) -> Result<String, ApiError> {
         self.next.lock().expect("lock").clone()
     }
 }
@@ -47,8 +47,13 @@ fn failed_tick_keeps_previous_snapshot_and_backs_off() {
     });
     let core = RadioCore::with_client(fetcher.clone());
     core.tick(10).unwrap();
-    *fetcher.next.lock().expect("lock") = Err("network".into());
-    assert!(core.tick(11).is_err());
+    *fetcher.next.lock().expect("lock") = Err(ApiError::Network {
+        detail: "network".into(),
+    });
+    assert!(matches!(
+        core.tick(11),
+        Err(ApiError::Network { detail }) if detail == "network"
+    ));
     assert_eq!(core.snapshot().expect("kept").title, "Gats");
     assert_eq!(
         core.poll_delay().as_secs(),
@@ -62,7 +67,7 @@ fn decode_failure_counts_toward_backoff() {
         next: Mutex::new(Ok("not json".to_string())),
     });
     let core = RadioCore::with_client(fetcher);
-    assert!(core.tick(10).is_err());
+    assert!(matches!(core.tick(10), Err(ApiError::Decode { .. })));
     assert_eq!(
         core.poll_delay().as_secs(),
         poll_interval(false, false, 1).as_secs()
