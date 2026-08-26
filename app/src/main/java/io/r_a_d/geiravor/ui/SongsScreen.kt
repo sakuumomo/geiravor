@@ -16,10 +16,12 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import uniffi.geiravor_core.RadioCore
 import uniffi.geiravor_core.Status
 
 @Composable
 fun SongsScreen(
+    radio: RadioCore,
     status: Status?,
     streamDown: Boolean,
     modifier: Modifier = Modifier,
@@ -53,9 +55,12 @@ fun SongsScreen(
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
             when (section) {
-                SectionLayout.SongsSection.Request,
-                SectionLayout.SongsSection.Favorites,
-                -> PlaceholderPane(section.label)
+                SectionLayout.SongsSection.Request -> RequestPane(
+                    radio = radio,
+                    status = status,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+                SectionLayout.SongsSection.Favorites -> PlaceholderPane(section.label)
                 else -> SongPane(
                     status = status,
                     section = section,

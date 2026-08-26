@@ -1,0 +1,26 @@
+{
+  "total": 47,
+  "per_page": 20,
+  "current_page": 1,
+  "last_page": 3,
+  "from": 1,
+  "to": 20,
+  "data": [
+    {
+      "artist": "Aimer",
+      "title": "Brave Shine",
+      "id": 10136,
+      "lastplayed": 1786838585,
+      "lastrequested": 1779458865,
+      "requestable": true
+    },
+    {
+      "artist": "Aimer with chelly (EGOIST)",
+      "title": "ninelie",
+      "id": 11175,
+      "lastplayed": 1787669237,
+      "lastrequested": 1787666422,
+      "requestable": false
+    }
+  ]
+}

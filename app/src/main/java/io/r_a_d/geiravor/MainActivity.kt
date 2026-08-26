@@ -214,6 +214,7 @@ private fun GeiravorRoot() {
             }
             val songs: @Composable (Modifier) -> Unit = { modifier ->
                 SongsScreen(
+                    radio = app.radio,
                     status = radioState.status,
                     streamDown = radioState.streamDown,
                     modifier = modifier,

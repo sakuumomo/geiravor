@@ -10,5 +10,6 @@ object RadioTheme {
     val muted = Color.hsl(0f, 0f, 0.50f)
     val blue = Color.hsl(208f, 0.27f, 0.39f)
     val red = Color.hsl(348f, 0.27f, 0.50f)
+    val green = Color.hsl(153f, 0.27f, 0.39f)
     val link = Color.hsl(208f, 0.27f, 0.50f)
 }

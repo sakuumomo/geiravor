@@ -9,6 +9,28 @@ impl ApiClient for Switchable {
     fn get(&self, _url: &str) -> Result<String, ApiError> {
         self.next.lock().expect("lock").clone()
     }
+
+    fn post_csrf(&self, _url: &str, _token: &str) -> Result<String, ApiError> {
+        Err(ApiError::Network {
+            detail: "no post".into(),
+        })
+    }
+}
+
+struct UrlClient {
+    last: Mutex<String>,
+    body: String,
+}
+impl ApiClient for UrlClient {
+    fn get(&self, url: &str) -> Result<String, ApiError> {
+        *self.last.lock().expect("lock") = url.to_string();
+        Ok(self.body.clone())
+    }
+
+    fn post_csrf(&self, url: &str, _token: &str) -> Result<String, ApiError> {
+        *self.last.lock().expect("lock") = url.to_string();
+        Ok(include_str!("fixtures/request_success.json").into())
+    }
 }
 
 struct RecordingListener {
@@ -85,4 +107,55 @@ fn icy_does_not_replace_np() {
     core.on_icy_title("Other - Song".into());
     assert_eq!(core.snapshot().unwrap().np, np);
     assert!(core.take_refetch());
+}
+
+#[test]
+fn search_uses_json_api_path_and_empty_query_skips_http() {
+    let client = Arc::new(UrlClient {
+        last: Mutex::new(String::new()),
+        body: include_str!("fixtures/search_page.json").into(),
+    });
+    let core = RadioCore::with_client(client.clone());
+    let empty = core.search("  ".into(), 1).unwrap();
+    assert!(empty.data.is_empty());
+    assert!(client.last.lock().expect("lock").is_empty());
+    let page = core.search("Aimer with chelly (EGOIST)".into(), 1).unwrap();
+    assert_eq!(page.data[0].id, 10136);
+    assert!(!page.data[1].requestable);
+    assert!(
+        client
+            .last
+            .lock()
+            .expect("lock")
+            .starts_with("https://r-a-d.io/api/search/")
+    );
+}
+
+#[test]
+fn can_request_uses_capital_main_endpoint() {
+    let client = Arc::new(UrlClient {
+        last: Mutex::new(String::new()),
+        body: include_str!("fixtures/can_request.json").into(),
+    });
+    let core = RadioCore::with_client(client.clone());
+    assert!(core.can_request().unwrap());
+    assert_eq!(
+        *client.last.lock().expect("lock"),
+        "https://r-a-d.io/api/can-request"
+    );
+}
+
+#[test]
+fn request_posts_track_id_after_csrf_bootstrap() {
+    let client = Arc::new(UrlClient {
+        last: Mutex::new(String::new()),
+        body: include_str!("fixtures/csrf_token_comment.html").into(),
+    });
+    let core = RadioCore::with_client(client.clone());
+    let result = core.request(10136).unwrap();
+    assert!(result.ok);
+    assert_eq!(
+        *client.last.lock().expect("lock"),
+        "https://r-a-d.io/request/10136"
+    );
 }

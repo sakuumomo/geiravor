@@ -3,15 +3,21 @@ use std::sync::{Arc, Mutex};
 use std::thread::{self, JoinHandle};
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
+use crate::csrf::{CSRF_BOOTSTRAP_URL, extract_csrf_token, post_with_csrf};
 use crate::http::{ApiError, blocking_client};
 use crate::poll::poll_interval;
 use crate::progress::{SongProgress, song_progress};
 use crate::reducer::{NowPlayingEvent, NowPlayingState};
+use crate::search::{
+    CAN_REQUEST_URL, RequestResult, SearchPage, parse_can_request, parse_request_result,
+    parse_search, request_url, search_url,
+};
 use crate::status::{API_URL, Status, parse_status};
 
 /// HTTP for `/api` now; 0.2.0 search/request/faves add methods here (`006-requests-faves.md`).
 pub trait ApiClient: Send + Sync {
     fn get(&self, url: &str) -> Result<String, ApiError>;
+    fn post_csrf(&self, url: &str, token: &str) -> Result<String, ApiError>;
 }
 
 struct ReqwestApiClient {
@@ -35,6 +41,10 @@ impl ApiClient for ReqwestApiClient {
             .and_then(|r| r.error_for_status())
             .map_err(ApiError::from_reqwest)?;
         response.text().map_err(ApiError::from_reqwest)
+    }
+
+    fn post_csrf(&self, url: &str, token: &str) -> Result<String, ApiError> {
+        post_with_csrf(&self.client, url, token)
     }
 }
 
@@ -160,6 +170,11 @@ impl RadioCore {
                             detail: "http client unavailable".into(),
                         })
                     }
+                    fn post_csrf(&self, _url: &str, _token: &str) -> Result<String, ApiError> {
+                        Err(ApiError::Network {
+                            detail: "http client unavailable".into(),
+                        })
+                    }
                 }
                 Arc::new(Noop)
             });
@@ -232,6 +247,31 @@ impl RadioCore {
             state.local_at_fetch,
             Self::unix_now(),
         ))
+    }
+
+    pub fn search(&self, query: String, page: i32) -> Result<SearchPage, ApiError> {
+        let query = query.trim();
+        if query.is_empty() {
+            return Ok(SearchPage::empty());
+        }
+        parse_search(&self.client.get(&search_url(query, page))?)
+    }
+
+    pub fn can_request(&self) -> Result<bool, ApiError> {
+        parse_can_request(&self.client.get(CAN_REQUEST_URL)?)
+    }
+
+    pub fn request(&self, track_id: i64) -> Result<RequestResult, ApiError> {
+        let once = || {
+            let html = self.client.get(CSRF_BOOTSTRAP_URL)?;
+            let token = extract_csrf_token(&html)?;
+            self.client.post_csrf(&request_url(track_id), &token)
+        };
+        match once() {
+            Ok(body) => parse_request_result(&body),
+            Err(ApiError::Http { status: 403, .. }) => parse_request_result(&once()?),
+            Err(e) => Err(e),
+        }
     }
 }
 
