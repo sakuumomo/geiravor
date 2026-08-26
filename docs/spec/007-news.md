@@ -8,10 +8,10 @@ Not built in 0.1.0.
 { title, header, text, updated_at, author: { id, user } }
 ```
 
-`header` and `text` are **HTML** (paragraphs, `<br>`, `<em>`, `<img>`). Images may be on `https://static.r-a-d.io/` — allow that host in 0.2.0.
+`header` and `text` are **HTML** (paragraphs, `<br>`, `<em>`, `<img>`). Images may be on `https://static.r-a-d.io/` — allow that host in 0.2.0 network security config.
 
 `updated_at` is a naive datetime string (`"2026-02-14 13:37:34"`). The homepage uses unix seconds in a `datetime` attribute; prefer displaying `updated_at` as a date or parse if TZ is documented later.
 
-List + article. Do not render untrusted HTML in a full-site WebView; use a constrained HTML renderer.
+List + article. Do not render untrusted HTML in a full-site WebView. Prefer Compose / `HtmlCompat` + Coil for images. If a WebView is the only way to get images, JavaScript **off**, that host only.
 
 Not in Android Auto.

@@ -16,10 +16,19 @@ Android Auto Settings tab surfaces the same two auto-start flags (On/Off subtitl
 
 ## 0.2.0
 
-| Key | Notes |
-|---|---|
-| Faves nick | string, optional |
-| Alarm / snooze / sleep | `010-alarm-sleep-dj.md` |
-| DJ notifier opt-in | default off |
+| Key | Storage | Notes |
+|---|---|---|
+| Favorites nick | DataStore | Public list + direct-Rizon `NICK`. Must match the Rizon nick Hanyuu sees |
+| NickServ password | EncryptedSharedPreferences | Direct Rizon only; never log |
+| IRC profile | DataStore | Rizon (default) vs bouncer |
+| Bouncer host / port | DataStore | Port default 6697 |
+| Bouncer `PASS` | EncryptedSharedPreferences | Opaque; never log |
+| Allow insecure TLS | DataStore bool, default **false** | Bouncer IRC only |
+| Alarm / snooze / sleep | DataStore | `010-alarm-sleep-dj.md` |
+| DJ notifier opt-in | DataStore | default off |
+
+`008` still prefers DataStore over SharedPreferences. **Exception:** secrets only may use AndroidX Security EncryptedSharedPreferences (Tink). Do not move gain / auto-start into it.
+
+Settings sections stay **General | Auto**. Alarm / snooze / sleep / DJ notifier live under General unless they overflow — then an **Alerts** section tab, still not a fifth bottom tab. Favorites connection lives on Songs → Favorites (`006-requests-faves.md`), not a Favorites settings tab.
 
 Theme stays `default-dark` until a later spec.

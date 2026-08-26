@@ -4,7 +4,7 @@ Not built in 0.1.0.
 
 ## Alarm
 
-Exact alarm via `AlarmManager` + compat (`009-compat.md`). On fire: start the live stream through the same play path as 0.1.0 (`003-playback.md`). If the stream cannot start (no network / player error), play a **committed local** fallback sound — not a network asset at ring time.
+Exact alarm via `AlarmManager` + compat (`009-compat.md`). On fire: start the live stream through the same play path as 0.1.0 (`003-playback.md`) — pause still **stops**. If the stream cannot start (no network / player error), play a **committed local** fallback sound in `res/raw` — not a network asset at ring time. Do not GET Icecast in tests.
 
 Snooze: configurable duration; optional disable. Notification while ringing uses large labeled actions (not icon-only).
 

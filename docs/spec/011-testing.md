@@ -15,15 +15,19 @@ Must cover:
 - Poll interval floor 2s / backoff
 - ICY change triggers refetch and does not overwrite `np`
 
-`cargo test` on the host; no NDK.
+`cargo test` on the host; no NDK. Do not open `r-a-d.io`, `irc.rizon.net`, or Icecast from unit tests. Emulate online behavior locally: JSON fixtures for HTTP; `IrcIo` scripts plus a localhost TLS listener that speaks enough IRC (001, PING, Hanyuu NOTICE) for add-fave (`006-requests-faves.md`). Self-signed bouncer cert fails unless **Allow insecure TLS** is on.
+
+0.2.0 fixtures also cover search, can-request (`Main`), request CSRF, `/faves`, news.
 
 ## Kotlin
 
-Fake UniFFI core. Cover pause→stop (drop live buffer, no reconnect while stopped), idle notification kept after stop, playlist kept on stop, Play after stop is not swallowed, notification permission path (compat; play does not require it), Auto root Songs+Settings, Queue folder hidden when not AFK, settings toggle rows, auto-start on plug and in vehicle default off (independent), Songs Queue section hidden when not AFK, volume ±5 for Auto, `COMMAND_GET_TIMELINE` removed (no Queue chrome), Fave stub, live `MediaItem` carries split `np` / DJ artwork. Two-pane at ≥840dp.
+Fake UniFFI core. Cover pause→stop (drop live buffer, no reconnect while stopped), idle notification kept after stop, playlist kept on stop, Play after stop is not swallowed, notification permission path (compat; play does not require it), Auto root Songs+Settings, Queue folder hidden when not AFK, settings toggle rows, auto-start on plug and in vehicle default off (independent), Songs Queue section hidden when not AFK, volume ±5 for Auto, `COMMAND_GET_TIMELINE` removed (no Queue chrome), live `MediaItem` carries split `np` / DJ artwork. Two-pane at ≥840dp **and** smallest width ≥ 600dp.
+
+0.2.0: bottom tabs Now Playing \| Songs \| News \| Settings (phone) and Songs \| News \| Settings (two-pane right); Songs sections Last Played \| Queue \| Request \| Favorites; no UI string **Faves**; request disabled when not AFK; empty nick Fave no-op; Auto Fave does not `setMediaItem`; alarm compat policy.
 
 ## CI
 
-`nix develop -c cargo test --manifest-path core/Cargo.toml`, `nix develop -c ./gradlew :app:testDebugUnitTest`, and `nix develop -c ./gradlew :app:assembleDebug`. No emulator. Do not GET the Icecast URL. DHU FHS wrap is Linux-only.
+`nix develop -c cargo test --manifest-path core/Cargo.toml`, `nix develop -c ./gradlew :app:testDebugUnitTest`, and `nix develop -c ./gradlew :app:assembleDebug`. No emulator. Do not GET the Icecast URL, live `/api`, or Rizon. DHU FHS wrap is Linux-only.
 
 ## Manual (0.1.0)
 

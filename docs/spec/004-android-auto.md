@@ -58,9 +58,9 @@ When **Auto-start in vehicle** is on, projected Auto session connect starts the 
 
 Do not advertise `COMMAND_GET_TIMELINE` (hides Auto’s empty Queue button). Do not add-to-playlist.
 
-A **Fave** custom action on the now-playing card is advertised as a stub (`LivePlaybackPolicy.FAVE`). It must not change playback. Nick faves land in 0.2.0.
+A **Fave** custom action on the now-playing card (`LivePlaybackPolicy.FAVE`) uses the same IRC add-fave path as the phone (`006-requests-faves.md`). Empty nick → no-op (keep advertising the command). It must not start, stop, or replace the live item, and must not rewrite now-playing metadata to display the result.
 
-No request, news, thread, or search in Auto.
+No request, news, thread, or search in Auto. No Favorites browse folder.
 
 ## DHU
 

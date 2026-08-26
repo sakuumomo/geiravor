@@ -24,7 +24,7 @@ Grep `Compat:` when raising minSdk and delete.
 
 ## 0.2.0
 
-Exact alarm / `SCHEDULE_EXACT_ALARM` / `USE_EXACT_ALARM` wrappers for the alarm clock.
+Exact alarm wrappers: `SCHEDULE_EXACT_ALARM` / `USE_EXACT_ALARM` / `canScheduleExactAlarms`. If the user denies exact alarms, fail visible with Settings copy — not a silent skip.
 
 ## Not here
 

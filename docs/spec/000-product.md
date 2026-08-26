@@ -13,7 +13,7 @@ A listener can play and stop the live stream on a phone (minSdk 26) and from And
 - Porting or copying any previous Android app
 - WebView of r-a-d.io
 - Consuming `/v1/sse` (HTML/htmx for the website)
-- In-app IRC
+- A general-purpose IRC client, channel UI, chat log, or native Quassel. 0.2.0 may open a **short-lived TLS session** only to `PRIVMSG` `Hanyuu-sama` (`.fave` / `.fave last` / `.fave <id>` / matching `.unfave`) then leave
 - Android Automotive OS APK
 - Scrobbler-specific code (Media3 session is enough for third-party scrobblers)
 - Telemetry
@@ -27,7 +27,7 @@ A listener can play and stop the live stream on a phone (minSdk 26) and from And
 |---|---|
 | **0.1.0** | First ship: live listener + Android Auto core. `versionCode` 1. |
 | **0.1.x** | Fixes only. |
-| **0.2.0** | Search, request, nick faves, news, alarm/snooze, sleep timer, DJ-online notifier. |
+| **0.2.0** | Search, request, nick favorites (list + IRC add-fave), news, alarm/snooze, sleep timer, DJ-online notifier. `versionCode` 2. |
 | **0.3.0+** | Further site-parity (schedule, staff, submit, extra themes, …) while still pre-1.0. |
 | **1.0.0** | Not a feature dump. The maintainer runs the app, finds it satisfactory, and we bump. May follow 0.1.0 or a later 0.x. |
 | After 1.0.0 | Breaking → MAJOR, features → MINOR, fixes → PATCH. |
@@ -43,13 +43,17 @@ While `MAJOR == 0`, MINOR may add features; 0.x is not API-stable.
 - Songs tab: last played (5) and queue (5) from `timestamp`, relative times. Hide queue when `isafkstream == false`. Mark `type == 1` as `/r/`. Phone: bottom tabs (Now Playing \| Songs \| Settings). Tablet (width ≥ 840dp and smallest width ≥ 600dp): Now Playing stays the left pane; Songs \| Settings switch the right pane. Songs/Settings use section tabs at every width.
 - Volume 0–100, default 80, on now-playing and Android Auto (same persisted gain).
 - Media notification, lockscreen, Bluetooth. Unplug and audio-focus loss stop playback. Optional auto-start on plug and in vehicle (independent, both default off).
-- Android Auto: play/stop, metadata (unfocused title/artist; focused title/artist/DJ), browse **Songs** (Last Played, Queue when AFK) and **Settings**. Session Queue chrome is hidden. Fave on the now-playing card is a stub until 0.2.0 nick faves.
+- Android Auto: play/stop, metadata (unfocused title/artist; focused title/artist/DJ), browse **Songs** (Last Played, Queue when AFK) and **Settings**. Session Queue chrome is hidden. Fave on the now-playing card is a stub until 0.2.0.
 - Stream-down / offline as a state (player/HTTP error — not a magic title).
 - Process-wide `/api` poller.
 
 ## 0.2.0 scope
 
-Search + request, nick-only public faves (no login), news, alarm/snooze + fallback sound, sleep timer, opt-in DJ notifier via WorkManager.
+Search + request, nick-only public favorites list (`GET /faves?nick=`), add-fave via one-shot TLS IRC to `Hanyuu-sama` (not HTTP), news, alarm/snooze + fallback sound, sleep timer, opt-in DJ notifier via WorkManager.
+
+Phone chrome: bottom tabs **Now Playing | Songs | News | Settings**. Songs sections **Last Played | Queue | Request | Favorites**. Two-pane right pane **Songs | News | Settings**. Auto stays lean: no search/request/news/thread; Fave on the now-playing card uses the same IRC path (empty nick = no-op).
+
+Success: a listener can search and request on AFK, list and add favorites under their Rizon nick, read news, set alarm/sleep, and opt into a DJ-online notice — without a site login and without an IRC client.
 
 ## Later
 
@@ -57,7 +61,9 @@ Everything user-facing on the site: schedule, staff, submit, help, extra themes.
 
 ## Identity
 
-Nick-only public favorites. No password, no site session login.
+No r-a-d.io **site** session or password. Public favorites list is nick-only (`GET /faves?nick=`).
+
+Add-fave is IRC. Direct Rizon uses that nick as `NICK` plus optional NickServ password. A generic bouncer (ZNC/soju) is already named and identified on Rizon; the stored nick must be that same Rizon nick so the list matches what Hanyuu records. NickServ and bouncer `PASS` live in Encrypted storage and are never logged.
 
 ## Identity of the app
 

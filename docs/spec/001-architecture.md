@@ -30,7 +30,7 @@ UniFFI callbacks arrive off the main thread. Kotlin hops to Main before Compose 
 - No OpenSSL
 - No `rustls-platform-verifier` in 0.1.0
 - User-Agent `Geiravor/X.Y.Z` (same as `versionName`)
-- Trait `ApiClient` (`get` today). Search/request/faves add methods on this trait (`006-requests-faves.md`).
+- Trait `ApiClient` (`get` today). 0.2.0 adds `search` / `can_request` / `request` / `faves` / `news` on this trait (`006-requests-faves.md`, `007-news.md`). Cookie jar on the same blocking `reqwest` client (`_gorilla_csrf` + `X-CSRF-Token` on POST). **No** HTTP `fave_add` — add-fave is IRC (`006-requests-faves.md`).
 
 ## UniFFI on Android
 
@@ -42,8 +42,10 @@ UniFFI callbacks arrive off the main thread. Kotlin hops to Main before Compose 
 
 ## Errors
 
-Rust maps transport/parse failures to a small error type (network, http, decode). Stream-down is a **player** state (`003-playback.md`), not an `/api` parse miss: a stale snapshot with a dead player is still stream-down.
+Rust maps transport/parse failures to a small error type **`ApiError` { Network, Http, Decode }**. Stream-down is a **player** state (`003-playback.md`), not an `/api` parse miss: a stale snapshot with a dead player is still stream-down.
 
 ## 0.2.0
 
-Search/request/faves add methods on `ApiClient` so 0.1.0 does not have to be rewritten. CSRF cookie jar is specified in `006-requests-faves.md`. Do not add those methods until 0.2.0.
+Search/request/faves-list/news add methods on `ApiClient` so 0.1.0 does not have to be rewritten. CSRF cookie jar is specified in `006-requests-faves.md` (request POST only). Do not add those methods until 0.2.0.
+
+IRC fave is a **separate** Rust module (not `ApiClient`): blocking `std::net` + rustls, no Tokio, no IRC crate. Extra HTTP from UI runs on a worker — never the Android main thread, never the `/api` poller unless queued. After IRC `001`, sample the process-wide latest snapshot already in `RadioCore` (no extra GET) for the live-DJ fave machine.

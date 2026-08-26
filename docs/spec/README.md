@@ -18,7 +18,7 @@ These files are **normative**. Code implements them. Live [r-a-d.io](https://r-a
 | [003-playback.md](003-playback.md) | Live stream, pause=stop, focus, FGS |
 | [004-android-auto.md](004-android-auto.md) | Browse tree, no skip, session now-playing |
 | [005-ui.md](005-ui.md) | Screens, `default-dark` tokens |
-| [006-requests-faves.md](006-requests-faves.md) | 0.2.0 search / request / nick faves |
+| [006-requests-faves.md](006-requests-faves.md) | 0.2.0 search / request / nick favorites (list HTTP, add IRC) |
 | [007-news.md](007-news.md) | 0.2.0 news |
 | [008-settings.md](008-settings.md) | Prefs |
 | [009-compat.md](009-compat.md) | API-level shims |
