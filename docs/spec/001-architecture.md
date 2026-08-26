@@ -8,6 +8,8 @@ Rust owns domain, HTTP to `/api`, JSON, poll policy, now-playing reducer. Kotlin
 
 **Not in Kotlin (0.1.0):** `/api` JSON parse, `np` split, progress math, poll interval.
 
+**Not in Kotlin (0.2.0):** search/faves HTTP, JSON (and faves last-page HTML extract), process HTTP cache, IRC add-fave.
+
 ## Layout
 
 - `core/` — Rust crate: `rlib` + `cdylib`, UniFFI. No Android types.

@@ -5,6 +5,68 @@ use crate::np::split_np;
 use crate::search::encode_path_segment;
 
 pub const FAVES_URL: &str = "https://r-a-d.io/faves";
+pub const FAVES_PER_PAGE: i32 = 100;
+const FAVES_MAX_PAGE: i32 = 65_536;
+
+#[derive(Debug, Clone, PartialEq, Eq, uniffi::Record)]
+pub struct FavoritesPage {
+    pub current_page: i32,
+    pub last_page: i32,
+    pub data: Vec<FavoriteRow>,
+}
+
+impl FavoritesPage {
+    pub fn empty() -> Self {
+        Self {
+            current_page: 1,
+            last_page: 1,
+            data: Vec::new(),
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct PageSample {
+    pub count: i32,
+    pub fingerprint: String,
+}
+
+impl PageSample {
+    pub fn from_rows(rows: &[FavoriteRow]) -> Self {
+        if rows.is_empty() {
+            return Self {
+                count: 0,
+                fingerprint: String::new(),
+            };
+        }
+        let first = &rows[0];
+        let last = &rows[rows.len() - 1];
+        Self {
+            count: rows.len() as i32,
+            fingerprint: format!(
+                "{}|{:?}|{}|{:?}|{}",
+                rows.len(),
+                first.tracks_id,
+                first.meta,
+                last.tracks_id,
+                last.meta
+            ),
+        }
+    }
+
+    pub fn from_parts(count: i32, fingerprint: impl Into<String>) -> Self {
+        if count <= 0 {
+            return Self {
+                count: 0,
+                fingerprint: String::new(),
+            };
+        }
+        Self {
+            count,
+            fingerprint: fingerprint.into(),
+        }
+    }
+}
 
 #[derive(Debug, Clone, PartialEq, Eq, uniffi::Record)]
 pub struct FavoriteRow {
@@ -33,6 +95,113 @@ pub fn faves_url(nick: &str, page: i32) -> String {
         encode_path_segment(nick),
         page.max(1)
     )
+}
+
+/// HTML list (pagination). JSON dump is [`faves_url`].
+pub fn faves_html_url(nick: &str) -> String {
+    format!("{FAVES_URL}?nick={}", encode_path_segment(nick))
+}
+
+fn page_query_value(href: &str) -> Option<i32> {
+    let rest = href.split("page=").nth(1)?;
+    let digits: String = rest.chars().take_while(|c| c.is_ascii_digit()).collect();
+    digits.parse().ok().filter(|n| *n > 0)
+}
+
+/// Max `page=` on `/faves?` hrefs. Ignore `/v1/request?...page=`.
+pub fn parse_faves_last_page(html: &str) -> i32 {
+    let mut last = 1i32;
+    let mut from = 0usize;
+    while let Some(rel) = html[from..].find("/faves?") {
+        let start = from + rel;
+        let tail = &html[start..];
+        let end = tail
+            .find(|c: char| c == '"' || c == '\'' || c == ' ' || c == '<' || c == '>')
+            .unwrap_or(tail.len());
+        let href = tail[..end].replace("&amp;", "&");
+        if let Some(page) = page_query_value(&href) {
+            last = last.max(page);
+        }
+        from = start + 1;
+    }
+    last
+}
+
+/// Live JSON **clamps** past-last pages to the last page. Compare fingerprints.
+pub fn discover_last_page(full_page: i32, fetch: impl Fn(i32) -> PageSample) -> i32 {
+    let start = full_page.max(1);
+    let mut unique_lo = start;
+    let mut prev = start;
+    let mut prev_sample = fetch(start);
+    if prev_sample.count == 0 {
+        return 1;
+    }
+    let mut hi = (start * 2).min(FAVES_MAX_PAGE);
+    loop {
+        let sample = fetch(hi);
+        if sample.count == 0 {
+            return last_non_empty(prev, hi, &fetch);
+        }
+        if sample.fingerprint == prev_sample.fingerprint {
+            return first_with_fingerprint(unique_lo, prev, &sample.fingerprint, &fetch);
+        }
+        unique_lo = prev;
+        prev = hi;
+        prev_sample = sample;
+        let next = hi.saturating_mul(2);
+        if next > FAVES_MAX_PAGE || next <= hi {
+            let tail = fetch((hi + 1).min(FAVES_MAX_PAGE));
+            if tail.count == 0 {
+                return hi;
+            }
+            if tail.fingerprint == prev_sample.fingerprint {
+                return first_with_fingerprint(unique_lo, hi, &prev_sample.fingerprint, &fetch);
+            }
+            return hi;
+        }
+        hi = next;
+    }
+}
+
+fn first_with_fingerprint(
+    lo: i32,
+    hi: i32,
+    fp: &str,
+    fetch: &impl Fn(i32) -> PageSample,
+) -> i32 {
+    let mut left = lo;
+    let mut right = hi;
+    let mut found = hi;
+    while left <= right {
+        let mid = left + (right - left) / 2;
+        let sample = fetch(mid);
+        if sample.fingerprint == fp {
+            found = mid;
+            right = mid - 1;
+        } else {
+            left = mid + 1;
+        }
+    }
+    found
+}
+
+fn last_non_empty(lo: i32, empty_hi: i32, fetch: &impl Fn(i32) -> PageSample) -> i32 {
+    let mut left = lo;
+    let mut right = empty_hi - 1;
+    let mut last = lo;
+    while left <= right {
+        let mid = left + (right - left) / 2;
+        let sample = fetch(mid);
+        if sample.count == 0 {
+            right = mid - 1;
+        } else if sample.count < FAVES_PER_PAGE {
+            return mid;
+        } else {
+            last = mid;
+            left = mid + 1;
+        }
+    }
+    last
 }
 
 pub fn parse_faves(json: &str) -> Result<Vec<FavoriteRow>, ApiError> {
@@ -66,6 +235,10 @@ mod tests {
             faves_url("Kethsar", 1),
             "https://r-a-d.io/faves?nick=Kethsar&page=1&dl=true"
         );
+        assert_eq!(
+            faves_url("Kethsar", 3),
+            "https://r-a-d.io/faves?nick=Kethsar&page=3&dl=true"
+        );
     }
 
     #[test]
@@ -86,6 +259,63 @@ mod tests {
             parse_faves(include_str!("../tests/fixtures/faves_empty.json"))
                 .unwrap()
                 .is_empty()
+        );
+    }
+
+    #[test]
+    fn faves_html_url_is_not_the_json_dump() {
+        assert_eq!(
+            faves_html_url("Kethsar"),
+            "https://r-a-d.io/faves?nick=Kethsar"
+        );
+    }
+
+    #[test]
+    fn parse_faves_last_page_uses_pagination_not_request_forms() {
+        assert_eq!(
+            parse_faves_last_page(include_str!("../tests/fixtures/faves_pagination.html")),
+            64
+        );
+        assert_eq!(parse_faves_last_page("<p>no pager</p>"), 1);
+    }
+
+    fn empty_past(page: i32, counts: &[(i32, i32)]) -> PageSample {
+        match counts.iter().find(|(p, _)| *p == page) {
+            Some((_, count)) if *count > 0 => PageSample::from_parts(*count, format!("e-{page}")),
+            _ => PageSample::from_parts(0, ""),
+        }
+    }
+
+    fn clamp_to(page: i32, last: i32, last_count: i32) -> PageSample {
+        let clamped = page.max(1).min(last);
+        let count = if clamped == last { last_count } else { 100 };
+        PageSample::from_parts(count, format!("c-{clamped}-{count}"))
+    }
+
+    #[test]
+    fn discover_last_when_api_clamps_to_full_last_page() {
+        assert_eq!(
+            discover_last_page(1, |p| clamp_to(p, 64, 100)),
+            64
+        );
+    }
+
+    #[test]
+    fn discover_last_when_api_clamps_to_short_last_page() {
+        assert_eq!(discover_last_page(1, |p| clamp_to(p, 7, 37)), 7);
+    }
+
+    #[test]
+    fn discover_last_when_empty_past_last() {
+        let counts = [(1, 100), (2, 100), (3, 100), (4, 100), (5, 100)];
+        assert_eq!(discover_last_page(1, |p| empty_past(p, &counts)), 5);
+    }
+
+    #[test]
+    fn discover_last_when_page_one_is_only_full_page() {
+        assert_eq!(
+            discover_last_page(1, |p| empty_past(p, &[(1, 100)])),
+            1
         );
     }
 }

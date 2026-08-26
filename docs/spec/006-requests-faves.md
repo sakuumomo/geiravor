@@ -51,6 +51,10 @@ No site login. User types their public **Rizon** nick.
 
 `GET https://r-a-d.io/faves?nick=&page=&dl=true` → array of `{ tracks_id, meta, lastrequested, lastplayed, requestcount }` with nulls. `meta` is `"Artist - Title"`. Page size 100. Unknown nick → `[]`, not an error.
 
+Last page is **not** in that JSON. `GET https://r-a-d.io/faves?nick=` (HTML, no `dl`) has pagination links; take the max `/faves?…page=` (ignore `/v1/request?…page=`). Past-last JSON `page=` **clamps** to the last page instead of `[]`. Probe fingerprints only if the HTML parse is 1 and page 1 was full.
+
+`RadioCore` caches search pages and faves pages + last page in process memory. Prefetch page 1 + last page when the stored nick is known. Kotlin only remembers which page/query the UI is on.
+
 Persist nick in DataStore. Empty nick → empty list, not a crash. That nick is also the direct-Rizon `NICK` and must match the nick Hanyuu will attribute (the bouncer’s existing Rizon nick when using a bouncer).
 
 ## Add-fave (IRC)
@@ -117,5 +121,7 @@ Local only: `IrcIo` scripts and a localhost TLS listener that speaks 001 / PING 
 ## UI
 
 Search results + favorites can request when `requestable` / AFK. Show server error strings. Cooldown from can-request + snapshot.
+
+Search and favorites paginate. Fetch `?page=` (search) / `&page=` (faves). Bottom bar, last page > 1: previous `<` and next `>` stay pinned at the bar edges; first page, a sliding window of nearby pages, `...` (jump-to-page), last page sit in the middle. Page numbers use a width for the last page’s digit count so 9→10 does not shift prev/next. Search `last_page` is in the JSON. Faves last page: HTML pagination (above). Returning to Request or Favorites in the same process restores the cached query/nick, page, rows, and last page immediately.
 
 Favorites connection expander: Rizon (default) vs Bouncer (host, port, server password, Allow insecure TLS). NickServ is Rizon-direct only.

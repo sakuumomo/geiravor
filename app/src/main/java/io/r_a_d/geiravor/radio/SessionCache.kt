@@ -1,0 +1,38 @@
+package io.r_a_d.geiravor.radio
+
+/** UI listing position for this process. HTTP pages live in RadioCore. */
+object SessionCache {
+    private val lock = Any()
+    private val favesCurrent = HashMap<String, Int>()
+    private var searchQuery: String = ""
+    private var searchCurrent: Int = 1
+
+    fun favesCurrent(nick: String): Int = synchronized(lock) { favesCurrent[nick.trim()] ?: 1 }
+
+    fun putFavesCurrent(nick: String, page: Int) {
+        val key = nick.trim()
+        if (key.isEmpty()) {
+            return
+        }
+        synchronized(lock) { favesCurrent[key] = page.coerceAtLeast(1) }
+    }
+
+    fun searchQuery(): String = synchronized(lock) { searchQuery }
+
+    fun searchCurrent(): Int = synchronized(lock) { searchCurrent }
+
+    fun putSearchQuery(query: String, page: Int = 1) {
+        synchronized(lock) {
+            searchQuery = query.trim()
+            searchCurrent = page.coerceAtLeast(1)
+        }
+    }
+
+    fun clearForTests() {
+        synchronized(lock) {
+            favesCurrent.clear()
+            searchQuery = ""
+            searchCurrent = 1
+        }
+    }
+}

@@ -3,9 +3,13 @@ package io.r_a_d.geiravor.ui
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.OutlinedTextField
@@ -25,6 +29,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import io.r_a_d.geiravor.radio.SessionCache
 import kotlin.coroutines.cancellation.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
@@ -46,10 +51,13 @@ fun FavoritesPane(
     modifier: Modifier = Modifier,
 ) {
     val scope = rememberCoroutineScope()
+    var listing by remember { mutableStateOf("" to 1) }
+    var lastPage by remember { mutableStateOf(1) }
     var rows by remember { mutableStateOf(listOf<FavoriteRow>()) }
     var message by remember { mutableStateOf<Pair<Boolean, String>?>(null) }
     var busyId by remember { mutableStateOf<Long?>(null) }
-    var loading by remember { mutableStateOf(false) }
+    var loading by remember { mutableStateOf(FavoritesPolicy.shouldFetch(nick)) }
+    val listState = rememberLazyListState()
     val allowed = RequestPolicy.requestsAllowed(
         isAfkStream = status?.isAfkStream == true,
         requesting = status?.requesting == true,
@@ -61,30 +69,65 @@ fun FavoritesPane(
         canRequest = canRequest,
     )
 
+    val committed = listing.first
+    val page = listing.second
+
     LaunchedEffect(nick) {
         if (!FavoritesPolicy.shouldFetch(nick)) {
+            listing = "" to 1
+            lastPage = 1
             rows = emptyList()
             loading = false
             return@LaunchedEffect
         }
+        val trimmed = nick.trim()
+        if (listing.first == trimmed) {
+            return@LaunchedEffect
+        }
+        loading = true
+        val typed = listing.first.isNotEmpty()
+        if (typed) {
+            delay(350)
+            onNickPersist(trimmed)
+        }
+        listing = trimmed to SessionCache.favesCurrent(trimmed)
+    }
+
+    LaunchedEffect(listing) {
+        if (!FavoritesPolicy.shouldFetch(committed)) {
+            rows = emptyList()
+            lastPage = 1
+            if (!FavoritesPolicy.shouldFetch(nick)) {
+                loading = false
+            }
+            return@LaunchedEffect
+        }
         loading = true
         try {
-            delay(350)
-            onNickPersist(nick.trim())
-            rows = withContext(Dispatchers.IO) { radio.favorites(nick.trim(), 1) }
+            val fetched = withContext(Dispatchers.IO) { radio.favorites(committed, page) }
+            rows = fetched.data
+            lastPage = fetched.lastPage.toInt().coerceAtLeast(1)
+            SessionCache.putFavesCurrent(committed, page)
+            if (fetched.data.isEmpty() && page > 1) {
+                listing = committed to (page - 1).coerceAtLeast(1)
+            }
             message = null
             loading = false
+            listState.scrollToItem(0)
         } catch (err: CancellationException) {
             throw err
         } catch (err: Exception) {
             rows = emptyList()
+            lastPage = 1
             message = false to (RequestPolicy.userFacingError(err) ?: "Favorites failed")
             loading = false
         }
     }
 
     Column(
-        modifier = modifier.fillMaxWidth(),
+        modifier = modifier
+            .fillMaxSize()
+            .padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         OutlinedTextField(
@@ -121,42 +164,67 @@ fun FavoritesPane(
                 modifier = Modifier.fillMaxWidth(),
             )
         }
-        rows.forEach { row ->
-            FavoriteRowView(
-                row = row,
-                enabled = FavoritesPolicy.rowCanRequest(allowed, row.tracksId) && busyId == null,
-                onRequest = {
-                    val id = row.tracksId ?: return@FavoriteRowView
-                    busyId = id
-                    scope.launch {
-                        val result = withContext(Dispatchers.IO) {
-                            runCatching { radio.request(id) }
-                        }
-                        busyId = null
-                        result.onSuccess { done ->
-                            message = done.ok to done.message
-                            onCanRequest(
-                                RequestPolicy.canRequestAfterRequest(done.ok, canRequest),
-                            )
-                        }.onFailure { err ->
-                            if (err is CancellationException) {
-                                throw err
+        LazyColumn(
+            state = listState,
+            modifier = Modifier
+                .weight(1f)
+                .fillMaxWidth(),
+        ) {
+            itemsIndexed(
+                rows,
+                key = { index, row -> "${index}:${row.tracksId}:${row.meta}" },
+            ) { _, row ->
+                FavoriteRowView(
+                    row = row,
+                    enabled = FavoritesPolicy.rowCanRequest(allowed, row.tracksId) && busyId == null,
+                    onRequest = {
+                        val id = row.tracksId ?: return@FavoriteRowView
+                        busyId = id
+                        scope.launch {
+                            val result = withContext(Dispatchers.IO) {
+                                runCatching { radio.request(id) }
                             }
-                            RequestPolicy.userFacingError(err)?.let { text ->
-                                message = false to text
+                            busyId = null
+                            result.onSuccess { done ->
+                                message = done.ok to done.message
+                                onCanRequest(
+                                    RequestPolicy.canRequestAfterRequest(done.ok, canRequest),
+                                )
+                            }.onFailure { err ->
+                                if (err is CancellationException) {
+                                    throw err
+                                }
+                                RequestPolicy.userFacingError(err)?.let { text ->
+                                    message = false to text
+                                }
                             }
                         }
-                    }
-                },
-            )
+                    },
+                )
+            }
+            if (
+                committed == nick.trim() &&
+                FavoritesPolicy.shouldFetch(committed) &&
+                rows.isEmpty() &&
+                message == null &&
+                !loading
+            ) {
+                item {
+                    Text(
+                        "No favorites",
+                        color = RadioTheme.muted,
+                        fontSize = 13.sp,
+                        textAlign = TextAlign.Center,
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                }
+            }
         }
-        if (FavoritesPolicy.shouldFetch(nick) && rows.isEmpty() && message == null && !loading) {
-            Text(
-                "No favorites",
-                color = RadioTheme.muted,
-                fontSize = 13.sp,
-                textAlign = TextAlign.Center,
-                modifier = Modifier.fillMaxWidth(),
+        if (PagerPolicy.visible(lastPage)) {
+            PageTabs(
+                current = page,
+                last = lastPage,
+                onPage = { listing = committed to it },
             )
         }
     }

@@ -46,6 +46,7 @@ import io.r_a_d.geiravor.settings.SettingsPolicy
 import io.r_a_d.geiravor.settings.SettingsStore
 import io.r_a_d.geiravor.ui.AppLayout
 import io.r_a_d.geiravor.ui.AppTab
+import io.r_a_d.geiravor.ui.FavoritesPolicy
 import io.r_a_d.geiravor.ui.NewsScreen
 import io.r_a_d.geiravor.ui.NowPlayingScreen
 import io.r_a_d.geiravor.ui.RadioTheme
@@ -101,7 +102,13 @@ private fun GeiravorRoot() {
         RadioStore.setCanRequest(allowed)
     }
     LaunchedEffect(Unit) {
-        favesNick = settings.favesNick.first()
+        val nick = settings.favesNick.first()
+        favesNick = nick
+        if (FavoritesPolicy.shouldFetch(nick)) {
+            withContext(Dispatchers.IO) {
+                runCatching { app.radio.prefetchFavorites(nick) }
+            }
+        }
     }
 
     LifecycleResumeEffect(app) {

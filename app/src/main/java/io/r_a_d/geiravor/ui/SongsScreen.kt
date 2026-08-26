@@ -52,32 +52,37 @@ fun SongsScreen(
             selected = sections.indexOf(section).coerceAtLeast(0),
             onSelect = { selected = sections[it] },
         )
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .verticalScroll(rememberScrollState())
-                .padding(16.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-        ) {
-            when (section) {
-                SectionLayout.SongsSection.Request -> RequestPane(
-                    radio = radio,
-                    status = status,
-                    canRequest = canRequest,
-                    onCanRequest = onCanRequest,
-                    modifier = Modifier.fillMaxWidth(),
-                )
-                SectionLayout.SongsSection.Favorites -> FavoritesPane(
-                    radio = radio,
-                    status = status,
-                    nick = favesNick,
-                    onNick = onFavesNick,
-                    onNickPersist = onFavesNickPersist,
-                    canRequest = canRequest,
-                    onCanRequest = onCanRequest,
-                    modifier = Modifier.fillMaxWidth(),
-                )
-                else -> SongPane(
+        when (section) {
+            SectionLayout.SongsSection.Request -> RequestPane(
+                radio = radio,
+                status = status,
+                canRequest = canRequest,
+                onCanRequest = onCanRequest,
+                modifier = Modifier
+                    .weight(1f)
+                    .fillMaxWidth(),
+            )
+            SectionLayout.SongsSection.Favorites -> FavoritesPane(
+                radio = radio,
+                status = status,
+                nick = favesNick,
+                onNick = onFavesNick,
+                onNickPersist = onFavesNickPersist,
+                canRequest = canRequest,
+                onCanRequest = onCanRequest,
+                modifier = Modifier
+                    .weight(1f)
+                    .fillMaxWidth(),
+            )
+            else -> Column(
+                modifier = Modifier
+                    .weight(1f)
+                    .fillMaxWidth()
+                    .verticalScroll(rememberScrollState())
+                    .padding(16.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+            ) {
+                SongPane(
                     status = status,
                     section = section,
                     showTitle = false,

@@ -1,10 +1,14 @@
+use std::collections::HashMap;
 use std::sync::atomic::{AtomicBool, AtomicU32, Ordering};
 use std::sync::{Arc, Mutex};
 use std::thread::{self, JoinHandle};
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use crate::csrf::{CSRF_BOOTSTRAP_URL, extract_csrf_token, post_with_csrf};
-use crate::favorites::{FavoriteRow, faves_url, parse_faves};
+use crate::favorites::{
+    FAVES_PER_PAGE, FavoriteRow, FavoritesPage, discover_last_page, faves_html_url, faves_url,
+    parse_faves, parse_faves_last_page, PageSample,
+};
 use crate::http::{ApiError, blocking_client};
 use crate::poll::poll_interval;
 use crate::progress::{SongProgress, song_progress};
@@ -54,11 +58,21 @@ pub trait StatusListener: Send + Sync {
     fn on_update(&self, status: Status, stream_down: bool);
 }
 
+#[derive(Default)]
+struct HttpCache {
+    search: HashMap<(String, i32), SearchPage>,
+    faves: HashMap<(String, i32), Vec<FavoriteRow>>,
+    faves_last: HashMap<String, i32>,
+}
+
 #[derive(uniffi::Object)]
 pub struct RadioCore {
     client: Arc<dyn ApiClient>,
     state: Mutex<NowPlayingState>,
     listener: Mutex<Option<Arc<dyn StatusListener>>>,
+    http_cache: Mutex<HttpCache>,
+    search_fetch: Mutex<()>,
+    faves_fetch: Mutex<()>,
     ui_visible: AtomicBool,
     playing: AtomicBool,
     failures: AtomicU32,
@@ -72,6 +86,9 @@ impl RadioCore {
             client,
             state: Mutex::new(NowPlayingState::default()),
             listener: Mutex::new(None),
+            http_cache: Mutex::new(HttpCache::default()),
+            search_fetch: Mutex::new(()),
+            faves_fetch: Mutex::new(()),
             ui_visible: AtomicBool::new(false),
             playing: AtomicBool::new(false),
             failures: AtomicU32::new(0),
@@ -154,6 +171,81 @@ impl RadioCore {
             .duration_since(UNIX_EPOCH)
             .map(|d| d.as_secs() as i64)
             .unwrap_or(0)
+    }
+
+    fn cached_search(&self, query: &str, page: i32) -> Option<SearchPage> {
+        self.http_cache
+            .lock()
+            .expect("cache")
+            .search
+            .get(&(query.to_string(), page))
+            .cloned()
+    }
+
+    fn cached_faves(&self, nick: &str, page: i32) -> Option<Vec<FavoriteRow>> {
+        self.http_cache
+            .lock()
+            .expect("cache")
+            .faves
+            .get(&(nick.to_string(), page))
+            .cloned()
+    }
+
+    fn cached_faves_last(&self, nick: &str) -> Option<i32> {
+        self.http_cache
+            .lock()
+            .expect("cache")
+            .faves_last
+            .get(nick)
+            .copied()
+    }
+
+    fn faves_rows(&self, nick: &str, page: i32) -> Result<Vec<FavoriteRow>, ApiError> {
+        if let Some(hit) = self.cached_faves(nick, page) {
+            return Ok(hit);
+        }
+        let _fetch = self.faves_fetch.lock().expect("faves_fetch");
+        if let Some(hit) = self.cached_faves(nick, page) {
+            return Ok(hit);
+        }
+        let rows = parse_faves(&self.client.get(&faves_url(nick, page))?)?;
+        self.http_cache
+            .lock()
+            .expect("cache")
+            .faves
+            .insert((nick.to_string(), page), rows.clone());
+        Ok(rows)
+    }
+
+    fn resolve_faves_last(
+        &self,
+        nick: &str,
+        page: i32,
+        data: &[FavoriteRow],
+    ) -> Result<i32, ApiError> {
+        if let Some(last) = self.cached_faves_last(nick) {
+            return Ok(last);
+        }
+        let last = if (data.len() as i32) < FAVES_PER_PAGE {
+            page
+        } else {
+            let html_last = self
+                .client
+                .get(&faves_html_url(nick))
+                .map(|html| parse_faves_last_page(&html))
+                .unwrap_or(1);
+            if html_last > 1 {
+                html_last
+            } else {
+                discover_last_page(page.max(1), |probe| {
+                    self.faves_rows(nick, probe)
+                        .map(|rows| PageSample::from_rows(&rows))
+                        .unwrap_or_else(|_| PageSample::from_parts(0, ""))
+                })
+            }
+        };
+        let mut cache = self.http_cache.lock().expect("cache");
+        Ok(*cache.faves_last.entry(nick.to_string()).or_insert(last))
     }
 }
 
@@ -255,19 +347,48 @@ impl RadioCore {
         if query.is_empty() {
             return Ok(SearchPage::empty());
         }
-        parse_search(&self.client.get(&search_url(query, page))?)
+        let page = page.max(1);
+        if let Some(hit) = self.cached_search(query, page) {
+            return Ok(hit);
+        }
+        let _fetch = self.search_fetch.lock().expect("search_fetch");
+        if let Some(hit) = self.cached_search(query, page) {
+            return Ok(hit);
+        }
+        let parsed = parse_search(&self.client.get(&search_url(query, page))?)?;
+        self.http_cache
+            .lock()
+            .expect("cache")
+            .search
+            .insert((query.to_string(), page), parsed.clone());
+        Ok(parsed)
     }
 
     pub fn can_request(&self) -> Result<bool, ApiError> {
         parse_can_request(&self.client.get(CAN_REQUEST_URL)?)
     }
 
-    pub fn favorites(&self, nick: String, page: i32) -> Result<Vec<FavoriteRow>, ApiError> {
+    pub fn favorites(&self, nick: String, page: i32) -> Result<FavoritesPage, ApiError> {
         let nick = nick.trim();
         if nick.is_empty() {
-            return Ok(Vec::new());
+            return Ok(FavoritesPage::empty());
         }
-        parse_faves(&self.client.get(&faves_url(nick, page))?)
+        let page = page.max(1);
+        let data = self.faves_rows(nick, page)?;
+        let last_page = self.resolve_faves_last(nick, page, &data)?;
+        Ok(FavoritesPage {
+            current_page: page,
+            last_page,
+            data,
+        })
+    }
+
+    pub fn prefetch_favorites(&self, nick: String) -> Result<(), ApiError> {
+        if nick.trim().is_empty() {
+            return Ok(());
+        }
+        let _ = self.favorites(nick, 1)?;
+        Ok(())
     }
 
     pub fn request(&self, track_id: i64) -> Result<RequestResult, ApiError> {

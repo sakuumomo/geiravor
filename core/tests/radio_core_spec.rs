@@ -20,10 +20,21 @@ impl ApiClient for Switchable {
 struct UrlClient {
     last: Mutex<String>,
     body: String,
+    urls: Mutex<Vec<String>>,
+}
+impl UrlClient {
+    fn new(body: impl Into<String>) -> Self {
+        Self {
+            last: Mutex::new(String::new()),
+            body: body.into(),
+            urls: Mutex::new(Vec::new()),
+        }
+    }
 }
 impl ApiClient for UrlClient {
     fn get(&self, url: &str) -> Result<String, ApiError> {
         *self.last.lock().expect("lock") = url.to_string();
+        self.urls.lock().expect("urls").push(url.to_string());
         Ok(self.body.clone())
     }
 
@@ -111,10 +122,7 @@ fn icy_does_not_replace_np() {
 
 #[test]
 fn search_uses_json_api_path_and_empty_query_skips_http() {
-    let client = Arc::new(UrlClient {
-        last: Mutex::new(String::new()),
-        body: include_str!("fixtures/search_page.json").into(),
-    });
+    let client = Arc::new(UrlClient::new(include_str!("fixtures/search_page.json")));
     let core = RadioCore::with_client(client.clone());
     let empty = core.search("  ".into(), 1).unwrap();
     assert!(empty.data.is_empty());
@@ -129,14 +137,15 @@ fn search_uses_json_api_path_and_empty_query_skips_http() {
             .expect("lock")
             .starts_with("https://r-a-d.io/api/search/")
     );
+    *client.last.lock().expect("lock") = String::new();
+    let cached = core.search("Aimer with chelly (EGOIST)".into(), 1).unwrap();
+    assert_eq!(cached.data[0].id, 10136);
+    assert!(client.last.lock().expect("lock").is_empty());
 }
 
 #[test]
 fn can_request_uses_capital_main_endpoint() {
-    let client = Arc::new(UrlClient {
-        last: Mutex::new(String::new()),
-        body: include_str!("fixtures/can_request.json").into(),
-    });
+    let client = Arc::new(UrlClient::new(include_str!("fixtures/can_request.json")));
     let core = RadioCore::with_client(client.clone());
     assert!(core.can_request().unwrap());
     assert_eq!(
@@ -147,15 +156,12 @@ fn can_request_uses_capital_main_endpoint() {
 
 #[test]
 fn favorites_empty_nick_skips_http_kethsar_hits_api() {
-    let client = Arc::new(UrlClient {
-        last: Mutex::new(String::new()),
-        body: include_str!("fixtures/faves.json").into(),
-    });
+    let client = Arc::new(UrlClient::new(include_str!("fixtures/faves.json")));
     let core = RadioCore::with_client(client.clone());
-    assert!(core.favorites("  ".into(), 1).unwrap().is_empty());
+    assert!(core.favorites("  ".into(), 1).unwrap().data.is_empty());
     assert!(client.last.lock().expect("lock").is_empty());
-    let rows = core.favorites("Kethsar".into(), 1).unwrap();
-    assert_eq!(rows[0].tracks_id, Some(6130));
+    let page = core.favorites("Kethsar".into(), 1).unwrap();
+    assert_eq!(page.data[0].tracks_id, Some(6130));
     assert_eq!(
         *client.last.lock().expect("lock"),
         "https://r-a-d.io/faves?nick=Kethsar&page=1&dl=true"
@@ -163,11 +169,85 @@ fn favorites_empty_nick_skips_http_kethsar_hits_api() {
 }
 
 #[test]
-fn request_posts_track_id_after_csrf_bootstrap() {
-    let client = Arc::new(UrlClient {
-        last: Mutex::new(String::new()),
-        body: include_str!("fixtures/csrf_token_comment.html").into(),
+fn prefetch_favorites_empty_nick_skips_http() {
+    let client = Arc::new(UrlClient::new(include_str!("fixtures/faves.json")));
+    let core = RadioCore::with_client(client.clone());
+    core.prefetch_favorites("  ".into()).unwrap();
+    assert!(client.last.lock().expect("lock").is_empty());
+    core.prefetch_favorites("Kethsar".into()).unwrap();
+    assert_eq!(
+        client.urls.lock().expect("urls").as_slice(),
+        ["https://r-a-d.io/faves?nick=Kethsar&page=1&dl=true"]
+    );
+    core.prefetch_favorites("Kethsar".into()).unwrap();
+    let again = core.favorites("Kethsar".into(), 1).unwrap();
+    assert_eq!(again.data[0].tracks_id, Some(6130));
+    assert_eq!(again.last_page, 1);
+    assert_eq!(client.urls.lock().expect("urls").len(), 1);
+}
+
+struct RouteClient {
+    json: String,
+    html: String,
+    urls: Mutex<Vec<String>>,
+}
+impl ApiClient for RouteClient {
+    fn get(&self, url: &str) -> Result<String, ApiError> {
+        self.urls.lock().expect("urls").push(url.to_string());
+        if url.contains("dl=true") {
+            Ok(self.json.clone())
+        } else {
+            Ok(self.html.clone())
+        }
+    }
+
+    fn post_csrf(&self, _url: &str, _token: &str) -> Result<String, ApiError> {
+        Err(ApiError::Network {
+            detail: "no post".into(),
+        })
+    }
+}
+
+fn hundred_faves_json() -> String {
+    let rows: Vec<String> = (0..100)
+        .map(|i| {
+            format!(
+                r#"{{"tracks_id":{i},"meta":"Artist - Title {i}","lastrequested":1,"lastplayed":1,"requestcount":1}}"#
+            )
+        })
+        .collect();
+    format!("[{}]", rows.join(","))
+}
+
+#[test]
+fn favorites_full_page_caches_json_and_html_last() {
+    let client = Arc::new(RouteClient {
+        json: hundred_faves_json(),
+        html: include_str!("fixtures/faves_pagination.html").into(),
+        urls: Mutex::new(Vec::new()),
     });
+    let core = RadioCore::with_client(client.clone());
+    let page = core.favorites("Kethsar".into(), 1).unwrap();
+    assert_eq!(page.data.len(), 100);
+    assert_eq!(page.last_page, 64);
+    assert_eq!(
+        client.urls.lock().expect("urls").as_slice(),
+        [
+            "https://r-a-d.io/faves?nick=Kethsar&page=1&dl=true",
+            "https://r-a-d.io/faves?nick=Kethsar",
+        ]
+    );
+    let again = core.favorites("Kethsar".into(), 1).unwrap();
+    assert_eq!(again.last_page, 64);
+    core.prefetch_favorites("Kethsar".into()).unwrap();
+    assert_eq!(client.urls.lock().expect("urls").len(), 2);
+}
+
+#[test]
+fn request_posts_track_id_after_csrf_bootstrap() {
+    let client = Arc::new(UrlClient::new(include_str!(
+        "fixtures/csrf_token_comment.html"
+    )));
     let core = RadioCore::with_client(client.clone());
     let result = core.request(10136).unwrap();
     assert!(result.ok);

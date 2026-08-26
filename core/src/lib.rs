@@ -12,7 +12,10 @@ mod search;
 mod status;
 
 pub use csrf::{CSRF_BOOTSTRAP_URL, CSRF_COOKIE, CSRF_HEADER, extract_csrf_token, post_with_csrf};
-pub use favorites::{FAVES_URL, FavoriteRow, faves_url, parse_faves};
+pub use favorites::{
+    FAVES_PER_PAGE, FAVES_URL, FavoriteRow, FavoritesPage, faves_html_url, faves_url, parse_faves,
+    parse_faves_last_page,
+};
 pub use http::ApiError;
 pub use np::split_np;
 pub use poll::poll_interval;
