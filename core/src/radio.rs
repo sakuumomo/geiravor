@@ -4,12 +4,16 @@ use std::sync::{Arc, Mutex};
 use std::thread::{self, JoinHandle};
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
-use crate::csrf::{CSRF_BOOTSTRAP_URL, extract_csrf_token, post_with_csrf};
+use crate::csrf::{CSRF_BOOTSTRAP_URL, extract_csrf_token, post_form_csrf, post_with_csrf};
 use crate::favorites::{
     FAVES_PER_PAGE, FavoriteRow, FavoritesPage, discover_last_page, faves_html_url, faves_url,
     parse_faves, parse_faves_last_page, pick_requestable_id, row_is_song, PageSample,
 };
 use crate::http::{ApiError, blocking_client};
+use crate::news::{
+    COMMENT_MAX, NewsArticle, NewsAuthor, NewsComment, NewsPage, news_entry_url, news_list_url,
+    parse_news_comments, parse_news_entry_body, parse_news_list,
+};
 use crate::np::split_np;
 use crate::irc::{
     DEFAULT_BOUNCER_PORT, FaveConfig, FaveKind, FaveResult, IrcProfile, RIZON_HOST, RIZON_PORT,
@@ -25,10 +29,21 @@ use crate::search::{
 };
 use crate::status::{API_URL, Status, parse_status};
 
-/// Process HTTP for `/api`, search, request, and favorites.
+/// Process HTTP for `/api`, search, request, favorites, and news.
 pub trait ApiClient: Send + Sync {
     fn get(&self, url: &str) -> Result<String, ApiError>;
     fn post_csrf(&self, url: &str, token: &str) -> Result<String, ApiError>;
+    fn post_form(
+        &self,
+        url: &str,
+        token: &str,
+        fields: Vec<(String, String)>,
+    ) -> Result<String, ApiError> {
+        let _ = (url, token, fields);
+        Err(ApiError::Network {
+            detail: "no post".into(),
+        })
+    }
 }
 
 struct ReqwestApiClient {
@@ -57,6 +72,16 @@ impl ApiClient for ReqwestApiClient {
     fn post_csrf(&self, url: &str, token: &str) -> Result<String, ApiError> {
         post_with_csrf(&self.client, url, token)
     }
+
+    fn post_form(
+        &self,
+        url: &str,
+        token: &str,
+        fields: Vec<(String, String)>,
+    ) -> Result<String, ApiError> {
+        let owned: Vec<(&str, &str)> = fields.iter().map(|(k, v)| (k.as_str(), v.as_str())).collect();
+        post_form_csrf(&self.client, url, token, &owned)
+    }
 }
 
 #[uniffi::export(callback_interface)]
@@ -71,6 +96,11 @@ struct HttpCache {
     faves_last: HashMap<String, i32>,
     fave_plus: HashMap<String, Vec<FavoriteRow>>,
     fave_minus: HashMap<String, Vec<FavoriteRow>>,
+    news_pages: HashMap<i32, Vec<NewsArticle>>,
+    news_last: Option<i32>,
+    news_bodies: HashMap<i64, String>,
+    news_html: HashMap<i64, String>,
+    comments: HashMap<i64, Vec<NewsComment>>,
 }
 
 #[derive(uniffi::Object)]
@@ -81,6 +111,7 @@ pub struct RadioCore {
     http_cache: Mutex<HttpCache>,
     search_fetch: Mutex<()>,
     faves_fetch: Mutex<()>,
+    news_fetch: Mutex<()>,
     ui_visible: AtomicBool,
     playing: AtomicBool,
     failures: AtomicU32,
@@ -98,6 +129,7 @@ impl RadioCore {
             http_cache: Mutex::new(HttpCache::default()),
             search_fetch: Mutex::new(()),
             faves_fetch: Mutex::new(()),
+            news_fetch: Mutex::new(()),
             ui_visible: AtomicBool::new(false),
             playing: AtomicBool::new(false),
             failures: AtomicU32::new(0),
@@ -190,6 +222,16 @@ impl RadioCore {
             .search
             .get(&(query.to_string(), page))
             .cloned()
+    }
+
+    fn cached_news_page(&self, page: i32) -> Option<NewsPage> {
+        let cache = self.http_cache.lock().expect("cache");
+        let data = cache.news_pages.get(&page)?.clone();
+        Some(NewsPage {
+            current_page: page,
+            last_page: cache.news_last.unwrap_or(page).max(1),
+            data,
+        })
     }
 
     fn cached_faves(&self, nick: &str, page: i32) -> Option<Vec<FavoriteRow>> {
@@ -506,6 +548,163 @@ impl RadioCore {
 
     pub fn can_request(&self) -> Result<bool, ApiError> {
         parse_can_request(&self.client.get(CAN_REQUEST_URL)?)
+    }
+
+    pub fn news(&self, page: i32) -> Result<NewsPage, ApiError> {
+        let page = page.max(1);
+        if let Some(hit) = self.cached_news_page(page) {
+            return Ok(hit);
+        }
+        let _fetch = self.news_fetch.lock().expect("news_fetch");
+        if let Some(hit) = self.cached_news_page(page) {
+            return Ok(hit);
+        }
+        let parsed = parse_news_list(&self.client.get(&news_list_url(page))?, page);
+        let mut cache = self.http_cache.lock().expect("cache");
+        cache.news_pages.insert(page, parsed.data.clone());
+        cache.news_last = Some(parsed.last_page.max(cache.news_last.unwrap_or(1)));
+        Ok(parsed)
+    }
+
+    fn ensure_news_entry(&self, id: i64) -> Result<(), ApiError> {
+        if id <= 0 {
+            return Ok(());
+        }
+        {
+            let cache = self.http_cache.lock().expect("cache");
+            if cache.news_bodies.contains_key(&id) && cache.comments.contains_key(&id) {
+                return Ok(());
+            }
+        }
+        let _fetch = self.news_fetch.lock().expect("news_fetch");
+        {
+            let cache = self.http_cache.lock().expect("cache");
+            if cache.news_bodies.contains_key(&id) && cache.comments.contains_key(&id) {
+                return Ok(());
+            }
+        }
+        let html = self.client.get(&news_entry_url(id))?;
+        self.store_news_entry(id, &html);
+        Ok(())
+    }
+
+    fn store_news_entry(&self, id: i64, html: &str) {
+        let body = parse_news_entry_body(html);
+        let comments = parse_news_comments(html);
+        let mut cache = self.http_cache.lock().expect("cache");
+        cache.news_html.insert(id, html.to_string());
+        cache.news_bodies.insert(id, body);
+        cache.comments.insert(id, comments);
+    }
+
+    fn listed_news(&self, id: i64) -> Option<NewsArticle> {
+        let cache = self.http_cache.lock().expect("cache");
+        cache
+            .news_pages
+            .values()
+            .flatten()
+            .find(|a| a.id == id)
+            .cloned()
+    }
+
+    pub fn news_article(&self, id: i64) -> Result<NewsArticle, ApiError> {
+        self.ensure_news_entry(id)?;
+        let mut article = self.listed_news(id).unwrap_or(NewsArticle {
+            id,
+            title: String::new(),
+            header: String::new(),
+            text: String::new(),
+            updated_at: String::new(),
+            author: NewsAuthor {
+                id: 0,
+                user: String::new(),
+                role: String::new(),
+            },
+        });
+        if let Some(text) = self
+            .http_cache
+            .lock()
+            .expect("cache")
+            .news_bodies
+            .get(&id)
+            .cloned()
+        {
+            article.text = text;
+        }
+        Ok(article)
+    }
+
+    pub fn news_comments(&self, id: i64) -> Result<Vec<NewsComment>, ApiError> {
+        if id <= 0 {
+            return Ok(Vec::new());
+        }
+        self.ensure_news_entry(id)?;
+        Ok(self
+            .http_cache
+            .lock()
+            .expect("cache")
+            .comments
+            .get(&id)
+            .cloned()
+            .unwrap_or_default())
+    }
+
+    pub fn post_news_comment(&self, id: i64, body: String) -> Result<Vec<NewsComment>, ApiError> {
+        let body = body.trim().to_string();
+        if id <= 0 {
+            return Err(ApiError::Decode {
+                detail: "missing news id".into(),
+            });
+        }
+        if body.is_empty() {
+            return Err(ApiError::Decode {
+                detail: "Comment is empty.".into(),
+            });
+        }
+        if body.chars().count() > COMMENT_MAX as usize {
+            return Err(ApiError::Decode {
+                detail: "Comment is too long.".into(),
+            });
+        }
+        let url = news_entry_url(id);
+        let html = match self
+            .http_cache
+            .lock()
+            .expect("cache")
+            .news_html
+            .get(&id)
+            .cloned()
+        {
+            Some(hit) => hit,
+            None => {
+                let fetched = self.client.get(&url)?;
+                self.store_news_entry(id, &fetched);
+                fetched
+            }
+        };
+        let token = extract_csrf_token(&html)?;
+        let posted = match self
+            .client
+            .post_form(&url, &token, vec![("comment".into(), body.clone())])
+        {
+            Ok(html) => html,
+            Err(ApiError::Http { status: 403, .. }) => {
+                let fetched = self.client.get(&url)?;
+                let token = extract_csrf_token(&fetched)?;
+                self.client
+                    .post_form(&url, &token, vec![("comment".into(), body)])?
+            }
+            Err(e) => return Err(e),
+        };
+        self.store_news_entry(id, &posted);
+        Ok(self
+            .http_cache
+            .lock()
+            .expect("cache")
+            .comments
+            .get(&id)
+            .cloned()
+            .unwrap_or_default())
     }
 
     pub fn favorites(&self, nick: String, page: i32) -> Result<FavoritesPage, ApiError> {

@@ -4,6 +4,7 @@ mod csrf;
 mod favorites;
 mod http;
 mod irc;
+mod news;
 mod np;
 mod poll;
 mod progress;
@@ -29,6 +30,11 @@ pub fn certificate_fingerprint_sha256(pem: String) -> String {
     crate::irc::certificate_fingerprint_sha256(&pem)
 }
 
+pub use news::{
+    NEWS_LIST_URL, NEWS_URL, NewsArticle, NewsAuthor, NewsComment, NewsPage, news_entry_url,
+    news_list_url, parse_news, parse_news_comments, parse_news_entry_body, parse_news_ids,
+    parse_news_last_page, parse_news_list,
+};
 pub use np::split_np;
 pub use poll::poll_interval;
 pub use progress::{SongProgress, relative_last_played, relative_queue, song_progress};

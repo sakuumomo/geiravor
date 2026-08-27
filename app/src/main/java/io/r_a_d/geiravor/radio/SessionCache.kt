@@ -6,6 +6,7 @@ object SessionCache {
     private val favesCurrent = HashMap<String, Int>()
     private var searchQuery: String = ""
     private var searchCurrent: Int = 1
+    private var newsCurrent: Int = 1
 
     fun favesCurrent(nick: String): Int = synchronized(lock) { favesCurrent[nick.trim()] ?: 1 }
 
@@ -28,11 +29,18 @@ object SessionCache {
         }
     }
 
+    fun newsCurrent(): Int = synchronized(lock) { newsCurrent }
+
+    fun putNewsCurrent(page: Int) {
+        synchronized(lock) { newsCurrent = page.coerceAtLeast(1) }
+    }
+
     fun clearForTests() {
         synchronized(lock) {
             favesCurrent.clear()
             searchQuery = ""
             searchCurrent = 1
+            newsCurrent = 1
         }
     }
 }

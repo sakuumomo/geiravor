@@ -5,9 +5,22 @@ pub fn post_with_csrf(
     url: &str,
     token: &str,
 ) -> Result<String, ApiError> {
+    post_form_csrf(client, url, token, &[])
+}
+
+pub fn post_form_csrf(
+    client: &reqwest::blocking::Client,
+    url: &str,
+    token: &str,
+    fields: &[(&str, &str)],
+) -> Result<String, ApiError> {
+    let mut form: Vec<(&str, &str)> = Vec::with_capacity(fields.len() + 1);
+    form.push(("gorilla.csrf.Token", token));
+    form.extend_from_slice(fields);
     let response = client
         .post(url)
         .header(CSRF_HEADER, token)
+        .form(&form)
         .send()
         .and_then(|r| r.error_for_status())
         .map_err(ApiError::from_reqwest)?;

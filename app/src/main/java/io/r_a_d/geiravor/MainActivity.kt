@@ -343,7 +343,7 @@ private fun GeiravorRoot() {
                 )
             }
             val news: @Composable (Modifier) -> Unit = { modifier ->
-                NewsScreen(modifier = modifier)
+                NewsScreen(radio = app.radio, modifier = modifier)
             }
             val settings: @Composable (Modifier) -> Unit = { modifier ->
                 SettingsScreen(

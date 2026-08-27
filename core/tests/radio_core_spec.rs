@@ -158,6 +158,87 @@ fn can_request_uses_capital_main_endpoint() {
 }
 
 #[test]
+fn news_hits_html_list_and_caches() {
+    let client = Arc::new(UrlClient::new(include_str!("fixtures/news_list.html")));
+    let core = RadioCore::with_client(client.clone());
+    let page = core.news(1).unwrap();
+    assert_eq!(page.data.len(), 2);
+    assert_eq!(page.data[0].id, 82);
+    assert_eq!(page.data[0].author.user, "claud");
+    assert_eq!(page.last_page, 4);
+    assert_eq!(
+        *client.last.lock().expect("lock"),
+        "https://r-a-d.io/news"
+    );
+    *client.last.lock().expect("lock") = String::new();
+    let cached = core.news(1).unwrap();
+    assert_eq!(cached.data[1].title, "Holid/a/y Stre/a/ms 2025 Schedule");
+    assert!(client.last.lock().expect("lock").is_empty());
+}
+
+struct NewsRouteClient {
+    json: String,
+    list: String,
+    entry: String,
+    urls: Mutex<Vec<String>>,
+    posts: Mutex<Vec<(String, Vec<(String, String)>)>>,
+}
+impl ApiClient for NewsRouteClient {
+    fn get(&self, url: &str) -> Result<String, ApiError> {
+        self.urls.lock().expect("urls").push(url.to_string());
+        if url.contains("/news/") {
+            Ok(self.entry.clone())
+        } else if url.contains("/news") {
+            Ok(self.list.clone())
+        } else {
+            Ok(self.json.clone())
+        }
+    }
+
+    fn post_csrf(&self, url: &str, _token: &str) -> Result<String, ApiError> {
+        self.urls.lock().expect("urls").push(url.to_string());
+        Ok(self.entry.clone())
+    }
+
+    fn post_form(
+        &self,
+        url: &str,
+        _token: &str,
+        fields: Vec<(String, String)>,
+    ) -> Result<String, ApiError> {
+        self.urls.lock().expect("urls").push(url.to_string());
+        self.posts.lock().expect("posts").push((url.to_string(), fields));
+        Ok(self.entry.clone())
+    }
+}
+
+#[test]
+fn news_attaches_html_ids_and_posts_comment() {
+    let client = Arc::new(NewsRouteClient {
+        json: include_str!("fixtures/news.json").into(),
+        list: include_str!("fixtures/news_list.html").into(),
+        entry: include_str!("fixtures/news_entry.html").into(),
+        urls: Mutex::new(Vec::new()),
+        posts: Mutex::new(Vec::new()),
+    });
+    let core = RadioCore::with_client(client.clone());
+    let articles = core.news(1).unwrap();
+    assert_eq!(articles.data[1].id, 81);
+    assert!(articles.data[1].text.is_empty());
+    let full = core.news_article(81).unwrap();
+    assert!(full.text.contains("As always"));
+    let comments = core.news_comments(81).unwrap();
+    assert_eq!(comments[0].id, 4807);
+    let posted = core
+        .post_news_comment(81, "hello fags".into())
+        .unwrap();
+    assert_eq!(posted[0].author, "Anonymous (ab25)");
+    let post = &client.posts.lock().expect("posts")[0];
+    assert_eq!(post.0, "https://r-a-d.io/news/81");
+    assert_eq!(post.1, vec![("comment".into(), "hello fags".into())]);
+}
+
+#[test]
 fn favorites_empty_nick_skips_http_kethsar_hits_api() {
     let client = Arc::new(UrlClient::new(include_str!("fixtures/faves.json")));
     let core = RadioCore::with_client(client.clone());
