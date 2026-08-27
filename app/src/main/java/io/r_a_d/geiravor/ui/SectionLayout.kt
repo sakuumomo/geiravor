@@ -11,6 +11,7 @@ object SectionLayout {
     enum class SettingsSection(val label: String) {
         General("General"),
         Auto("Auto"),
+        Connection("Connection"),
     }
 
     fun songsSections(isAfkStream: Boolean): List<SongsSection> =
@@ -35,5 +36,5 @@ object SectionLayout {
     }
 
     fun settingsSections(): List<SettingsSection> =
-        listOf(SettingsSection.General, SettingsSection.Auto)
+        listOf(SettingsSection.General, SettingsSection.Auto, SettingsSection.Connection)
 }

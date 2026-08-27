@@ -7,4 +7,7 @@ object StreamStatus {
         np ?: if (streamDown) banner else "…"
 
     fun showBanner(streamDown: Boolean): Boolean = streamDown
+
+    fun hasTagContent(tags: List<String>?): Boolean =
+        tags?.any { it.isNotBlank() } == true
 }

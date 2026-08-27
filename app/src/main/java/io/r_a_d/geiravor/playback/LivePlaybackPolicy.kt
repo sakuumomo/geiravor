@@ -9,6 +9,7 @@ object LivePlaybackPolicy {
     const val VOLUME_STEP_PERCENT = 5f
     const val VOLUME_UP = "io.r_a_d.geiravor.VOLUME_UP"
     const val VOLUME_DOWN = "io.r_a_d.geiravor.VOLUME_DOWN"
+    const val MUTE = "io.r_a_d.geiravor.MUTE"
     const val FAVE = "io.r_a_d.geiravor.FAVE"
 
     enum class Command {
@@ -43,7 +44,20 @@ object LivePlaybackPolicy {
 
     fun volumeLabel(gain: Float): String = toPercent(gain).toInt().toString()
 
-    fun faveIsStub(): Boolean = true
+    fun isMuted(gain: Float): Boolean = gain <= 0f
+
+    data class MuteToggle(
+        val gain: Float,
+        val lastUnmuted: Float,
+    )
+
+    fun toggleMute(current: Float, lastUnmuted: Float): MuteToggle {
+        if (current > 0f) {
+            return MuteToggle(gain = 0f, lastUnmuted = current)
+        }
+        val restore = if (lastUnmuted > 0f) lastUnmuted else DEFAULT_GAIN
+        return MuteToggle(gain = restore, lastUnmuted = restore)
+    }
 
     fun shouldReconnect(userWantsPlay: Boolean): Boolean = userWantsPlay
 

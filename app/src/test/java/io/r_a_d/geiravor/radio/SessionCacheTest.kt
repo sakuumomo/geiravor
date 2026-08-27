@@ -12,9 +12,9 @@ class SessionCacheTest {
 
     @Test
     fun favesCurrentDefaultsToOne() {
-        assertEquals(1, SessionCache.favesCurrent("Kethsar"))
-        SessionCache.putFavesCurrent("Kethsar", 3)
-        assertEquals(3, SessionCache.favesCurrent("Kethsar"))
+        assertEquals(1, SessionCache.favesCurrent("Geiravor"))
+        SessionCache.putFavesCurrent("Geiravor", 3)
+        assertEquals(3, SessionCache.favesCurrent("Geiravor"))
     }
 
     @Test

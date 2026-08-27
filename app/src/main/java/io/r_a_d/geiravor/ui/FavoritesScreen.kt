@@ -17,6 +17,7 @@ import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -29,7 +30,10 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import io.r_a_d.geiravor.radio.RadioStore
 import io.r_a_d.geiravor.radio.SessionCache
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.map
 import kotlin.coroutines.cancellation.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
@@ -59,6 +63,10 @@ fun FavoritesPane(
     var busyId by remember { mutableStateOf<Long?>(null) }
     var loading by remember { mutableStateOf(FavoritesPolicy.shouldFetch(nick)) }
     val listState = rememberLazyListState()
+    val listRevision by remember {
+        RadioStore.state.map { it.faveListRevision }.distinctUntilChanged()
+    }.collectAsState(initial = 0)
+    var lastScrolledListing by remember { mutableStateOf<Pair<String, Int>?>(null) }
     val allowed = RequestPolicy.requestsAllowed(
         isAfkStream = status?.isAfkStream == true,
         requesting = status?.requesting == true,
@@ -94,7 +102,7 @@ fun FavoritesPane(
         listing = trimmed to SessionCache.favesCurrent(trimmed)
     }
 
-    LaunchedEffect(listing) {
+    LaunchedEffect(listing, listRevision) {
         if (!FavoritesPolicy.shouldFetch(committed)) {
             rows = emptyList()
             lastPage = 1
@@ -104,6 +112,7 @@ fun FavoritesPane(
             return@LaunchedEffect
         }
         loading = true
+        val listingChanged = lastScrolledListing != listing
         try {
             val fetched = withContext(Dispatchers.IO) { radio.favorites(committed, page) }
             rows = fetched.data
@@ -111,10 +120,12 @@ fun FavoritesPane(
             SessionCache.putFavesCurrent(committed, page)
             if (fetched.data.isEmpty() && page > 1) {
                 listing = committed to (page - 1).coerceAtLeast(1)
+            } else if (listingChanged) {
+                lastScrolledListing = listing
+                message = null
+                listState.scrollToItem(0)
             }
-            message = null
             loading = false
-            listState.scrollToItem(0)
         } catch (err: CancellationException) {
             throw err
         } catch (err: Exception) {
@@ -147,6 +158,40 @@ fun FavoritesPane(
                 unfocusedPlaceholderColor = RadioTheme.muted,
             ),
         )
+        Button(
+            onClick = {
+                busyId = FavoritesPolicy.RANDOM_BUSY_ID
+                scope.launch {
+                    val result = withContext(Dispatchers.IO) {
+                        runCatching { radio.requestRandomFavorite(nick.trim()) }
+                    }
+                    busyId = null
+                    result.onSuccess { done ->
+                        message = done.ok to done.message
+                        onCanRequest(
+                            RequestPolicy.canRequestAfterRequest(done.ok, canRequest),
+                        )
+                    }.onFailure { err ->
+                        if (err is CancellationException) {
+                            throw err
+                        }
+                        RequestPolicy.userFacingError(err)?.let { text ->
+                            message = false to text
+                        }
+                    }
+                }
+            },
+            enabled = FavoritesPolicy.randomCanRequest(allowed, nick) && busyId == null,
+            modifier = Modifier.fillMaxWidth(),
+            colors = ButtonDefaults.buttonColors(
+                containerColor = RadioTheme.blue,
+                contentColor = RadioTheme.text,
+                disabledContainerColor = RadioTheme.border,
+                disabledContentColor = RadioTheme.muted,
+            ),
+        ) {
+            Text("Request random")
+        }
         if (showOff) {
             Text(
                 "Requests are off (live DJ or cooldown).",

@@ -23,4 +23,12 @@ class StreamStatusTest {
         assertEquals("Stream down", StreamStatus.headline(np = null, streamDown = true))
         assertEquals("…", StreamStatus.headline(np = null, streamDown = false))
     }
+
+    @Test
+    fun plusHidesWhenTagsAreMissingOrBlank() {
+        assertFalse(StreamStatus.hasTagContent(null))
+        assertFalse(StreamStatus.hasTagContent(emptyList()))
+        assertFalse(StreamStatus.hasTagContent(listOf(" ", "")))
+        assertTrue(StreamStatus.hasTagContent(listOf("berserk")))
+    }
 }

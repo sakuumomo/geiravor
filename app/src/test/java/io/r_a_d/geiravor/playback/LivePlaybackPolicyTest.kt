@@ -106,15 +106,28 @@ class LivePlaybackPolicyTest {
     }
 
     @Test
+    fun muteTogglesToZeroAndRestoresLastGain() {
+        val muted = LivePlaybackPolicy.toggleMute(current = 0.8f, lastUnmuted = 0.5f)
+        assertEquals(0f, muted.gain, 0.0001f)
+        assertEquals(0.8f, muted.lastUnmuted, 0.0001f)
+        assertTrue(LivePlaybackPolicy.isMuted(muted.gain))
+        val restored = LivePlaybackPolicy.toggleMute(current = 0f, lastUnmuted = 0.8f)
+        assertEquals(0.8f, restored.gain, 0.0001f)
+        assertFalse(LivePlaybackPolicy.isMuted(restored.gain))
+        val fromZero = LivePlaybackPolicy.toggleMute(current = 0f, lastUnmuted = 0f)
+        assertEquals(LivePlaybackPolicy.DEFAULT_GAIN, fromZero.gain, 0.0001f)
+    }
+
+    @Test
     fun gearheadIsAuto() {
         assertTrue(LivePlaybackPolicy.isAutoPackage("com.google.android.projection.gearhead"))
         assertFalse(LivePlaybackPolicy.isAutoPackage("io.r_a_d.geiravor"))
     }
 
     @Test
-    fun faveIsStubUntilNickFaves() {
+    fun faveCommandIsLive() {
         assertEquals("io.r_a_d.geiravor.FAVE", LivePlaybackPolicy.FAVE)
-        assertTrue(LivePlaybackPolicy.faveIsStub())
+        assertEquals("io.r_a_d.geiravor.MUTE", LivePlaybackPolicy.MUTE)
     }
 
     @Test

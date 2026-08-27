@@ -3,6 +3,7 @@ uniffi::setup_scaffolding!();
 mod csrf;
 mod favorites;
 mod http;
+mod irc;
 mod np;
 mod poll;
 mod progress;
@@ -18,6 +19,16 @@ pub use favorites::{
     parse_faves_last_page,
 };
 pub use http::ApiError;
+pub use irc::{
+    DEFAULT_BOUNCER_PORT, FaveConfig, FaveKind, FaveResult, IrcProfile, RIZON_HOST, RIZON_PORT,
+    TapSnapshot, TlsIrc, connect_irc, nick_is_empty, run_add_fave,
+};
+
+#[uniffi::export]
+pub fn certificate_fingerprint_sha256(pem: String) -> String {
+    crate::irc::certificate_fingerprint_sha256(&pem)
+}
+
 pub use np::split_np;
 pub use poll::poll_interval;
 pub use progress::{SongProgress, relative_last_played, relative_queue, song_progress};

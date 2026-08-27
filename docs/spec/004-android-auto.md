@@ -22,7 +22,7 @@ Advertise play and pause. Implement pause as **stop** (`003-playback.md`).
 
 Do **not** advertise seek, skip next, or skip previous.
 
-App gain is the same as the phone (0–100, default 80, DataStore). Auto exposes **Vol −** / **Vol +** (±5). Independent of the car's system volume.
+App gain is the same as the phone (0–100, default 80, DataStore). Independent of the car's system volume. Compact **unfocused** Auto has two custom slots beside play: **Mute** (back) and **Fave** (forward). Focused now-playing also has **Vol −** (back secondary) and **Vol +** (forward secondary, right of Fave), ±5. Mute toggles app gain to 0 and back to the last non-zero gain (default 80 if none).
 
 ## Now playing card
 
@@ -58,7 +58,7 @@ When **Auto-start in vehicle** is on, projected Auto session connect starts the 
 
 Do not advertise `COMMAND_GET_TIMELINE` (hides Auto’s empty Queue button). Do not add-to-playlist.
 
-A **Fave** custom action on the now-playing card (`LivePlaybackPolicy.FAVE`) uses the same IRC add-fave path as the phone (`006-requests-faves.md`). Empty nick → no-op (keep advertising the command). It must not start, stop, or replace the live item, and must not rewrite now-playing metadata to display the result.
+A **Fave** custom action on the now-playing card (`LivePlaybackPolicy.FAVE`) uses the same IRC add-fave path as the phone (`006-requests-faves.md`). Empty nick → no-op (keep advertising the command). It must not start, stop, or replace the live item, and must not rewrite now-playing metadata to display the result. Heart is **filled** when the current song is already a favorite (cached `/faves` rows or a successful Fave this session); outline otherwise. Same icon on the media notification custom action. On Auto, the compact **unfocused** card is Mute (back) and Fave (forward — skip-next is not advertised). Focused adds Vol − (back secondary) and Vol + (forward secondary). Use media button preferences (not custom-layout list order).
 
 No request, news, thread, or search in Auto. No Favorites browse folder.
 

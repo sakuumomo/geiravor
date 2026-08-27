@@ -7,9 +7,15 @@ use std::time::{Duration, SystemTime, UNIX_EPOCH};
 use crate::csrf::{CSRF_BOOTSTRAP_URL, extract_csrf_token, post_with_csrf};
 use crate::favorites::{
     FAVES_PER_PAGE, FavoriteRow, FavoritesPage, discover_last_page, faves_html_url, faves_url,
-    parse_faves, parse_faves_last_page, PageSample,
+    parse_faves, parse_faves_last_page, pick_requestable_id, row_is_song, PageSample,
 };
 use crate::http::{ApiError, blocking_client};
+use crate::np::split_np;
+use crate::irc::{
+    DEFAULT_BOUNCER_PORT, FaveConfig, FaveKind, FaveResult, IrcProfile, RIZON_HOST, RIZON_PORT,
+    TapSnapshot, TlsIrc, attach_nick, connect_irc, connected_message, nick_is_empty, run_add_fave,
+    run_probe,
+};
 use crate::poll::poll_interval;
 use crate::progress::{SongProgress, song_progress};
 use crate::reducer::{NowPlayingEvent, NowPlayingState};
@@ -19,7 +25,7 @@ use crate::search::{
 };
 use crate::status::{API_URL, Status, parse_status};
 
-/// HTTP for `/api` now; 0.2.0 search/request/faves add methods here (`006-requests-faves.md`).
+/// Process HTTP for `/api`, search, request, and favorites.
 pub trait ApiClient: Send + Sync {
     fn get(&self, url: &str) -> Result<String, ApiError>;
     fn post_csrf(&self, url: &str, token: &str) -> Result<String, ApiError>;
@@ -63,6 +69,8 @@ struct HttpCache {
     search: HashMap<(String, i32), SearchPage>,
     faves: HashMap<(String, i32), Vec<FavoriteRow>>,
     faves_last: HashMap<String, i32>,
+    fave_plus: HashMap<String, Vec<FavoriteRow>>,
+    fave_minus: HashMap<String, Vec<FavoriteRow>>,
 }
 
 #[derive(uniffi::Object)]
@@ -78,6 +86,7 @@ pub struct RadioCore {
     failures: AtomicU32,
     stop: Arc<AtomicBool>,
     thread: Mutex<Option<JoinHandle<()>>>,
+    fave_lock: Mutex<()>,
 }
 
 impl RadioCore {
@@ -94,6 +103,7 @@ impl RadioCore {
             failures: AtomicU32::new(0),
             stop: Arc::new(AtomicBool::new(false)),
             thread: Mutex::new(None),
+            fave_lock: Mutex::new(()),
         })
     }
 
@@ -247,6 +257,136 @@ impl RadioCore {
         let mut cache = self.http_cache.lock().expect("cache");
         Ok(*cache.faves_last.entry(nick.to_string()).or_insert(last))
     }
+
+    pub(crate) fn catalog_id_for(&self, nick: &str, tap: &TapSnapshot) -> Option<i64> {
+        if tap.is_afk && tap.track_id > 0 {
+            return Some(tap.track_id);
+        }
+        let lookup = lookup_track_id(tap);
+        let cache = self.http_cache.lock().expect("cache");
+        cache
+            .fave_plus
+            .get(nick)
+            .into_iter()
+            .flatten()
+            .chain(
+                cache
+                    .faves
+                    .iter()
+                    .filter(|((n, _), _)| n == nick)
+                    .flat_map(|(_, rows)| rows),
+            )
+            .find(|row| row_is_song(row, lookup, &tap.np))
+            .and_then(|row| row.tracks_id)
+            .filter(|id| *id > 0)
+    }
+
+    pub(crate) fn remember_toggle(
+        &self,
+        nick: &str,
+        tap: &TapSnapshot,
+        catalog_id: Option<i64>,
+        favorited: bool,
+    ) {
+        let id = overlay_track_id(tap, catalog_id);
+        let lookup = id.unwrap_or_else(|| lookup_track_id(tap));
+        let (artist, title) = split_np(&tap.np);
+        let row = FavoriteRow {
+            tracks_id: id,
+            meta: tap.np.clone(),
+            artist,
+            title,
+            last_requested: None,
+            last_played: None,
+            request_count: None,
+        };
+        let mut cache = self.http_cache.lock().expect("cache");
+        if favorited {
+            let minus = cache.fave_minus.entry(nick.to_string()).or_default();
+            minus.retain(|r| !row_is_song(r, lookup, &tap.np));
+            let plus = cache.fave_plus.entry(nick.to_string()).or_default();
+            plus.retain(|r| !row_is_song(r, lookup, &tap.np));
+            plus.push(row);
+        } else {
+            let plus = cache.fave_plus.entry(nick.to_string()).or_default();
+            plus.retain(|r| !row_is_song(r, lookup, &tap.np));
+            let minus = cache.fave_minus.entry(nick.to_string()).or_default();
+            minus.retain(|r| !row_is_song(r, lookup, &tap.np));
+            minus.push(row);
+        }
+    }
+
+    fn apply_fave_overlay(&self, nick: &str, page: i32, mut data: Vec<FavoriteRow>) -> Vec<FavoriteRow> {
+        let cache = self.http_cache.lock().expect("cache");
+        if let Some(minus) = cache.fave_minus.get(nick) {
+            data.retain(|row| {
+                !minus
+                    .iter()
+                    .any(|m| row_is_song(m, row.tracks_id.unwrap_or(0), &row.meta))
+            });
+        }
+        if page == 1 {
+            if let Some(plus) = cache.fave_plus.get(nick) {
+                for extra in plus.iter().rev() {
+                    if !data
+                        .iter()
+                        .any(|row| row_is_song(extra, row.tracks_id.unwrap_or(0), &row.meta))
+                    {
+                        data.insert(0, extra.clone());
+                    }
+                }
+            }
+        }
+        data
+    }
+}
+
+fn lookup_track_id(tap: &TapSnapshot) -> i64 {
+    if tap.is_afk {
+        tap.track_id
+    } else {
+        0
+    }
+}
+
+fn overlay_track_id(tap: &TapSnapshot, catalog_id: Option<i64>) -> Option<i64> {
+    catalog_id
+        .filter(|id| *id > 0)
+        .or_else(|| {
+            let id = lookup_track_id(tap);
+            (id > 0).then_some(id)
+        })
+}
+
+fn should_unfave(already: bool, catalog_id: Option<i64>) -> bool {
+    already && catalog_id.is_some_and(|id| id > 0)
+}
+
+fn open_irc(config: &FaveConfig) -> Result<TlsIrc, FaveResult> {
+    let (host, port, insecure) = match config.profile {
+        IrcProfile::Rizon => (RIZON_HOST.to_string(), RIZON_PORT, false),
+        IrcProfile::Bouncer => {
+            let host = config.bouncer_host.trim();
+            if host.is_empty() {
+                return Err(FaveResult::failed("Bouncer host is required."));
+            }
+            let port = if config.bouncer_port == 0 {
+                DEFAULT_BOUNCER_PORT
+            } else {
+                config.bouncer_port
+            };
+            (host.to_string(), port, config.allow_insecure_tls)
+        }
+    };
+    connect_irc(
+        &host,
+        port,
+        insecure,
+        &config.client_cert_pem,
+        &config.client_key_pem,
+        &config.tls_fingerprint,
+    )
+    .map_err(|e| FaveResult::failed(e.user_message()))
 }
 
 #[uniffi::export]
@@ -379,8 +519,40 @@ impl RadioCore {
         Ok(FavoritesPage {
             current_page: page,
             last_page,
-            data,
+            data: self.apply_fave_overlay(nick, page, data),
         })
+    }
+
+    pub fn is_favorite(&self, nick: String, track_id: i64, np: String) -> bool {
+        let nick = nick.trim();
+        if nick.is_empty() {
+            return false;
+        }
+        let cache = self.http_cache.lock().expect("cache");
+        if cache
+            .fave_minus
+            .get(nick)
+            .into_iter()
+            .flatten()
+            .any(|row| row_is_song(row, track_id, &np))
+        {
+            return false;
+        }
+        if cache
+            .fave_plus
+            .get(nick)
+            .into_iter()
+            .flatten()
+            .any(|row| row_is_song(row, track_id, &np))
+        {
+            return true;
+        }
+        cache
+            .faves
+            .iter()
+            .filter(|((n, _), _)| n == nick)
+            .flat_map(|(_, rows)| rows)
+            .any(|row| row_is_song(row, track_id, &np))
     }
 
     pub fn prefetch_favorites(&self, nick: String) -> Result<(), ApiError> {
@@ -389,6 +561,78 @@ impl RadioCore {
         }
         let _ = self.favorites(nick, 1)?;
         Ok(())
+    }
+
+    pub fn add_fave(&self, config: FaveConfig) -> FaveResult {
+        let nick = config.nick.trim().to_string();
+        if nick_is_empty(&nick) {
+            return FaveResult::noop();
+        }
+        let Ok(_guard) = self.fave_lock.try_lock() else {
+            return FaveResult::failed("A fave is already in progress.");
+        };
+        let Some(status) = self.snapshot() else {
+            return FaveResult::failed("No station status yet.");
+        };
+        let tap = TapSnapshot {
+            is_afk: status.is_afk_stream,
+            track_id: status.track_id,
+            np: status.np.clone(),
+        };
+        let lookup_id = lookup_track_id(&tap);
+        let catalog_id = self.catalog_id_for(&nick, &tap);
+        let unfave = should_unfave(
+            self.is_favorite(nick.clone(), lookup_id, tap.np.clone()),
+            catalog_id,
+        );
+        let attach = attach_nick(config.profile, &nick);
+        let mut conn = match open_irc(&config) {
+            Ok(c) => c,
+            Err(e) => return e,
+        };
+        let latest = || self.snapshot().map(|s| s.np).unwrap_or_default();
+        let result = match run_add_fave(
+            &mut conn,
+            &config,
+            &tap,
+            latest,
+            &attach,
+            unfave,
+            catalog_id,
+        ) {
+            Ok(r) => r,
+            Err(e) => FaveResult::failed(e.user_message()),
+        };
+        let _ = conn.close_notify();
+        if result.kind == FaveKind::Success {
+            self.remember_toggle(&nick, &tap, catalog_id, result.favorited);
+        }
+        result
+    }
+
+    pub fn probe_irc(&self, config: FaveConfig) -> FaveResult {
+        let nick = config.nick.trim().to_string();
+        if nick_is_empty(&nick) {
+            return FaveResult::failed("Set a connection nick.");
+        }
+        let Ok(_guard) = self.fave_lock.try_lock() else {
+            return FaveResult::failed("A fave is already in progress.");
+        };
+        let attach = attach_nick(config.profile, &nick);
+        let mut conn = match open_irc(&config) {
+            Ok(c) => c,
+            Err(e) => return e,
+        };
+        let result = match run_probe(&mut conn, &config, &attach) {
+            Ok(()) => FaveResult {
+                kind: FaveKind::Success,
+                message: connected_message(conn.server_fingerprint()),
+                favorited: false,
+            },
+            Err(e) => FaveResult::failed(e.user_message()),
+        };
+        let _ = conn.close_notify();
+        result
     }
 
     pub fn request(&self, track_id: i64) -> Result<RequestResult, ApiError> {
@@ -403,10 +647,161 @@ impl RadioCore {
             Err(e) => Err(e),
         }
     }
+
+    pub fn request_random_favorite(&self, nick: String) -> Result<RequestResult, ApiError> {
+        let nick = nick.trim();
+        if nick.is_empty() {
+            return Ok(RequestResult {
+                ok: false,
+                message: "Set your Rizon nick in Favorites.".into(),
+            });
+        }
+        let first = self.favorites(nick.to_string(), 1)?;
+        let mut rows = first.data;
+        for page in 2..=first.last_page.max(1) {
+            rows.extend(self.favorites(nick.to_string(), page)?.data);
+        }
+        let now = self
+            .snapshot()
+            .map(|s| s.current)
+            .unwrap_or_else(Self::unix_now);
+        let slot = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .map(|d| d.as_nanos() as u64)
+            .unwrap_or(0);
+        let Some(id) = pick_requestable_id(&rows, now, slot) else {
+            return Ok(RequestResult {
+                ok: false,
+                message: "No requestable favorites.".into(),
+            });
+        };
+        self.request(id)
+    }
 }
 
 impl Drop for RadioCore {
     fn drop(&mut self) {
         self.stop.store(true, Ordering::Relaxed);
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::irc::TapSnapshot;
+
+    struct FixtureClient(&'static str);
+    impl ApiClient for FixtureClient {
+        fn get(&self, _url: &str) -> Result<String, ApiError> {
+            Ok(self.0.into())
+        }
+        fn post_csrf(&self, _url: &str, _token: &str) -> Result<String, ApiError> {
+            Err(ApiError::Network {
+                detail: "no post".into(),
+            })
+        }
+    }
+
+    fn core() -> Arc<RadioCore> {
+        RadioCore::with_client(Arc::new(FixtureClient(include_str!(
+            "../tests/fixtures/faves.json"
+        ))))
+    }
+
+    fn np() -> &'static str {
+        "Mori Yuuya - Seitokai Yakuindomo no March"
+    }
+
+    #[test]
+    fn unfave_only_when_catalog_id_known() {
+        assert!(!should_unfave(true, None));
+        assert!(!should_unfave(true, Some(0)));
+        assert!(!should_unfave(false, Some(42)));
+        assert!(should_unfave(true, Some(42)));
+    }
+
+    #[test]
+    fn overlay_toggle_fills_then_unfills_without_wiping_http_cache() {
+        let core = core();
+        let page = core.favorites("Geiravor".into(), 1).unwrap();
+        assert!(core.is_favorite("Geiravor".into(), 6130, np().into()));
+        let tap = TapSnapshot {
+            is_afk: true,
+            track_id: 6130,
+            np: np().into(),
+        };
+        assert_eq!(core.catalog_id_for("Geiravor", &tap), Some(6130));
+        core.remember_toggle("Geiravor", &tap, Some(6130), false);
+        assert!(!core.is_favorite("Geiravor".into(), 6130, np().into()));
+        assert!(!core
+            .favorites("Geiravor".into(), 1)
+            .unwrap()
+            .data
+            .iter()
+            .any(|r| r.tracks_id == Some(6130)));
+        assert_eq!(page.data[0].tracks_id, Some(6130));
+        core.remember_toggle("Geiravor", &tap, Some(6130), true);
+        assert!(core.is_favorite("Geiravor".into(), 6130, np().into()));
+        assert!(core
+            .favorites("Geiravor".into(), 1)
+            .unwrap()
+            .data
+            .iter()
+            .any(|r| r.tracks_id == Some(6130)));
+    }
+
+    #[test]
+    fn live_dj_leftover_trackid_is_not_a_catalog_id() {
+        let core = core();
+        let _ = core.favorites("Geiravor".into(), 1).unwrap();
+        let tap = TapSnapshot {
+            is_afk: false,
+            track_id: 99,
+            np: "DJ - Only".into(),
+        };
+        assert_eq!(core.catalog_id_for("Geiravor", &tap), None);
+        core.remember_toggle("Geiravor", &tap, None, true);
+        assert!(core.is_favorite("Geiravor".into(), 0, "DJ - Only".into()));
+        assert_eq!(core.catalog_id_for("Geiravor", &tap), None);
+        assert!(!should_unfave(
+            core.is_favorite("Geiravor".into(), 0, "DJ - Only".into()),
+            core.catalog_id_for("Geiravor", &tap)
+        ));
+    }
+
+    #[test]
+    fn afk_snapshot_id_is_catalog_id_even_when_not_listed() {
+        let core = core();
+        let tap = TapSnapshot {
+            is_afk: true,
+            track_id: 42,
+            np: "Hirasawa Susumu - Gats".into(),
+        };
+        assert_eq!(core.catalog_id_for("Geiravor", &tap), Some(42));
+        assert!(!should_unfave(
+            core.is_favorite("Geiravor".into(), 42, tap.np.clone()),
+            core.catalog_id_for("Geiravor", &tap)
+        ));
+        core.remember_toggle("Geiravor", &tap, Some(42), true);
+        assert!(should_unfave(
+            core.is_favorite("Geiravor".into(), 42, tap.np.clone()),
+            core.catalog_id_for("Geiravor", &tap)
+        ));
+    }
+
+    #[test]
+    fn live_dj_matching_fave_row_is_catalog_id() {
+        let core = core();
+        let _ = core.favorites("Geiravor".into(), 1).unwrap();
+        let tap = TapSnapshot {
+            is_afk: false,
+            track_id: 99,
+            np: np().into(),
+        };
+        assert_eq!(core.catalog_id_for("Geiravor", &tap), Some(6130));
+        assert!(should_unfave(
+            core.is_favorite("Geiravor".into(), 0, np().into()),
+            core.catalog_id_for("Geiravor", &tap)
+        ));
     }
 }

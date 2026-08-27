@@ -28,14 +28,18 @@ import io.r_a_d.geiravor.BuildConfig
 import io.r_a_d.geiravor.GeiravorApp
 import io.r_a_d.geiravor.MainActivity
 import io.r_a_d.geiravor.radio.RadioStore
+import io.r_a_d.geiravor.settings.SecretsStore
 import io.r_a_d.geiravor.settings.SettingsPolicy
 import io.r_a_d.geiravor.settings.SettingsStore
+import io.r_a_d.geiravor.ui.FavoritesPolicy
+import uniffi.geiravor_core.IrcProfile
 import uniffi.geiravor_core.Status
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 class PlaybackService : MediaLibraryService() {
     private var session: MediaLibraryService.MediaLibrarySession? = null
@@ -98,8 +102,46 @@ class PlaybackService : MediaLibraryService() {
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
         )
         val settings = SettingsStore(this)
+        val secrets = SecretsStore(this)
         var vehicleOn = SettingsPolicy.AUTO_START_VEHICLE_DEFAULT
         var plugOn = SettingsPolicy.AUTO_START_DEFAULT
+        var faveNick = ""
+        var ircNick = ""
+        var ircProfile = IrcProfile.RIZON
+        var bouncerHost = ""
+        var bouncerPort = FavePolicy.DEFAULT_BOUNCER_PORT
+        var allowInsecureTls = false
+        var saslUsername = ""
+        var tlsFingerprint = ""
+        var faveFilled = false
+        var lastUnmuted = LivePlaybackPolicy.DEFAULT_GAIN
+        fun publishButtons() {
+            session?.setMediaButtonPreferences(nowPlayingButtons(exo.volume, faveFilled))
+        }
+        fun applyGain(next: Float) {
+            player.volume = next
+            if (next > 0f) {
+                lastUnmuted = next
+            }
+            scope.launch { settings.setGain(next) }
+            session?.setMediaButtonPreferences(nowPlayingButtons(next, faveFilled))
+        }
+        fun refreshFaveIcon(status: Status?) {
+            scope.launch(Dispatchers.IO) {
+                val listedNick = FavePolicy.ircNick(ircNick, faveNick)
+                if (FavoritesPolicy.shouldFetch(listedNick)) {
+                    runCatching { radio.prefetchFavorites(listedNick) }
+                }
+                val filled = FavePolicy.isListed(
+                    listedNick,
+                    status,
+                    radio::isFavorite,
+                )
+                withContext(Dispatchers.Main) {
+                    RadioStore.setHeart(filled)
+                }
+            }
+        }
         fun settingsSnapshot() = AutoSettingsSnapshot(
             vehicleOn = vehicleOn,
             plugOn = plugOn,
@@ -110,10 +152,50 @@ class PlaybackService : MediaLibraryService() {
             settings = { settingsSnapshot() },
             player = player,
             onNudgeVolume = { up ->
-                val next = LivePlaybackPolicy.nudgeGain(player.volume, up)
-                player.volume = next
-                scope.launch { settings.setGain(next) }
-                session?.setCustomLayout(nowPlayingButtons(next))
+                applyGain(LivePlaybackPolicy.nudgeGain(player.volume, up))
+            },
+            onMute = {
+                val toggled = LivePlaybackPolicy.toggleMute(player.volume, lastUnmuted)
+                lastUnmuted = toggled.lastUnmuted
+                applyGain(toggled.gain)
+            },
+            buttons = { nowPlayingButtons(exo.volume, faveFilled) },
+            onFave = {
+                scope.launch(Dispatchers.IO) {
+                    val listedNick = FavePolicy.ircNick(ircNick, faveNick)
+                    val wasFilled = FavePolicy.isListed(
+                        listedNick,
+                        radio.snapshot(),
+                        radio::isFavorite,
+                    )
+                    val result = radio.addFave(
+                        FavePolicy.config(
+                            nick = listedNick,
+                            profile = ircProfile,
+                            nickservPassword = secrets.nickservPassword(),
+                            bouncerHost = bouncerHost,
+                            bouncerPort = bouncerPort,
+                            bouncerPass = secrets.bouncerPass(),
+                            allowInsecureTls = allowInsecureTls,
+                            saslUsername = saslUsername,
+                            saslPassword = secrets.saslPassword(),
+                            clientCertPem = secrets.clientCertPem(),
+                            clientKeyPem = secrets.clientKeyPem(),
+                            tlsFingerprint = tlsFingerprint,
+                        ),
+                    )
+                    withContext(Dispatchers.Main) {
+                        val heart = FavePolicy.heartUpdate(wasFilled, result)
+                        RadioStore.setHeart(
+                            filled = heart.filled,
+                            notice = heart.notice,
+                            replaceNotice = true,
+                            bumpList = heart.bumpList,
+                        )
+                        faveFilled = RadioStore.state.value.heartFilled
+                        publishButtons()
+                    }
+                }
             },
             onToggleSetting = { id ->
                 when (id) {
@@ -138,7 +220,10 @@ class PlaybackService : MediaLibraryService() {
         scope.launch {
             settings.gain.collect { gain ->
                 exo.volume = gain
-                session?.setCustomLayout(nowPlayingButtons(gain))
+                if (gain > 0f) {
+                    lastUnmuted = gain
+                }
+                publishButtons()
             }
         }
         scope.launch {
@@ -148,14 +233,58 @@ class PlaybackService : MediaLibraryService() {
             }
         }
         scope.launch {
+            settings.favesNick.collect { nick ->
+                faveNick = nick
+                refreshFaveIcon(radio.snapshot())
+            }
+        }
+        scope.launch {
+            settings.ircNick.collect { nick ->
+                ircNick = nick
+                refreshFaveIcon(radio.snapshot())
+            }
+        }
+        scope.launch {
+            settings.ircProfile.collect { ircProfile = it }
+        }
+        scope.launch {
+            settings.bouncerHost.collect { bouncerHost = it }
+        }
+        scope.launch {
+            settings.bouncerPort.collect { bouncerPort = it }
+        }
+        scope.launch {
+            settings.allowInsecureTls.collect { allowInsecureTls = it }
+        }
+        scope.launch {
+            settings.saslUsername.collect { saslUsername = it }
+        }
+        scope.launch {
+            settings.tlsFingerprint.collect { tlsFingerprint = it }
+        }
+        scope.launch {
             settings.autoStartOnPlug.collect { enabled ->
                 plugOn = enabled
                 publishBrowse(radio.snapshot(), settingsSnapshot(), listOf(AutoBrowse.SETTINGS))
             }
         }
         scope.launch {
+            var lastSong: Triple<Boolean, Long, String>? = null
             RadioStore.state.collect { state ->
                 player.applyStatus(state.status)
+                if (faveFilled != state.heartFilled) {
+                    faveFilled = state.heartFilled
+                    publishButtons()
+                }
+                val song = Triple(
+                    state.status?.isAfkStream == true,
+                    state.status?.trackId ?: 0L,
+                    state.status?.np.orEmpty(),
+                )
+                if (lastSong != song) {
+                    lastSong = song
+                    refreshFaveIcon(state.status)
+                }
                 publishBrowse(
                     state.status,
                     settingsSnapshot(),
@@ -205,7 +334,10 @@ class PlaybackService : MediaLibraryService() {
         private val status: () -> Status?,
         private val settings: () -> AutoSettingsSnapshot,
         private val player: LiveStationPlayer,
+        private val buttons: () -> List<CommandButton>,
         private val onNudgeVolume: (Boolean) -> Unit,
+        private val onMute: () -> Unit,
+        private val onFave: () -> Unit,
         private val onToggleSetting: (String) -> Unit,
     ) : MediaLibraryService.MediaLibrarySession.Callback {
         override fun onConnect(
@@ -216,17 +348,22 @@ class PlaybackService : MediaLibraryService() {
                 .buildUpon()
                 .add(SessionCommand(LivePlaybackPolicy.VOLUME_UP, Bundle.EMPTY))
                 .add(SessionCommand(LivePlaybackPolicy.VOLUME_DOWN, Bundle.EMPTY))
+                .add(SessionCommand(LivePlaybackPolicy.MUTE, Bundle.EMPTY))
                 .add(SessionCommand(LivePlaybackPolicy.FAVE, Bundle.EMPTY))
                 .remove(SessionCommand.COMMAND_CODE_LIBRARY_SEARCH)
                 .build()
-            return MediaSession.ConnectionResult.accept(sessionCommands, player.availableCommands)
+            return MediaSession.ConnectionResult.AcceptedResultBuilder(session)
+                .setAvailableSessionCommands(sessionCommands)
+                .setAvailablePlayerCommands(player.availableCommands)
+                .setMediaButtonPreferences(buttons())
+                .build()
         }
 
         override fun onPostConnect(
             session: MediaSession,
             controller: MediaSession.ControllerInfo,
         ) {
-            session.setCustomLayout(controller, nowPlayingButtons(player.volume))
+            session.setMediaButtonPreferences(controller, buttons())
             if (
                 LivePlaybackPolicy.isAutoPackage(controller.packageName) &&
                 settings().vehicleOn &&
@@ -245,10 +382,9 @@ class PlaybackService : MediaLibraryService() {
             when (customCommand.customAction) {
                 LivePlaybackPolicy.VOLUME_UP -> onNudgeVolume(true)
                 LivePlaybackPolicy.VOLUME_DOWN -> onNudgeVolume(false)
+                LivePlaybackPolicy.MUTE -> onMute()
                 LivePlaybackPolicy.FAVE -> {
-                    if (LivePlaybackPolicy.faveIsStub()) {
-                        return Futures.immediateFuture(SessionResult(SessionResult.RESULT_SUCCESS))
-                    }
+                    onFave()
                 }
                 else -> return Futures.immediateFuture(
                     SessionResult(SessionResult.RESULT_ERROR_NOT_SUPPORTED),
@@ -400,9 +536,20 @@ class PlaybackService : MediaLibraryService() {
     }
 }
 
-private fun nowPlayingButtons(gain: Float): List<CommandButton> {
+private fun nowPlayingButtons(gain: Float, faveFilled: Boolean): List<CommandButton> {
     val label = LivePlaybackPolicy.volumeLabel(gain)
+    val muted = LivePlaybackPolicy.isMuted(gain)
     return listOf(
+        CommandButton.Builder(CommandButton.ICON_VOLUME_OFF)
+            .setSessionCommand(SessionCommand(LivePlaybackPolicy.MUTE, Bundle.EMPTY))
+            .setDisplayName(if (muted) "Unmute" else "Mute")
+            .setSlots(CommandButton.SLOT_BACK, CommandButton.SLOT_OVERFLOW)
+            .build(),
+        CommandButton.Builder(FavePolicy.heartIcon(faveFilled))
+            .setSessionCommand(SessionCommand(LivePlaybackPolicy.FAVE, Bundle.EMPTY))
+            .setDisplayName("Fave")
+            .setSlots(*FavePolicy.faveSlots())
+            .build(),
         CommandButton.Builder(CommandButton.ICON_VOLUME_DOWN)
             .setSessionCommand(SessionCommand(LivePlaybackPolicy.VOLUME_DOWN, Bundle.EMPTY))
             .setDisplayName("Vol $label −")
@@ -412,11 +559,6 @@ private fun nowPlayingButtons(gain: Float): List<CommandButton> {
             .setSessionCommand(SessionCommand(LivePlaybackPolicy.VOLUME_UP, Bundle.EMPTY))
             .setDisplayName("Vol $label +")
             .setSlots(CommandButton.SLOT_FORWARD_SECONDARY, CommandButton.SLOT_OVERFLOW)
-            .build(),
-        CommandButton.Builder(CommandButton.ICON_HEART_UNFILLED)
-            .setSessionCommand(SessionCommand(LivePlaybackPolicy.FAVE, Bundle.EMPTY))
-            .setDisplayName("Fave")
-            .setSlots(CommandButton.SLOT_OVERFLOW)
             .build(),
     )
 }

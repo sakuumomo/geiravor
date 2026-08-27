@@ -2,6 +2,9 @@ package io.r_a_d.geiravor.ui
 
 import android.content.Intent
 import android.net.Uri
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -13,6 +16,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.material3.Icon
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
@@ -57,12 +61,17 @@ fun NowPlayingScreen(
     onGainFinished: (Float) -> Unit,
     onSliding: (Boolean) -> Unit = {},
     onPlayToggle: () -> Unit,
+    onFave: () -> Unit = {},
+    faveBusy: Boolean = false,
+    faveFilled: Boolean = false,
+    faveMessage: String? = null,
     showThread: Boolean = true,
     modifier: Modifier = Modifier,
 ) {
     var progress by remember { mutableStateOf<SongProgress?>(null) }
     var tagsOpen by remember { mutableStateOf(false) }
     var sliding by remember { mutableStateOf(false) }
+    var shownFaveError by remember { mutableStateOf<String?>(null) }
     var percent by remember { mutableStateOf(LivePlaybackPolicy.toPercent(gain)) }
 
     LaunchedEffect(radio) {
@@ -72,9 +81,21 @@ fun NowPlayingScreen(
         }
     }
 
+    LaunchedEffect(status?.tags) {
+        if (!StreamStatus.hasTagContent(status?.tags)) {
+            tagsOpen = false
+        }
+    }
+
     LaunchedEffect(gain) {
         if (!sliding) {
             percent = LivePlaybackPolicy.toPercent(gain)
+        }
+    }
+
+    LaunchedEffect(faveMessage) {
+        if (faveMessage != null) {
+            shownFaveError = faveMessage
         }
     }
 
@@ -147,6 +168,17 @@ fun NowPlayingScreen(
             verticalAlignment = Alignment.CenterVertically,
             modifier = Modifier.fillMaxWidth(),
         ) {
+            Icon(
+                painter = painterResource(
+                    if (faveFilled) R.drawable.ic_fave_filled else R.drawable.ic_fave,
+                ),
+                contentDescription = "Fave",
+                tint = if (faveFilled) RadioTheme.blue else RadioTheme.muted,
+                modifier = Modifier
+                    .clickable(enabled = !faveBusy, onClick = onFave)
+                    .padding(8.dp)
+                    .size(22.dp),
+            )
             Text(
                 text = StreamStatus.headline(status?.np, streamDown),
                 color = RadioTheme.text,
@@ -156,7 +188,7 @@ fun NowPlayingScreen(
                 overflow = TextOverflow.Ellipsis,
                 modifier = Modifier.weight(1f),
             )
-            if (!status?.tags.isNullOrEmpty()) {
+            if (StreamStatus.hasTagContent(status?.tags)) {
                 Text(
                     text = if (tagsOpen) "−" else "+",
                     color = RadioTheme.muted,
@@ -167,9 +199,22 @@ fun NowPlayingScreen(
                 )
             }
         }
-        if (tagsOpen && !status?.tags.isNullOrEmpty()) {
+        AnimatedVisibility(
+            visible = faveMessage != null,
+            enter = fadeIn(),
+            exit = fadeOut(),
+        ) {
             Text(
-                text = status!!.tags.joinToString(" "),
+                text = shownFaveError.orEmpty(),
+                color = RadioTheme.red,
+                fontSize = 13.sp,
+                textAlign = TextAlign.Center,
+                modifier = Modifier.fillMaxWidth(),
+            )
+        }
+        if (tagsOpen && StreamStatus.hasTagContent(status?.tags)) {
+            Text(
+                text = status!!.tags.filter { it.isNotBlank() }.joinToString(" "),
                 color = RadioTheme.muted,
                 textAlign = TextAlign.Center,
             )

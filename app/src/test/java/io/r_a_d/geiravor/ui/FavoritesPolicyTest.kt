@@ -9,7 +9,7 @@ class FavoritesPolicyTest {
     fun emptyNickDoesNotFetch() {
         assertFalse(FavoritesPolicy.shouldFetch(""))
         assertFalse(FavoritesPolicy.shouldFetch("  "))
-        assertTrue(FavoritesPolicy.shouldFetch("Kethsar"))
+        assertTrue(FavoritesPolicy.shouldFetch("Geiravor"))
     }
 
     @Test
@@ -17,6 +17,14 @@ class FavoritesPolicyTest {
         assertFalse(FavoritesPolicy.rowCanRequest(allowed = true, tracksId = null, requestable = true))
         assertTrue(FavoritesPolicy.rowCanRequest(allowed = true, tracksId = 6130, requestable = true))
         assertFalse(FavoritesPolicy.rowCanRequest(allowed = false, tracksId = 6130, requestable = true))
+    }
+
+    @Test
+    fun randomNeedsNickAndRequestsOn() {
+        assertFalse(FavoritesPolicy.randomCanRequest(allowed = true, nick = ""))
+        assertFalse(FavoritesPolicy.randomCanRequest(allowed = true, nick = "  "))
+        assertFalse(FavoritesPolicy.randomCanRequest(allowed = false, nick = "Geiravor"))
+        assertTrue(FavoritesPolicy.randomCanRequest(allowed = true, nick = "Geiravor"))
     }
 
     @Test

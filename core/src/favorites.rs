@@ -2,6 +2,7 @@ use serde::Deserialize;
 
 use crate::http::ApiError;
 use crate::np::split_np;
+use crate::request::song_requestable;
 use crate::search::encode_path_segment;
 
 pub const FAVES_URL: &str = "https://r-a-d.io/faves";
@@ -77,6 +78,49 @@ pub struct FavoriteRow {
     pub last_requested: Option<i64>,
     pub last_played: Option<i64>,
     pub request_count: Option<i64>,
+}
+
+pub fn row_is_song(row: &FavoriteRow, track_id: i64, np: &str) -> bool {
+    if track_id > 0 && row.tracks_id == Some(track_id) {
+        return true;
+    }
+    let left = np
+        .split_whitespace()
+        .collect::<Vec<_>>()
+        .join(" ")
+        .to_lowercase();
+    let right = row
+        .meta
+        .split_whitespace()
+        .collect::<Vec<_>>()
+        .join(" ")
+        .to_lowercase();
+    !left.is_empty() && left == right
+}
+
+/// Catalog favorites that pass the same cooldown as a row Request. `slot` picks uniformly.
+pub fn pick_requestable_id(rows: &[FavoriteRow], now: i64, slot: u64) -> Option<i64> {
+    let ids: Vec<i64> = rows
+        .iter()
+        .filter_map(|row| {
+            let id = row.tracks_id.filter(|id| *id > 0)?;
+            if song_requestable(
+                row.last_played,
+                row.last_requested,
+                row.request_count,
+                now,
+            ) {
+                Some(id)
+            } else {
+                None
+            }
+        })
+        .collect();
+    if ids.is_empty() {
+        None
+    } else {
+        Some(ids[(slot as usize) % ids.len()])
+    }
 }
 
 #[derive(Deserialize)]
@@ -229,8 +273,11 @@ pub fn parse_faves(json: &str) -> Result<Vec<FavoriteRow>, ApiError> {
 mod tests {
     use super::*;
 
+    // Kethsar is only the captured GET /faves fixture nick (a long public list).
+    // Do not reuse it for IRC add-fave or other tests.
+
     #[test]
-    fn faves_url_encodes_kethsar() {
+    fn faves_url_encodes_captured_fixture_nick() {
         assert_eq!(
             faves_url("Kethsar", 1),
             "https://r-a-d.io/faves?nick=Kethsar&page=1&dl=true"
@@ -239,6 +286,58 @@ mod tests {
             faves_url("Kethsar", 3),
             "https://r-a-d.io/faves?nick=Kethsar&page=3&dl=true"
         );
+    }
+
+    #[test]
+    fn row_is_song_matches_track_id_or_meta() {
+        let row = FavoriteRow {
+            tracks_id: Some(42),
+            meta: "Hirasawa Susumu - Gats".into(),
+            artist: "Hirasawa Susumu".into(),
+            title: "Gats".into(),
+            last_requested: None,
+            last_played: None,
+            request_count: None,
+        };
+        assert!(row_is_song(&row, 42, "other"));
+        assert!(row_is_song(&row, 0, "hirasawa  susumu - gats"));
+        assert!(!row_is_song(&row, 7, "Someone - Else"));
+    }
+
+    fn catalog_row(id: i64, last_played: Option<i64>) -> FavoriteRow {
+        FavoriteRow {
+            tracks_id: Some(id),
+            meta: "A - B".into(),
+            artist: "A".into(),
+            title: "B".into(),
+            last_requested: None,
+            last_played,
+            request_count: Some(0),
+        }
+    }
+
+    #[test]
+    fn pick_requestable_skips_null_id_and_cooldown() {
+        let now = 1_700_000_000;
+        let delay = crate::request::request_delay_secs(0);
+        let rows = vec![
+            FavoriteRow {
+                tracks_id: None,
+                meta: "DJ - Only".into(),
+                artist: "DJ".into(),
+                title: "Only".into(),
+                last_requested: None,
+                last_played: None,
+                request_count: None,
+            },
+            catalog_row(1, Some(now - 10)),
+            catalog_row(2, Some(now - delay)),
+            catalog_row(3, None),
+        ];
+        assert_eq!(pick_requestable_id(&rows, now, 0), Some(2));
+        assert_eq!(pick_requestable_id(&rows, now, 1), Some(3));
+        assert_eq!(pick_requestable_id(&rows, now, 2), Some(2));
+        assert_eq!(pick_requestable_id(&[], now, 0), None);
     }
 
     #[test]

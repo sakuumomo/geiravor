@@ -25,6 +25,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import io.r_a_d.geiravor.settings.SettingsPolicy
+import uniffi.geiravor_core.IrcProfile
 
 @Composable
 fun SettingsScreen(
@@ -32,6 +33,33 @@ fun SettingsScreen(
     onAutoStartOnPlug: (Boolean) -> Unit,
     autoStartInVehicle: Boolean,
     onAutoStartInVehicle: (Boolean) -> Unit,
+    ircNick: String,
+    onIrcNick: (String) -> Unit,
+    ircProfile: IrcProfile,
+    onIrcProfile: (IrcProfile) -> Unit,
+    nickservPassword: String,
+    onNickservPassword: (String) -> Unit,
+    bouncerHost: String,
+    onBouncerHost: (String) -> Unit,
+    bouncerPort: String,
+    onBouncerPort: (String) -> Unit,
+    bouncerPass: String,
+    onBouncerPass: (String) -> Unit,
+    allowInsecureTls: Boolean,
+    onAllowInsecureTls: (Boolean) -> Unit,
+    saslUsername: String,
+    onSaslUsername: (String) -> Unit,
+    saslPassword: String,
+    onSaslPassword: (String) -> Unit,
+    clientCertPem: String,
+    onClientCertPem: (String) -> Unit,
+    clientKeyPem: String,
+    onClientKeyPem: (String) -> Unit,
+    tlsFingerprint: String,
+    onTlsFingerprint: (String) -> Unit,
+    onTestConnection: () -> Unit,
+    testBusy: Boolean,
+    testMessage: Pair<Boolean, String>?,
     versionName: String,
     modifier: Modifier = Modifier,
 ) {
@@ -61,6 +89,38 @@ fun SettingsScreen(
                     autoStartInVehicle = autoStartInVehicle,
                     onAutoStartInVehicle = onAutoStartInVehicle,
                 )
+                SectionLayout.SettingsSection.Connection -> SettingsCard {
+                    ConnectionSettings(
+                        ircNick = ircNick,
+                        onIrcNick = onIrcNick,
+                        profile = ircProfile,
+                        onProfile = onIrcProfile,
+                        nickservPassword = nickservPassword,
+                        onNickservPassword = onNickservPassword,
+                        bouncerHost = bouncerHost,
+                        onBouncerHost = onBouncerHost,
+                        bouncerPort = bouncerPort,
+                        onBouncerPort = onBouncerPort,
+                        bouncerPass = bouncerPass,
+                        onBouncerPass = onBouncerPass,
+                        allowInsecureTls = allowInsecureTls,
+                        onAllowInsecureTls = onAllowInsecureTls,
+                        saslUsername = saslUsername,
+                        onSaslUsername = onSaslUsername,
+                        saslPassword = saslPassword,
+                        onSaslPassword = onSaslPassword,
+                        clientCertPem = clientCertPem,
+                        onClientCertPem = onClientCertPem,
+                        clientKeyPem = clientKeyPem,
+                        onClientKeyPem = onClientKeyPem,
+                        tlsFingerprint = tlsFingerprint,
+                        onTlsFingerprint = onTlsFingerprint,
+                        onTest = onTestConnection,
+                        testBusy = testBusy,
+                        testMessage = testMessage,
+                        modifier = Modifier.padding(16.dp),
+                    )
+                }
             }
         }
     }

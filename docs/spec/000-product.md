@@ -63,7 +63,7 @@ Everything user-facing on the site: schedule, staff, submit, help, extra themes.
 
 No r-a-d.io **site** session or password. Public favorites list is nick-only (`GET /faves?nick=`).
 
-Add-fave is IRC. Direct Rizon uses that nick as `NICK` plus optional NickServ password. A generic bouncer (ZNC/soju) is already named and identified on Rizon; the stored nick must be that same Rizon nick so the list matches what Hanyuu records. NickServ and bouncer `PASS` live in Encrypted storage and are never logged.
+Add-fave is IRC. Direct Rizon uses that nick as `NICK` plus optional NickServ password or SASL. A generic bouncer (ZNC/soju) is already named and identified on Rizon; the stored nick must be that same Rizon nick so the list matches what Hanyuu records. NickServ, bouncer `PASS`, SASL password, and client PEM live in Encrypted storage and are never logged. Password and client-key fields are not copyable; the client cert may be. Optional server-cert SHA-256 pin; Test connection reports the bouncer’s fingerprint.
 
 ## Identity of the app
 

@@ -1,6 +1,9 @@
 use std::sync::{Arc, Mutex};
 
-use geiravor_core::{ApiClient, ApiError, RadioCore, Status, StatusListener, poll_interval};
+use geiravor_core::{
+    ApiClient, ApiError, FaveConfig, FaveKind, IrcProfile, RadioCore, Status, StatusListener,
+    poll_interval,
+};
 
 struct Switchable {
     next: Mutex<Result<String, ApiError>>,
@@ -162,10 +165,55 @@ fn favorites_empty_nick_skips_http_kethsar_hits_api() {
     assert!(client.last.lock().expect("lock").is_empty());
     let page = core.favorites("Kethsar".into(), 1).unwrap();
     assert_eq!(page.data[0].tracks_id, Some(6130));
+    assert!(core.is_favorite("Kethsar".into(), 6130, String::new()));
+    assert!(!core.is_favorite("Kethsar".into(), 0, "not a song".into()));
     assert_eq!(
         *client.last.lock().expect("lock"),
         "https://r-a-d.io/faves?nick=Kethsar&page=1&dl=true"
     );
+}
+
+#[test]
+fn add_fave_empty_nick_is_noop_without_connect() {
+    let client = Arc::new(UrlClient::new(include_str!("fixtures/api_snapshot.json")));
+    let core = RadioCore::with_client(client);
+    let result = core.add_fave(FaveConfig {
+        nick: "  ".into(),
+        profile: IrcProfile::Rizon,
+        nickserv_password: String::new(),
+        bouncer_host: String::new(),
+        bouncer_port: 6697,
+        bouncer_pass: String::new(),
+        allow_insecure_tls: false,
+        sasl_username: String::new(),
+        sasl_password: String::new(),
+        client_cert_pem: String::new(),
+        client_key_pem: String::new(),
+        tls_fingerprint: String::new(),
+    });
+    assert_eq!(result.kind, FaveKind::Noop);
+}
+
+#[test]
+fn probe_irc_empty_nick_does_not_connect() {
+    let client = Arc::new(UrlClient::new(include_str!("fixtures/api_snapshot.json")));
+    let core = RadioCore::with_client(client);
+    let result = core.probe_irc(FaveConfig {
+        nick: "  ".into(),
+        profile: IrcProfile::Rizon,
+        nickserv_password: String::new(),
+        bouncer_host: String::new(),
+        bouncer_port: 6697,
+        bouncer_pass: String::new(),
+        allow_insecure_tls: false,
+        sasl_username: String::new(),
+        sasl_password: String::new(),
+        client_cert_pem: String::new(),
+        client_key_pem: String::new(),
+        tls_fingerprint: String::new(),
+    });
+    assert_eq!(result.kind, FaveKind::Failed);
+    assert_eq!(result.message, "Set a connection nick.");
 }
 
 #[test]
@@ -241,6 +289,69 @@ fn favorites_full_page_caches_json_and_html_last() {
     assert_eq!(again.last_page, 64);
     core.prefetch_favorites("Kethsar".into()).unwrap();
     assert_eq!(client.urls.lock().expect("urls").len(), 2);
+}
+
+struct FaveRequestClient {
+    faves: String,
+    csrf: String,
+    urls: Mutex<Vec<String>>,
+}
+impl ApiClient for FaveRequestClient {
+    fn get(&self, url: &str) -> Result<String, ApiError> {
+        self.urls.lock().expect("urls").push(url.to_string());
+        if url.contains("dl=true") {
+            Ok(self.faves.clone())
+        } else {
+            Ok(self.csrf.clone())
+        }
+    }
+
+    fn post_csrf(&self, url: &str, _token: &str) -> Result<String, ApiError> {
+        self.urls.lock().expect("urls").push(url.to_string());
+        Ok(include_str!("fixtures/request_success.json").into())
+    }
+}
+
+#[test]
+fn request_random_favorite_empty_nick_skips_http() {
+    let client = Arc::new(FaveRequestClient {
+        faves: "[]".into(),
+        csrf: include_str!("fixtures/csrf_token_comment.html").into(),
+        urls: Mutex::new(Vec::new()),
+    });
+    let core = RadioCore::with_client(client.clone());
+    let result = core.request_random_favorite("  ".into()).unwrap();
+    assert!(!result.ok);
+    assert!(client.urls.lock().expect("urls").is_empty());
+}
+
+#[test]
+fn request_random_favorite_posts_catalog_id() {
+    let client = Arc::new(FaveRequestClient {
+        faves: r#"[{"tracks_id":99,"meta":"A - B","lastrequested":null,"lastplayed":null,"requestcount":0}]"#.into(),
+        csrf: include_str!("fixtures/csrf_token_comment.html").into(),
+        urls: Mutex::new(Vec::new()),
+    });
+    let core = RadioCore::with_client(client.clone());
+    let result = core.request_random_favorite("Geiravor".into()).unwrap();
+    assert!(result.ok);
+    let urls = client.urls.lock().expect("urls");
+    assert!(urls.iter().any(|u| u.contains("nick=Geiravor") && u.contains("dl=true")));
+    assert_eq!(urls.last().unwrap(), "https://r-a-d.io/request/99");
+}
+
+#[test]
+fn request_random_favorite_skips_post_when_none_requestable() {
+    let client = Arc::new(FaveRequestClient {
+        faves: r#"[{"tracks_id":99,"meta":"A - B","lastrequested":2000000000,"lastplayed":2000000000,"requestcount":0}]"#.into(),
+        csrf: include_str!("fixtures/csrf_token_comment.html").into(),
+        urls: Mutex::new(Vec::new()),
+    });
+    let core = RadioCore::with_client(client.clone());
+    let result = core.request_random_favorite("Geiravor".into()).unwrap();
+    assert!(!result.ok);
+    let urls = client.urls.lock().expect("urls");
+    assert!(urls.iter().all(|u| !u.contains("/request/")));
 }
 
 #[test]

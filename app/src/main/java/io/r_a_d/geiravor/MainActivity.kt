@@ -39,11 +39,14 @@ import androidx.media3.session.SessionToken
 import androidx.core.content.ContextCompat
 import io.r_a_d.geiravor.compat.Notifications
 import io.r_a_d.geiravor.compat.applyEdgeToEdge
+import io.r_a_d.geiravor.playback.FavePolicy
 import io.r_a_d.geiravor.playback.LivePlaybackPolicy
 import io.r_a_d.geiravor.playback.PlaybackService
 import io.r_a_d.geiravor.radio.RadioStore
+import io.r_a_d.geiravor.settings.SecretsStore
 import io.r_a_d.geiravor.settings.SettingsPolicy
 import io.r_a_d.geiravor.settings.SettingsStore
+import uniffi.geiravor_core.IrcProfile
 import io.r_a_d.geiravor.ui.AppLayout
 import io.r_a_d.geiravor.ui.AppTab
 import io.r_a_d.geiravor.ui.FavoritesPolicy
@@ -71,6 +74,7 @@ private fun GeiravorRoot() {
     val context = LocalContext.current
     val app = context.applicationContext as GeiravorApp
     val settings = remember { SettingsStore(context.applicationContext) }
+    val secrets = remember { SecretsStore(context.applicationContext) }
     val radioState by RadioStore.state.collectAsState()
     val scope = rememberCoroutineScope()
     var gain by remember { mutableStateOf(LivePlaybackPolicy.DEFAULT_GAIN) }
@@ -80,6 +84,21 @@ private fun GeiravorRoot() {
     var playing by remember { mutableStateOf(false) }
     var sliding by remember { mutableStateOf(false) }
     var favesNick by remember { mutableStateOf("") }
+    var ircNick by remember { mutableStateOf("") }
+    var ircProfile by remember { mutableStateOf(IrcProfile.RIZON) }
+    var nickservPassword by remember { mutableStateOf(secrets.nickservPassword()) }
+    var bouncerHost by remember { mutableStateOf("") }
+    var bouncerPort by remember { mutableStateOf(FavePolicy.DEFAULT_BOUNCER_PORT.toString()) }
+    var bouncerPass by remember { mutableStateOf(secrets.bouncerPass()) }
+    var allowInsecureTls by remember { mutableStateOf(false) }
+    var saslUsername by remember { mutableStateOf("") }
+    var saslPassword by remember { mutableStateOf(secrets.saslPassword()) }
+    var clientCertPem by remember { mutableStateOf(secrets.clientCertPem()) }
+    var clientKeyPem by remember { mutableStateOf(secrets.clientKeyPem()) }
+    var tlsFingerprint by remember { mutableStateOf("") }
+    var faveBusy by remember { mutableStateOf(false) }
+    var probeBusy by remember { mutableStateOf(false) }
+    var probeMessage by remember { mutableStateOf<Pair<Boolean, String>?>(null) }
 
     LaunchedEffect(Unit) {
         settings.gain.collect { stored ->
@@ -109,6 +128,38 @@ private fun GeiravorRoot() {
                 runCatching { app.radio.prefetchFavorites(nick) }
             }
         }
+    }
+    LaunchedEffect(Unit) {
+        settings.ircNick.collect { ircNick = it }
+    }
+    LaunchedEffect(Unit) {
+        settings.ircProfile.collect { ircProfile = it }
+    }
+    LaunchedEffect(Unit) {
+        settings.bouncerHost.collect { bouncerHost = it }
+    }
+    LaunchedEffect(Unit) {
+        settings.bouncerPort.collect { bouncerPort = it.toString() }
+    }
+    LaunchedEffect(Unit) {
+        settings.allowInsecureTls.collect { allowInsecureTls = it }
+    }
+    LaunchedEffect(Unit) {
+        settings.saslUsername.collect { saslUsername = it }
+    }
+    LaunchedEffect(Unit) {
+        settings.tlsFingerprint.collect { tlsFingerprint = it }
+    }
+    LaunchedEffect(favesNick, ircNick, radioState.status?.trackId, radioState.status?.np) {
+        val status = radioState.status
+        val listedNick = FavePolicy.ircNick(ircNick, favesNick)
+        val filled = withContext(Dispatchers.IO) {
+            if (FavoritesPolicy.shouldFetch(listedNick)) {
+                runCatching { app.radio.prefetchFavorites(listedNick) }
+            }
+            FavePolicy.isListed(listedNick, status, app.radio::isFavorite)
+        }
+        RadioStore.setHeart(filled)
     }
 
     LifecycleResumeEffect(app) {
@@ -186,6 +237,46 @@ private fun GeiravorRoot() {
             }
         }
     }
+    val onFave: () -> Unit = {
+        if (!faveBusy) {
+            faveBusy = true
+            scope.launch {
+                val (result, wasFilled) = withContext(Dispatchers.IO) {
+                    val listedNick = FavePolicy.ircNick(ircNick, favesNick)
+                    val listed = FavePolicy.isListed(
+                        listedNick,
+                        app.radio.snapshot(),
+                        app.radio::isFavorite,
+                    )
+                    val done = app.radio.addFave(
+                        FavePolicy.config(
+                            nick = listedNick,
+                            profile = ircProfile,
+                            nickservPassword = nickservPassword,
+                            bouncerHost = bouncerHost,
+                            bouncerPort = bouncerPort.toIntOrNull() ?: 0,
+                            bouncerPass = bouncerPass,
+                            allowInsecureTls = allowInsecureTls,
+                            saslUsername = saslUsername,
+                            saslPassword = saslPassword,
+                            clientCertPem = clientCertPem,
+                            clientKeyPem = clientKeyPem,
+                            tlsFingerprint = tlsFingerprint,
+                        ),
+                    )
+                    done to listed
+                }
+                faveBusy = false
+                val heart = FavePolicy.heartUpdate(wasFilled, result)
+                RadioStore.setHeart(
+                    filled = heart.filled,
+                    notice = heart.notice,
+                    replaceNotice = true,
+                    bumpList = heart.bumpList,
+                )
+            }
+        }
+    }
     var tab by remember { mutableStateOf(AppTab.NowPlaying) }
     val configuration = LocalConfiguration.current
     val twoPane = AppLayout.twoPane(configuration.screenWidthDp, configuration.smallestScreenWidthDp)
@@ -228,6 +319,10 @@ private fun GeiravorRoot() {
                     onGainFinished = onGainFinished,
                     onSliding = { sliding = it },
                     onPlayToggle = onPlayToggle,
+                    onFave = onFave,
+                    faveBusy = faveBusy,
+                    faveFilled = radioState.heartFilled,
+                    faveMessage = radioState.faveNotice,
                     showThread = !twoPane,
                     modifier = modifier,
                 )
@@ -262,6 +357,97 @@ private fun GeiravorRoot() {
                         autoStartInVehicle = enabled
                         scope.launch { settings.setAutoStartInVehicle(enabled) }
                     },
+                    ircNick = ircNick,
+                    onIrcNick = { value ->
+                        ircNick = value
+                        scope.launch { settings.setIrcNick(value) }
+                    },
+                    ircProfile = ircProfile,
+                    onIrcProfile = { profile ->
+                        ircProfile = profile
+                        scope.launch { settings.setIrcProfile(profile) }
+                    },
+                    nickservPassword = nickservPassword,
+                    onNickservPassword = { value ->
+                        nickservPassword = value
+                        secrets.setNickservPassword(value)
+                    },
+                    bouncerHost = bouncerHost,
+                    onBouncerHost = { value ->
+                        bouncerHost = value
+                        scope.launch { settings.setBouncerHost(value) }
+                    },
+                    bouncerPort = bouncerPort,
+                    onBouncerPort = { value ->
+                        bouncerPort = value
+                        scope.launch {
+                            settings.setBouncerPort(value.toIntOrNull() ?: 0)
+                        }
+                    },
+                    bouncerPass = bouncerPass,
+                    onBouncerPass = { value ->
+                        bouncerPass = value
+                        secrets.setBouncerPass(value)
+                    },
+                    allowInsecureTls = allowInsecureTls,
+                    onAllowInsecureTls = { enabled ->
+                        allowInsecureTls = enabled
+                        scope.launch { settings.setAllowInsecureTls(enabled) }
+                    },
+                    saslUsername = saslUsername,
+                    onSaslUsername = { value ->
+                        saslUsername = value
+                        scope.launch { settings.setSaslUsername(value) }
+                    },
+                    saslPassword = saslPassword,
+                    onSaslPassword = { value ->
+                        saslPassword = value
+                        secrets.setSaslPassword(value)
+                    },
+                    clientCertPem = clientCertPem,
+                    onClientCertPem = { value ->
+                        clientCertPem = value
+                        secrets.setClientCertPem(value)
+                    },
+                    clientKeyPem = clientKeyPem,
+                    onClientKeyPem = { value ->
+                        clientKeyPem = value
+                        secrets.setClientKeyPem(value)
+                    },
+                    tlsFingerprint = tlsFingerprint,
+                    onTlsFingerprint = { value ->
+                        tlsFingerprint = value
+                        scope.launch { settings.setTlsFingerprint(value) }
+                    },
+                    onTestConnection = {
+                        if (!probeBusy) {
+                            probeBusy = true
+                            scope.launch {
+                                val result = withContext(Dispatchers.IO) {
+                                    app.radio.probeIrc(
+                                        FavePolicy.config(
+                                            nick = FavePolicy.ircNick(ircNick, favesNick),
+                                            profile = ircProfile,
+                                            nickservPassword = nickservPassword,
+                                            bouncerHost = bouncerHost,
+                                            bouncerPort = bouncerPort.toIntOrNull() ?: 0,
+                                            bouncerPass = bouncerPass,
+                                            allowInsecureTls = allowInsecureTls,
+                                            saslUsername = saslUsername,
+                                            saslPassword = saslPassword,
+                                            clientCertPem = clientCertPem,
+                                            clientKeyPem = clientKeyPem,
+                                            tlsFingerprint = tlsFingerprint,
+                                        ),
+                                    )
+                                }
+                                probeBusy = false
+                                probeMessage = FavePolicy.probeMessage(result)
+                            }
+                        }
+                    },
+                    testBusy = probeBusy,
+                    testMessage = probeMessage,
                     versionName = BuildConfig.VERSION_NAME,
                     modifier = modifier,
                 )
