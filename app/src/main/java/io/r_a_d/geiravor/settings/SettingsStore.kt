@@ -6,6 +6,7 @@ import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.floatPreferencesKey
 import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
+import io.r_a_d.geiravor.playback.AlarmPolicy
 import io.r_a_d.geiravor.playback.FavePolicy
 import uniffi.geiravor_core.IrcProfile
 import androidx.datastore.preferences.preferencesDataStore
@@ -26,6 +27,11 @@ private val BOUNCER_PORT = intPreferencesKey("bouncer_port")
 private val IRC_INSECURE_TLS = booleanPreferencesKey("irc_insecure_tls")
 private val SASL_USERNAME = stringPreferencesKey("sasl_username")
 private val TLS_FINGERPRINT = stringPreferencesKey("tls_fingerprint")
+private val ALARM_ENABLED = booleanPreferencesKey("alarm_enabled")
+private val ALARM_HOUR = intPreferencesKey("alarm_hour")
+private val ALARM_MINUTE = intPreferencesKey("alarm_minute")
+private val SNOOZE_ENABLED = booleanPreferencesKey("snooze_enabled")
+private val SNOOZE_MINUTES = intPreferencesKey("snooze_minutes")
 
 class SettingsStore(private val context: Context) {
     val gain: Flow<Float> = context.dataStore.data.map { prefs ->
@@ -72,6 +78,26 @@ class SettingsStore(private val context: Context) {
         prefs[TLS_FINGERPRINT].orEmpty()
     }
 
+    val alarmEnabled: Flow<Boolean> = context.dataStore.data.map { prefs ->
+        prefs[ALARM_ENABLED] ?: AlarmPolicy.ENABLED_DEFAULT
+    }
+
+    val alarmHour: Flow<Int> = context.dataStore.data.map { prefs ->
+        AlarmPolicy.clampHour(prefs[ALARM_HOUR] ?: AlarmPolicy.DEFAULT_HOUR)
+    }
+
+    val alarmMinute: Flow<Int> = context.dataStore.data.map { prefs ->
+        AlarmPolicy.clampMinute(prefs[ALARM_MINUTE] ?: AlarmPolicy.DEFAULT_MINUTE)
+    }
+
+    val snoozeEnabled: Flow<Boolean> = context.dataStore.data.map { prefs ->
+        prefs[SNOOZE_ENABLED] ?: AlarmPolicy.SNOOZE_ENABLED_DEFAULT
+    }
+
+    val snoozeMinutes: Flow<Int> = context.dataStore.data.map { prefs ->
+        AlarmPolicy.clampSnoozeMinutes(prefs[SNOOZE_MINUTES] ?: AlarmPolicy.DEFAULT_SNOOZE_MINUTES)
+    }
+
     suspend fun setGain(value: Float) {
         context.dataStore.edit { it[GAIN] = value.coerceIn(0f, 1f) }
     }
@@ -116,5 +142,25 @@ class SettingsStore(private val context: Context) {
 
     suspend fun setTlsFingerprint(fingerprint: String) {
         context.dataStore.edit { it[TLS_FINGERPRINT] = fingerprint.trim() }
+    }
+
+    suspend fun setAlarmEnabled(enabled: Boolean) {
+        context.dataStore.edit { it[ALARM_ENABLED] = enabled }
+    }
+
+    suspend fun setAlarmHour(hour: Int) {
+        context.dataStore.edit { it[ALARM_HOUR] = AlarmPolicy.clampHour(hour) }
+    }
+
+    suspend fun setAlarmMinute(minute: Int) {
+        context.dataStore.edit { it[ALARM_MINUTE] = AlarmPolicy.clampMinute(minute) }
+    }
+
+    suspend fun setSnoozeEnabled(enabled: Boolean) {
+        context.dataStore.edit { it[SNOOZE_ENABLED] = enabled }
+    }
+
+    suspend fun setSnoozeMinutes(minutes: Int) {
+        context.dataStore.edit { it[SNOOZE_MINUTES] = AlarmPolicy.clampSnoozeMinutes(minutes) }
     }
 }

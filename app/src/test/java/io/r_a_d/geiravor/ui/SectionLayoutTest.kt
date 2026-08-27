@@ -67,12 +67,13 @@ class SectionLayoutTest {
     }
 
     @Test
-    fun settingsSectionsAreGeneralAutoConnection() {
+    fun settingsSectionsAreGeneralAutoConnectionAlerts() {
         assertEquals(
             listOf(
                 SectionLayout.SettingsSection.General,
                 SectionLayout.SettingsSection.Auto,
                 SectionLayout.SettingsSection.Connection,
+                SectionLayout.SettingsSection.Alerts,
             ),
             SectionLayout.settingsSections(),
         )

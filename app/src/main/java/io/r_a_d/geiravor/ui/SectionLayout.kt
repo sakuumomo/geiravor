@@ -12,6 +12,7 @@ object SectionLayout {
         General("General"),
         Auto("Auto"),
         Connection("Connection"),
+        Alerts("Alerts"),
     }
 
     fun songsSections(isAfkStream: Boolean): List<SongsSection> =
@@ -36,5 +37,10 @@ object SectionLayout {
     }
 
     fun settingsSections(): List<SettingsSection> =
-        listOf(SettingsSection.General, SettingsSection.Auto, SettingsSection.Connection)
+        listOf(
+            SettingsSection.General,
+            SettingsSection.Auto,
+            SettingsSection.Connection,
+            SettingsSection.Alerts,
+        )
 }

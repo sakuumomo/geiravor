@@ -38,3 +38,31 @@ internal fun playLiveStream(context: Context) {
         ContextCompat.getMainExecutor(context),
     )
 }
+
+internal fun stopLiveStream(context: Context) {
+    withLiveController(context) { controller ->
+        controller.pause()
+    }
+}
+
+internal fun liveStreamPlaying(context: Context, onResult: (Boolean) -> Unit) {
+    withLiveController(context) { controller ->
+        onResult(controller.isPlaying)
+    }
+}
+
+private fun withLiveController(context: Context, block: (MediaController) -> Unit) {
+    val token = SessionToken(context, ComponentName(context, PlaybackService::class.java))
+    val future = MediaController.Builder(context, token).buildAsync()
+    future.addListener(
+        {
+            val controller = future.get()
+            try {
+                block(controller)
+            } finally {
+                MediaController.releaseFuture(future)
+            }
+        },
+        ContextCompat.getMainExecutor(context),
+    )
+}

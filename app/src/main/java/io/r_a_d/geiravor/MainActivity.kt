@@ -37,8 +37,11 @@ import androidx.media3.common.Player
 import androidx.media3.session.MediaController
 import androidx.media3.session.SessionToken
 import androidx.core.content.ContextCompat
+import io.r_a_d.geiravor.compat.ExactAlarms
 import io.r_a_d.geiravor.compat.Notifications
 import io.r_a_d.geiravor.compat.applyEdgeToEdge
+import io.r_a_d.geiravor.playback.AlarmPolicy
+import io.r_a_d.geiravor.playback.AlarmScheduler
 import io.r_a_d.geiravor.playback.FavePolicy
 import io.r_a_d.geiravor.playback.LivePlaybackPolicy
 import io.r_a_d.geiravor.playback.PlaybackService
@@ -99,6 +102,12 @@ private fun GeiravorRoot() {
     var faveBusy by remember { mutableStateOf(false) }
     var probeBusy by remember { mutableStateOf(false) }
     var probeMessage by remember { mutableStateOf<Pair<Boolean, String>?>(null) }
+    var alarmEnabled by remember { mutableStateOf(AlarmPolicy.ENABLED_DEFAULT) }
+    var alarmHour by remember { mutableStateOf(AlarmPolicy.DEFAULT_HOUR) }
+    var alarmMinute by remember { mutableStateOf(AlarmPolicy.DEFAULT_MINUTE) }
+    var snoozeEnabled by remember { mutableStateOf(AlarmPolicy.SNOOZE_ENABLED_DEFAULT) }
+    var snoozeMinutes by remember { mutableStateOf(AlarmPolicy.DEFAULT_SNOOZE_MINUTES) }
+    var exactAlarmOk by remember { mutableStateOf(ExactAlarms.canSchedule(context)) }
 
     LaunchedEffect(Unit) {
         settings.gain.collect { stored ->
@@ -150,6 +159,21 @@ private fun GeiravorRoot() {
     LaunchedEffect(Unit) {
         settings.tlsFingerprint.collect { tlsFingerprint = it }
     }
+    LaunchedEffect(Unit) {
+        settings.alarmEnabled.collect { alarmEnabled = it }
+    }
+    LaunchedEffect(Unit) {
+        settings.alarmHour.collect { alarmHour = it }
+    }
+    LaunchedEffect(Unit) {
+        settings.alarmMinute.collect { alarmMinute = it }
+    }
+    LaunchedEffect(Unit) {
+        settings.snoozeEnabled.collect { snoozeEnabled = it }
+    }
+    LaunchedEffect(Unit) {
+        settings.snoozeMinutes.collect { snoozeMinutes = it }
+    }
     LaunchedEffect(favesNick, ircNick, radioState.status?.trackId, radioState.status?.np) {
         val status = radioState.status
         val listedNick = FavePolicy.ircNick(ircNick, favesNick)
@@ -164,6 +188,10 @@ private fun GeiravorRoot() {
 
     LifecycleResumeEffect(app) {
         app.radio.setUiVisible(true)
+        exactAlarmOk = ExactAlarms.canSchedule(context)
+        if (alarmEnabled) {
+            AlarmScheduler.scheduleDaily(context, true, alarmHour, alarmMinute)
+        }
         onPauseOrDispose { app.radio.setUiVisible(false) }
     }
 
@@ -449,6 +477,47 @@ private fun GeiravorRoot() {
                     testBusy = probeBusy,
                     testMessage = probeMessage,
                     versionName = BuildConfig.VERSION_NAME,
+                    alarmEnabled = alarmEnabled,
+                    onAlarmEnabled = { enabled ->
+                        alarmEnabled = enabled
+                        scope.launch {
+                            settings.setAlarmEnabled(enabled)
+                            AlarmScheduler.scheduleDaily(
+                                context,
+                                enabled,
+                                alarmHour,
+                                alarmMinute,
+                            )
+                            exactAlarmOk = ExactAlarms.canSchedule(context)
+                        }
+                    },
+                    alarmHour = alarmHour,
+                    alarmMinute = alarmMinute,
+                    onAlarmTime = { hour, minute ->
+                        alarmHour = hour
+                        alarmMinute = minute
+                        scope.launch {
+                            settings.setAlarmHour(hour)
+                            settings.setAlarmMinute(minute)
+                            AlarmScheduler.scheduleDaily(
+                                context,
+                                alarmEnabled,
+                                hour,
+                                minute,
+                            )
+                        }
+                    },
+                    snoozeEnabled = snoozeEnabled,
+                    onSnoozeEnabled = { enabled ->
+                        snoozeEnabled = enabled
+                        scope.launch { settings.setSnoozeEnabled(enabled) }
+                    },
+                    snoozeMinutes = snoozeMinutes,
+                    onSnoozeMinutes = { minutes ->
+                        snoozeMinutes = minutes
+                        scope.launch { settings.setSnoozeMinutes(minutes) }
+                    },
+                    exactAlarmOk = exactAlarmOk,
                     modifier = modifier,
                 )
             }

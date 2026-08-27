@@ -10,11 +10,15 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Switch
 import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -22,8 +26,11 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import io.r_a_d.geiravor.compat.ExactAlarms
+import io.r_a_d.geiravor.playback.AlarmPolicy
 import io.r_a_d.geiravor.settings.SettingsPolicy
 import uniffi.geiravor_core.IrcProfile
 
@@ -61,6 +68,16 @@ fun SettingsScreen(
     testBusy: Boolean,
     testMessage: Pair<Boolean, String>?,
     versionName: String,
+    alarmEnabled: Boolean,
+    onAlarmEnabled: (Boolean) -> Unit,
+    alarmHour: Int,
+    alarmMinute: Int,
+    onAlarmTime: (Int, Int) -> Unit,
+    snoozeEnabled: Boolean,
+    onSnoozeEnabled: (Boolean) -> Unit,
+    snoozeMinutes: Int,
+    onSnoozeMinutes: (Int) -> Unit,
+    exactAlarmOk: Boolean,
     modifier: Modifier = Modifier,
 ) {
     val sections = SectionLayout.settingsSections()
@@ -121,6 +138,18 @@ fun SettingsScreen(
                         modifier = Modifier.padding(16.dp),
                     )
                 }
+                SectionLayout.SettingsSection.Alerts -> AlertSettings(
+                    alarmEnabled = alarmEnabled,
+                    onAlarmEnabled = onAlarmEnabled,
+                    alarmHour = alarmHour,
+                    alarmMinute = alarmMinute,
+                    onAlarmTime = onAlarmTime,
+                    snoozeEnabled = snoozeEnabled,
+                    onSnoozeEnabled = onSnoozeEnabled,
+                    snoozeMinutes = snoozeMinutes,
+                    onSnoozeMinutes = onSnoozeMinutes,
+                    exactAlarmOk = exactAlarmOk,
+                )
             }
         }
     }
@@ -160,6 +189,162 @@ private fun GeneralSettings(
                 Text(versionName, color = RadioTheme.muted, fontSize = 14.sp)
             }
         }
+    }
+}
+
+@Composable
+private fun AlertSettings(
+    alarmEnabled: Boolean,
+    onAlarmEnabled: (Boolean) -> Unit,
+    alarmHour: Int,
+    alarmMinute: Int,
+    onAlarmTime: (Int, Int) -> Unit,
+    snoozeEnabled: Boolean,
+    onSnoozeEnabled: (Boolean) -> Unit,
+    snoozeMinutes: Int,
+    onSnoozeMinutes: (Int) -> Unit,
+    exactAlarmOk: Boolean,
+) {
+    val context = LocalContext.current
+    var timeOpen by remember { mutableStateOf(false) }
+    val denied = AlarmPolicy.shouldExplainExactDenied(
+        needsGrant = ExactAlarms.needsRuntimeGrant(),
+        canSchedule = exactAlarmOk,
+    )
+    Column(verticalArrangement = Arrangement.spacedBy(20.dp)) {
+        SettingsCard {
+            Column {
+                SettingToggle(
+                    label = "Alarm",
+                    checked = alarmEnabled,
+                    onCheckedChange = onAlarmEnabled,
+                )
+                SettingRow(
+                    label = "Time",
+                    value = AlarmPolicy.formatTime(alarmHour, alarmMinute),
+                    onClick = { timeOpen = true },
+                )
+            }
+        }
+        SettingsCard {
+            Column {
+                SettingToggle(
+                    label = "Snooze",
+                    checked = snoozeEnabled,
+                    onCheckedChange = onSnoozeEnabled,
+                )
+                if (snoozeEnabled) {
+                    SettingRow(
+                        label = "Snooze for",
+                        value = "$snoozeMinutes min",
+                        onClick = { onSnoozeMinutes(AlarmPolicy.nextSnoozeChoice(snoozeMinutes)) },
+                    )
+                }
+            }
+        }
+        if (denied) {
+            SettingsCard {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable { context.startActivity(ExactAlarms.settingsIntent(context)) }
+                        .padding(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    Text(AlarmPolicy.EXACT_DENIED, color = RadioTheme.red, fontSize = 14.sp)
+                    Text("Open system settings", color = RadioTheme.link, fontSize = 14.sp)
+                }
+            }
+        }
+    }
+    if (timeOpen) {
+        AlarmTimeDialog(
+            hour = alarmHour,
+            minute = alarmMinute,
+            onDismiss = { timeOpen = false },
+            onConfirm = { h, m ->
+                onAlarmTime(h, m)
+                timeOpen = false
+            },
+        )
+    }
+}
+
+@Composable
+private fun AlarmTimeDialog(
+    hour: Int,
+    minute: Int,
+    onDismiss: () -> Unit,
+    onConfirm: (Int, Int) -> Unit,
+) {
+    var hourText by remember { mutableStateOf(hour.toString()) }
+    var minuteText by remember { mutableStateOf("%02d".format(minute)) }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        confirmButton = {
+            TextButton(
+                onClick = {
+                    onConfirm(
+                        AlarmPolicy.clampHour(hourText.toIntOrNull() ?: hour),
+                        AlarmPolicy.clampMinute(minuteText.toIntOrNull() ?: minute),
+                    )
+                },
+            ) { Text("Set", color = RadioTheme.link) }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text("Cancel", color = RadioTheme.muted) }
+        },
+        title = { Text("Alarm time", color = RadioTheme.text) },
+        text = {
+            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                OutlinedTextField(
+                    value = hourText,
+                    onValueChange = { hourText = it.filter { ch -> ch.isDigit() }.take(2) },
+                    label = { Text("Hour") },
+                    singleLine = true,
+                    modifier = Modifier.weight(1f),
+                    colors = alarmFieldColors(),
+                )
+                OutlinedTextField(
+                    value = minuteText,
+                    onValueChange = { minuteText = it.filter { ch -> ch.isDigit() }.take(2) },
+                    label = { Text("Minute") },
+                    singleLine = true,
+                    modifier = Modifier.weight(1f),
+                    colors = alarmFieldColors(),
+                )
+            }
+        },
+        containerColor = RadioTheme.surface,
+    )
+}
+
+@Composable
+private fun alarmFieldColors() = OutlinedTextFieldDefaults.colors(
+    focusedTextColor = RadioTheme.text,
+    unfocusedTextColor = RadioTheme.text,
+    focusedBorderColor = RadioTheme.blue,
+    unfocusedBorderColor = RadioTheme.border,
+    cursorColor = RadioTheme.blue,
+    focusedLabelColor = RadioTheme.muted,
+    unfocusedLabelColor = RadioTheme.muted,
+)
+
+@Composable
+private fun SettingRow(
+    label: String,
+    value: String,
+    onClick: () -> Unit,
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick)
+            .padding(16.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(label, color = RadioTheme.text, fontSize = 16.sp, modifier = Modifier.weight(1f))
+        Text(value, color = RadioTheme.muted, fontSize = 16.sp)
     }
 }
 
