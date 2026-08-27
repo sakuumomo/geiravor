@@ -13,9 +13,24 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      # Runner image Android/.NET/etc. are unused; Nix supplies SDK/NDK.
+      - name: Free disk space
+        run: |
+          df -hT /
+          sudo rm -rf \
+            /usr/local/lib/android \
+            /usr/share/dotnet \
+            /opt/ghc \
+            /opt/hostedtoolcache/CodeQL \
+            /usr/local/share/powershell
+          sudo docker image prune -af || true
+          df -hT /
       - uses: DeterminateSystems/nix-installer-action@main
       - name: cargo test
         run: nix develop -c cargo test --manifest-path core/Cargo.toml
+      # Host debug artifacts share ./target with cargo-ndk --release.
+      - name: Drop host cargo artifacts
+        run: rm -rf target
       - name: kotlin tests
         run: nix develop -c ./gradlew :app:testDebugUnitTest
       - name: assemble debug

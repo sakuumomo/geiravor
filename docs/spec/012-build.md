@@ -64,4 +64,4 @@ Repo files must not name out-of-tree scratch directories.
 
 ## CI
 
-GitHub Actions: Nix installer, `nix develop -c cargo test --manifest-path core/Cargo.toml`, `nix develop -c ./gradlew :app:testDebugUnitTest`, `nix develop -c ./gradlew :app:assembleDebug`. Debug signing only in 0.1.0. `buildFHSEnv` for DHU is Linux-only so Darwin `nix develop` still evals.
+GitHub Actions: drop unused runner Android/.NET/Haskell/CodeQL (Nix supplies the SDK), Nix installer, `nix develop -c cargo test --manifest-path core/Cargo.toml`, delete `target/` (host debug must not sit beside three `cargo-ndk --release` ABIs), `nix develop -c ./gradlew :app:testDebugUnitTest`, `nix develop -c ./gradlew :app:assembleDebug`. Debug signing only in 0.1.0. `buildFHSEnv` for DHU is Linux-only so Darwin `nix develop` still evals.
