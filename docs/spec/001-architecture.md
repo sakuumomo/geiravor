@@ -17,7 +17,7 @@ Rust owns domain, HTTP to `/api`, JSON, poll policy, now-playing reducer. Kotlin
 - `core/` — Rust crate: `rlib` + `cdylib`, UniFFI. No Android types.
 - `app/` — one Gradle module, one `Activity`, package `io.r_a_d.geiravor`.
 - `app/.../compat/` — API-level shims (`009-compat.md`).
-- Root `Cargo.toml` workspace member `core`, `version = "0.2.0"`.
+- Root `Cargo.toml` workspace member `core`, `version = "0.3.0"`.
 - Root Gradle wrapper committed.
 
 ## Process

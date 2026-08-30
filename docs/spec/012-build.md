@@ -4,14 +4,14 @@ Supported flow: **Nix flake**. Gradle and Cargo run inside `nix develop`.
 
 ## Versions (app)
 
-| Field | 0.1.0 | 0.2.0 (current) | 0.3.0 (this drop, last) |
+| Field | 0.1.0 | 0.2.0 | 0.3.0 (current) |
 |---|---|---|---|
 | `versionName` | `0.1.0` | `0.2.0` | `0.3.0` |
 | Cargo `version` | `0.1.0` | `0.2.0` | `0.3.0` |
 | User-Agent | `Geiravor/0.1.0` | `Geiravor/0.2.0` | `Geiravor/0.3.0` |
 | `versionCode` | `1` | `2` | `3` |
 
-Keep the three semver strings identical (`000-product.md`). Bump 0.3.0 / `versionCode` 3 **at the end** of the 0.3.0 drop, not at the first spec commit. Current ship is still **0.2.0** / `versionCode` 2 until that bump.
+Keep the three semver strings identical (`000-product.md`). Current ship is **0.3.0** / `versionCode` 3.
 
 ## Android
 

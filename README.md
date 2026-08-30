@@ -2,7 +2,7 @@
 
 Android app for [r/a/dio](https://r-a-d.io). User-facing name: **r/a/dio**. Package: `io.r_a_d.geiravor`.
 
-License: MIT (`LICENSE.md`). Copyright © 2026 Sakurai Momoka. Version: **0.2.0**.
+License: MIT (`LICENSE.md`). Copyright © 2026 Sakurai Momoka. Version: **0.3.0**.
 
 ## What 0.1.0 is
 
@@ -14,7 +14,7 @@ Search and request on AFK, nick favorites (list + IRC add-fave), news, alarm/sno
 
 ## What 0.3.0 is
 
-Schedule and staff on a **Board** tab (News | Schedule | Staff), extra themes (Default light plus Christmas / Halloween / New Years with wallpapers), and disk writes only when the payload changed. Phone tabs Now Playing | Songs | Board | Settings. Version bump happens when this drop ships; current tagged release is still 0.2.0.
+Schedule and staff on a **Board** tab (News | Schedule | Staff), extra themes (Default light plus Christmas / Halloween / New Years with wallpapers), and disk writes only when the payload changed. Phone tabs Now Playing | Songs | Board | Settings.
 
 ## Build
 

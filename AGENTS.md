@@ -28,7 +28,7 @@ No scattered `SDK_INT` in features.
 
 ## Versions
 
-Semver `X.Y.Z` is identical in `versionName`, Cargo `version`, and User-Agent `Geiravor/X.Y.Z`. `versionCode` is a separate monotonic integer. Current: **0.2.0** / `versionCode` 2.
+Semver `X.Y.Z` is identical in `versionName`, Cargo `version`, and User-Agent `Geiravor/X.Y.Z`. `versionCode` is a separate monotonic integer. Current: **0.3.0** / `versionCode` 3.
 
 ## Commands
 

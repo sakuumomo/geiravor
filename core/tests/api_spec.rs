@@ -156,7 +156,7 @@ fn snapshot_does_not_clear_stream_down() {
 
 #[test]
 fn user_agent_and_urls_match_semver_and_spec() {
-    assert_eq!(USER_AGENT, "Geiravor/0.2.0");
+    assert_eq!(USER_AGENT, "Geiravor/0.3.0");
     assert_eq!(API_URL, "https://r-a-d.io/api");
     assert_eq!(STREAM_URL, "https://stream.r-a-d.io/main.mp3");
     assert!(!STREAM_URL.starts_with("https://r-a-d.io/main"));

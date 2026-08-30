@@ -80,8 +80,8 @@ class AutoBrowseTest {
             lastPlayed = listOf(entry("B"), entry("D")),
             queue = listOf(entry("A")),
         )
-        val off = AutoSettingsSnapshot(vehicleOn = false, plugOn = true, versionName = "0.2.0")
-        val on = AutoSettingsSnapshot(vehicleOn = true, plugOn = true, versionName = "0.2.0")
+        val off = AutoSettingsSnapshot(vehicleOn = false, plugOn = true, versionName = "0.3.0")
+        val on = AutoSettingsSnapshot(vehicleOn = true, plugOn = true, versionName = "0.3.0")
         assertEquals(
             AutoBrowse.children(AutoBrowse.LAST_PLAYED, first),
             AutoBrowse.children(AutoBrowse.LAST_PLAYED, same),
@@ -124,7 +124,7 @@ class AutoBrowseTest {
         val off = AutoBrowse.children(
             AutoBrowse.SETTINGS,
             sampleStatus(),
-            AutoSettingsSnapshot(vehicleOn = false, plugOn = true, versionName = "0.2.0"),
+            AutoSettingsSnapshot(vehicleOn = false, plugOn = true, versionName = "0.3.0"),
         )
         assertEquals(
             listOf(AutoBrowse.SETTING_VEHICLE, AutoBrowse.SETTING_PLUG, AutoBrowse.SETTING_ABOUT),
