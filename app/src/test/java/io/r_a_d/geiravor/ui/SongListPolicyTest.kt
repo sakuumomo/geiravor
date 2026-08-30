@@ -13,6 +13,12 @@ class SongListPolicyTest {
     }
 
     @Test
+    fun hidesTrackProgressWhenLiveDj() {
+        assertTrue(SongListPolicy.showTrackProgress(isAfkStream = true))
+        assertFalse(SongListPolicy.showTrackProgress(isAfkStream = false))
+    }
+
+    @Test
     fun requestRowsGetSlashRMarker() {
         assertEquals("in 3 minutes", SongListPolicy.caption(isRequest = false, whenText = "in 3 minutes"))
         assertEquals("/r/ · 1 minute ago", SongListPolicy.caption(isRequest = true, whenText = "1 minute ago"))

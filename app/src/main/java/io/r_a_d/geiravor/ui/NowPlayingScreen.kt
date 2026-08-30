@@ -232,22 +232,25 @@ fun NowPlayingScreen(
         }
         val duration = progress?.durationSecs
         val elapsed = progress?.elapsedSecs ?: 0
-        if (duration == null) {
-            LinearProgressIndicator(
-                modifier = Modifier.fillMaxWidth(),
-                color = RadioTheme.blue,
-                trackColor = RadioTheme.border,
-            )
-        } else {
-            val d = duration.coerceAtLeast(1)
-            LinearProgressIndicator(
-                progress = { (elapsed.toFloat() / d.toFloat()).coerceIn(0f, 1f) },
-                modifier = Modifier.fillMaxWidth(),
-                color = RadioTheme.blue,
-                trackColor = RadioTheme.border,
-            )
+        val showProgress = SongListPolicy.showTrackProgress(status?.isAfkStream == true)
+        if (showProgress) {
+            if (duration == null) {
+                LinearProgressIndicator(
+                    modifier = Modifier.fillMaxWidth(),
+                    color = RadioTheme.blue,
+                    trackColor = RadioTheme.border,
+                )
+            } else {
+                val d = duration.coerceAtLeast(1)
+                LinearProgressIndicator(
+                    progress = { (elapsed.toFloat() / d.toFloat()).coerceIn(0f, 1f) },
+                    modifier = Modifier.fillMaxWidth(),
+                    color = RadioTheme.blue,
+                    trackColor = RadioTheme.border,
+                )
+            }
         }
-        val clock = formatProgressClock(elapsed, duration)
+        val clock = if (showProgress) formatProgressClock(elapsed, duration) else null
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceBetween,
