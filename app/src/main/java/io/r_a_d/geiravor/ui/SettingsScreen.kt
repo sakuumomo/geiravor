@@ -31,6 +31,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import io.r_a_d.geiravor.compat.ExactAlarms
 import io.r_a_d.geiravor.playback.AlarmPolicy
+import io.r_a_d.geiravor.playback.SleepPolicy
 import io.r_a_d.geiravor.settings.SettingsPolicy
 import uniffi.geiravor_core.IrcProfile
 
@@ -77,6 +78,10 @@ fun SettingsScreen(
     onSnoozeEnabled: (Boolean) -> Unit,
     snoozeMinutes: Int,
     onSnoozeMinutes: (Int) -> Unit,
+    sleepEnabled: Boolean,
+    onSleepEnabled: (Boolean) -> Unit,
+    sleepMinutes: Int,
+    onSleepMinutes: (Int) -> Unit,
     exactAlarmOk: Boolean,
     modifier: Modifier = Modifier,
 ) {
@@ -148,6 +153,10 @@ fun SettingsScreen(
                     onSnoozeEnabled = onSnoozeEnabled,
                     snoozeMinutes = snoozeMinutes,
                     onSnoozeMinutes = onSnoozeMinutes,
+                    sleepEnabled = sleepEnabled,
+                    onSleepEnabled = onSleepEnabled,
+                    sleepMinutes = sleepMinutes,
+                    onSleepMinutes = onSleepMinutes,
                     exactAlarmOk = exactAlarmOk,
                 )
             }
@@ -203,6 +212,10 @@ private fun AlertSettings(
     onSnoozeEnabled: (Boolean) -> Unit,
     snoozeMinutes: Int,
     onSnoozeMinutes: (Int) -> Unit,
+    sleepEnabled: Boolean,
+    onSleepEnabled: (Boolean) -> Unit,
+    sleepMinutes: Int,
+    onSleepMinutes: (Int) -> Unit,
     exactAlarmOk: Boolean,
 ) {
     val context = LocalContext.current
@@ -240,6 +253,20 @@ private fun AlertSettings(
                         onClick = { onSnoozeMinutes(AlarmPolicy.nextSnoozeChoice(snoozeMinutes)) },
                     )
                 }
+            }
+        }
+        SettingsCard {
+            Column {
+                SettingToggle(
+                    label = "Sleep timer",
+                    checked = sleepEnabled,
+                    onCheckedChange = onSleepEnabled,
+                )
+                SettingRow(
+                    label = "Sleep for",
+                    value = SleepPolicy.formatMinutes(sleepMinutes),
+                    onClick = { onSleepMinutes(SleepPolicy.nextDurationChoice(sleepMinutes)) },
+                )
             }
         }
         if (denied) {

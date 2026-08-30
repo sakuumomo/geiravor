@@ -3,6 +3,8 @@ package io.r_a_d.geiravor.playback
 import android.app.PendingIntent
 import android.content.Intent
 import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
 import androidx.media3.common.AudioAttributes
 import androidx.media3.common.C
 import androidx.media3.common.MediaItem
@@ -45,6 +47,8 @@ class PlaybackService : MediaLibraryService() {
     private var session: MediaLibraryService.MediaLibrarySession? = null
     private val lastBrowse = mutableMapOf<String, List<BrowseNode>>()
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
+    private val sleepHandler = Handler(Looper.getMainLooper())
+    private var sleepTick: Runnable? = null
 
     override fun onCreate() {
         super.onCreate()
@@ -76,7 +80,48 @@ class PlaybackService : MediaLibraryService() {
             ),
         )
         val player = LiveStationPlayer(exo, { radio.progress() }, shadeSpace)
-        player.onWantsPlayback = { radio.setPlaying(it) }
+        val settings = SettingsStore(this)
+        var sleepOn = SleepPolicy.ENABLED_DEFAULT
+        var sleepEnds = 0L
+        val sleepTick = object : Runnable {
+            override fun run() {
+                if (!sleepOn) {
+                    player.sleepFade = 1f
+                    return
+                }
+                val left = SleepPolicy.remainingMillis(sleepEnds, System.currentTimeMillis())
+                if (SleepPolicy.shouldStop(enabled = true, remainingMs = left)) {
+                    player.sleepFade = 0f
+                    scope.launch { settings.clearSleep() }
+                    player.stop()
+                    return
+                }
+                player.sleepFade = SleepPolicy.fadeMultiplier(left)
+                sleepHandler.postDelayed(this, SleepPolicy.tickMs(left))
+            }
+        }
+        this.sleepTick = sleepTick
+        fun armSleepTick() {
+            sleepHandler.removeCallbacks(sleepTick)
+            if (sleepOn && sleepEnds > 0L) {
+                sleepHandler.post(sleepTick)
+            } else {
+                player.sleepFade = 1f
+            }
+        }
+        player.onWantsPlayback = { playing ->
+            radio.setPlaying(playing)
+            if (
+                !playing &&
+                SleepPolicy.shouldCancelOnStop(
+                    enabled = sleepOn,
+                    endsAtMillis = sleepEnds,
+                    nowMillis = System.currentTimeMillis(),
+                )
+            ) {
+                scope.launch { settings.clearSleep() }
+            }
+        }
         player.applyStatus(radio.snapshot())
         player.addListener(
             object : Player.Listener {
@@ -101,7 +146,6 @@ class PlaybackService : MediaLibraryService() {
             Intent(this, MainActivity::class.java),
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
         )
-        val settings = SettingsStore(this)
         val secrets = SecretsStore(this)
         var vehicleOn = SettingsPolicy.AUTO_START_VEHICLE_DEFAULT
         var plugOn = SettingsPolicy.AUTO_START_DEFAULT
@@ -116,7 +160,7 @@ class PlaybackService : MediaLibraryService() {
         var faveFilled = false
         var lastUnmuted = LivePlaybackPolicy.DEFAULT_GAIN
         fun publishButtons() {
-            session?.setMediaButtonPreferences(nowPlayingButtons(exo.volume, faveFilled))
+            session?.setMediaButtonPreferences(nowPlayingButtons(player.volume, faveFilled))
         }
         fun applyGain(next: Float) {
             player.volume = next
@@ -156,7 +200,7 @@ class PlaybackService : MediaLibraryService() {
                 lastUnmuted = toggled.lastUnmuted
                 applyGain(toggled.gain)
             },
-            buttons = { nowPlayingButtons(exo.volume, faveFilled) },
+            buttons = { nowPlayingButtons(player.volume, faveFilled) },
             onFave = {
                 scope.launch(Dispatchers.IO) {
                     val home = FavePolicy.listNick(faveNick)
@@ -221,11 +265,23 @@ class PlaybackService : MediaLibraryService() {
         setShowNotificationForIdlePlayer(SHOW_NOTIFICATION_FOR_IDLE_PLAYER_AFTER_STOP_OR_ERROR)
         scope.launch {
             settings.gain.collect { gain ->
-                exo.volume = gain
+                player.volume = gain
                 if (gain > 0f) {
                     lastUnmuted = gain
                 }
                 publishButtons()
+            }
+        }
+        scope.launch {
+            settings.sleepEnabled.collect { enabled ->
+                sleepOn = enabled
+                armSleepTick()
+            }
+        }
+        scope.launch {
+            settings.sleepEndsAt.collect { ends ->
+                sleepEnds = ends
+                armSleepTick()
             }
         }
         scope.launch {
@@ -323,6 +379,8 @@ class PlaybackService : MediaLibraryService() {
     }
 
     override fun onDestroy() {
+        sleepTick?.let { sleepHandler.removeCallbacks(it) }
+        sleepTick = null
         scope.cancel()
         session?.run {
             player.release()

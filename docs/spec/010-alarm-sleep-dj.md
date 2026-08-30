@@ -10,7 +10,7 @@ Snooze: configurable duration; optional disable. Notification while ringing uses
 
 ## Sleep timer
 
-Timer to stop playback. Fade out near the end. Cancel on manual stop.
+One-shot timer to stop playback through the same play/stop path (`003-playback.md`). Settings → Alerts: toggle (default **off**) and duration **15 / 30 / 45 / 60 / 90** minutes (default **30**), same cycling row as snooze. Arming stores a deadline in DataStore. The last **15 seconds** fade player gain to 0; do **not** persist the faded gain. Then stop (pause still **stops**). Manual stop (pause/stop, unplug, audio-focus loss) cancels the timer. Changing duration while armed restarts the deadline. Not on Auto. Do not GET Icecast in tests.
 
 ## DJ-online notifier
 

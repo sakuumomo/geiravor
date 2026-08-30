@@ -25,6 +25,14 @@ internal class LiveStationPlayer(
 
     var onWantsPlayback: ((Boolean) -> Unit)? = null
 
+    private var userGain: Float = LivePlaybackPolicy.DEFAULT_GAIN
+
+    var sleepFade: Float = 1f
+        set(value) {
+            field = value.coerceIn(0f, 1f)
+            exo.volume = userGain * field
+        }
+
     private val mainHandler = Handler(exo.applicationLooper)
     private val clearIgnorePlay = Runnable { ignorePlay = false }
     private var ignorePlay = false
@@ -106,6 +114,13 @@ internal class LiveStationPlayer(
 
     override fun isCommandAvailable(command: Int): Boolean =
         getAvailableCommands().contains(command)
+
+    override fun getVolume(): Float = userGain
+
+    override fun setVolume(volume: Float) {
+        userGain = volume.coerceIn(0f, 1f)
+        exo.volume = userGain * sleepFade
+    }
 
     override fun addListener(listener: Player.Listener) {
         val wrapped = HeldPausedListener(listener)

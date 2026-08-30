@@ -5,9 +5,11 @@ import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.floatPreferencesKey
 import androidx.datastore.preferences.core.intPreferencesKey
+import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import io.r_a_d.geiravor.playback.AlarmPolicy
 import io.r_a_d.geiravor.playback.FavePolicy
+import io.r_a_d.geiravor.playback.SleepPolicy
 import uniffi.geiravor_core.IrcProfile
 import androidx.datastore.preferences.preferencesDataStore
 import io.r_a_d.geiravor.playback.LivePlaybackPolicy
@@ -34,6 +36,9 @@ private val ALARM_HOUR = intPreferencesKey("alarm_hour")
 private val ALARM_MINUTE = intPreferencesKey("alarm_minute")
 private val SNOOZE_ENABLED = booleanPreferencesKey("snooze_enabled")
 private val SNOOZE_MINUTES = intPreferencesKey("snooze_minutes")
+private val SLEEP_ENABLED = booleanPreferencesKey("sleep_enabled")
+private val SLEEP_MINUTES = intPreferencesKey("sleep_minutes")
+private val SLEEP_ENDS_AT = longPreferencesKey("sleep_ends_at")
 private val LAST_PAINT = stringPreferencesKey("last_paint")
 
 class SettingsStore(private val context: Context) {
@@ -101,6 +106,18 @@ class SettingsStore(private val context: Context) {
         AlarmPolicy.clampSnoozeMinutes(prefs[SNOOZE_MINUTES] ?: AlarmPolicy.DEFAULT_SNOOZE_MINUTES)
     }
 
+    val sleepEnabled: Flow<Boolean> = context.dataStore.data.map { prefs ->
+        prefs[SLEEP_ENABLED] ?: SleepPolicy.ENABLED_DEFAULT
+    }
+
+    val sleepMinutes: Flow<Int> = context.dataStore.data.map { prefs ->
+        SleepPolicy.clampMinutes(prefs[SLEEP_MINUTES] ?: SleepPolicy.DEFAULT_MINUTES)
+    }
+
+    val sleepEndsAt: Flow<Long> = context.dataStore.data.map { prefs ->
+        prefs[SLEEP_ENDS_AT] ?: 0L
+    }
+
     suspend fun setGain(value: Float) {
         context.dataStore.edit { it[GAIN] = value.coerceIn(0f, 1f) }
     }
@@ -165,6 +182,32 @@ class SettingsStore(private val context: Context) {
 
     suspend fun setSnoozeMinutes(minutes: Int) {
         context.dataStore.edit { it[SNOOZE_MINUTES] = AlarmPolicy.clampSnoozeMinutes(minutes) }
+    }
+
+    suspend fun armSleep(minutes: Int, nowMillis: Long = System.currentTimeMillis()) {
+        val duration = SleepPolicy.clampMinutes(minutes)
+        context.dataStore.edit { prefs ->
+            prefs[SLEEP_ENABLED] = true
+            prefs[SLEEP_MINUTES] = duration
+            prefs[SLEEP_ENDS_AT] = SleepPolicy.endsAtMillis(nowMillis, duration)
+        }
+    }
+
+    suspend fun clearSleep() {
+        context.dataStore.edit { prefs ->
+            prefs[SLEEP_ENABLED] = false
+            prefs[SLEEP_ENDS_AT] = 0L
+        }
+    }
+
+    suspend fun setSleepMinutes(minutes: Int, nowMillis: Long = System.currentTimeMillis()) {
+        val duration = SleepPolicy.clampMinutes(minutes)
+        context.dataStore.edit { prefs ->
+            prefs[SLEEP_MINUTES] = duration
+            if (prefs[SLEEP_ENABLED] == true) {
+                prefs[SLEEP_ENDS_AT] = SleepPolicy.endsAtMillis(nowMillis, duration)
+            }
+        }
     }
 
     suspend fun lastPaint(): SnapshotPolicy.LastPaint? =

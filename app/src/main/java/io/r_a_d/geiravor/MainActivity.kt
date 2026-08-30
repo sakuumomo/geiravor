@@ -45,6 +45,7 @@ import io.r_a_d.geiravor.playback.AlarmScheduler
 import io.r_a_d.geiravor.playback.FavePolicy
 import io.r_a_d.geiravor.playback.LivePlaybackPolicy
 import io.r_a_d.geiravor.playback.PlaybackService
+import io.r_a_d.geiravor.playback.SleepPolicy
 import io.r_a_d.geiravor.radio.RadioStore
 import io.r_a_d.geiravor.settings.SecretsStore
 import io.r_a_d.geiravor.settings.SettingsPolicy
@@ -108,6 +109,8 @@ private fun GeiravorRoot() {
     var alarmMinute by remember { mutableStateOf(AlarmPolicy.DEFAULT_MINUTE) }
     var snoozeEnabled by remember { mutableStateOf(AlarmPolicy.SNOOZE_ENABLED_DEFAULT) }
     var snoozeMinutes by remember { mutableStateOf(AlarmPolicy.DEFAULT_SNOOZE_MINUTES) }
+    var sleepEnabled by remember { mutableStateOf(SleepPolicy.ENABLED_DEFAULT) }
+    var sleepMinutes by remember { mutableStateOf(SleepPolicy.DEFAULT_MINUTES) }
     var exactAlarmOk by remember { mutableStateOf(ExactAlarms.canSchedule(context)) }
 
     LaunchedEffect(Unit) {
@@ -180,6 +183,12 @@ private fun GeiravorRoot() {
     }
     LaunchedEffect(Unit) {
         settings.snoozeMinutes.collect { snoozeMinutes = it }
+    }
+    LaunchedEffect(Unit) {
+        settings.sleepEnabled.collect { sleepEnabled = it }
+    }
+    LaunchedEffect(Unit) {
+        settings.sleepMinutes.collect { sleepMinutes = it }
     }
     LaunchedEffect(homeNick, radioState.status?.trackId, radioState.status?.np) {
         val status = radioState.status
@@ -539,6 +548,22 @@ private fun GeiravorRoot() {
                     onSnoozeMinutes = { minutes ->
                         snoozeMinutes = minutes
                         scope.launch { settings.setSnoozeMinutes(minutes) }
+                    },
+                    sleepEnabled = sleepEnabled,
+                    onSleepEnabled = { enabled ->
+                        sleepEnabled = enabled
+                        scope.launch {
+                            if (enabled) {
+                                settings.armSleep(sleepMinutes)
+                            } else {
+                                settings.clearSleep()
+                            }
+                        }
+                    },
+                    sleepMinutes = sleepMinutes,
+                    onSleepMinutes = { minutes ->
+                        sleepMinutes = minutes
+                        scope.launch { settings.setSleepMinutes(minutes) }
                     },
                     exactAlarmOk = exactAlarmOk,
                     modifier = modifier,
