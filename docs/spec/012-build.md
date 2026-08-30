@@ -4,7 +4,7 @@ Supported flow: **Nix flake**. Gradle and Cargo run inside `nix develop`.
 
 ## Versions (app)
 
-| Field | 0.1.0 (current) | 0.2.0 (when that drop ships) |
+| Field | 0.1.0 | 0.2.0 (current) |
 |---|---|---|
 | `versionName` | `0.1.0` | `0.2.0` |
 | Cargo `version` | `0.1.0` | `0.2.0` |
