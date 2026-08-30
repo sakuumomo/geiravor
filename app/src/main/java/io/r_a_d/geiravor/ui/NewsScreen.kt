@@ -8,26 +8,21 @@ import android.text.style.URLSpan
 import android.view.View
 import android.widget.TextView
 import androidx.activity.compose.BackHandler
-import androidx.compose.foundation.BorderStroke
-import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Text
@@ -42,7 +37,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -385,40 +382,23 @@ private fun NewsArticlePane(
         }
     }
 
-    Column(modifier = modifier.fillMaxSize()) {
-        Box(modifier = Modifier.fillMaxWidth()) {
-            FrostBackdrop(Modifier.matchParentSize())
-            Box(
-                Modifier
-                    .matchParentSize()
-                    .background(
-                        if (RadioTheme.glass) androidx.compose.ui.graphics.Color.Transparent else RadioTheme.background,
-                    ),
-            )
-            Column(modifier = Modifier.fillMaxWidth()) {
-                Text(
-                    "← News",
-                    color = RadioTheme.link,
-                    fontSize = 14.sp,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clickable(onClick = onBack)
-                        .padding(horizontal = 16.dp, vertical = 12.dp),
-                )
-                Box(
-                    Modifier
-                        .fillMaxWidth()
-                        .height(1.dp)
-                        .background(RadioTheme.border),
-                )
-            }
-        }
+    val density = LocalDensity.current
+    var backHeightPx by remember { mutableStateOf(0) }
+    val backPad = if (backHeightPx > 0) {
+        with(density) { backHeightPx.toDp() }
+    } else {
+        48.dp
+    }
+    Box(modifier = modifier.fillMaxSize()) {
         LazyColumn(
             state = listState,
-            modifier = Modifier
-                .weight(1f)
-                .fillMaxWidth()
-                .padding(start = 16.dp, end = 16.dp, bottom = 16.dp),
+            modifier = Modifier.fillMaxSize(),
+            contentPadding = PaddingValues(
+                start = 16.dp,
+                end = 16.dp,
+                bottom = 16.dp,
+                top = backPad,
+            ),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
         item(key = "head") {
@@ -511,6 +491,16 @@ private fun NewsArticlePane(
             )
         }
         }
+        Text(
+            "← News",
+            color = RadioTheme.link,
+            fontSize = 14.sp,
+            modifier = Modifier
+                .align(Alignment.TopStart)
+                .onSizeChanged { backHeightPx = it.height }
+                .clickable(onClick = onBack)
+                .padding(horizontal = 16.dp, vertical = 12.dp),
+        )
     }
 }
 
