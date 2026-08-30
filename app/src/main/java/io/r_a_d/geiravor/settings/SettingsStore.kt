@@ -9,6 +9,7 @@ import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import io.r_a_d.geiravor.playback.AlarmPolicy
 import io.r_a_d.geiravor.playback.FavePolicy
+import io.r_a_d.geiravor.playback.DjNotifierPolicy
 import io.r_a_d.geiravor.playback.SleepPolicy
 import uniffi.geiravor_core.IrcProfile
 import androidx.datastore.preferences.preferencesDataStore
@@ -39,6 +40,11 @@ private val SNOOZE_MINUTES = intPreferencesKey("snooze_minutes")
 private val SLEEP_ENABLED = booleanPreferencesKey("sleep_enabled")
 private val SLEEP_MINUTES = intPreferencesKey("sleep_minutes")
 private val SLEEP_ENDS_AT = longPreferencesKey("sleep_ends_at")
+private val DJ_NOTIFIER = booleanPreferencesKey("dj_notifier")
+private val DJ_SEEN_SET = booleanPreferencesKey("dj_seen_set")
+private val DJ_SEEN_AFK = booleanPreferencesKey("dj_seen_afk")
+private val DJ_SEEN_ID = longPreferencesKey("dj_seen_id")
+private val DJ_SEEN_NAME = stringPreferencesKey("dj_seen_name")
 private val LAST_PAINT = stringPreferencesKey("last_paint")
 
 class SettingsStore(private val context: Context) {
@@ -116,6 +122,35 @@ class SettingsStore(private val context: Context) {
 
     val sleepEndsAt: Flow<Long> = context.dataStore.data.map { prefs ->
         prefs[SLEEP_ENDS_AT] ?: 0L
+    }
+
+    val djNotifierEnabled: Flow<Boolean> = context.dataStore.data.map { prefs ->
+        prefs[DJ_NOTIFIER] ?: DjNotifierPolicy.ENABLED_DEFAULT
+    }
+
+    suspend fun djSeen(): DjNotifierPolicy.Seen? {
+        val prefs = context.dataStore.data.first()
+        if (prefs[DJ_SEEN_SET] != true) {
+            return null
+        }
+        return DjNotifierPolicy.Seen(
+            isAfk = prefs[DJ_SEEN_AFK] ?: true,
+            djId = prefs[DJ_SEEN_ID] ?: 0L,
+            djName = prefs[DJ_SEEN_NAME].orEmpty(),
+        )
+    }
+
+    suspend fun setDjNotifierEnabled(enabled: Boolean) {
+        context.dataStore.edit { it[DJ_NOTIFIER] = enabled }
+    }
+
+    suspend fun setDjSeen(seen: DjNotifierPolicy.Seen) {
+        context.dataStore.edit { prefs ->
+            prefs[DJ_SEEN_SET] = true
+            prefs[DJ_SEEN_AFK] = seen.isAfk
+            prefs[DJ_SEEN_ID] = seen.djId
+            prefs[DJ_SEEN_NAME] = seen.djName
+        }
     }
 
     suspend fun setGain(value: Float) {

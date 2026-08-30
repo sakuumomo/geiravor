@@ -10,18 +10,16 @@ class SleepPolicyTest {
     fun defaultsAreOffAtThirtyMinutes() {
         assertFalse(SleepPolicy.ENABLED_DEFAULT)
         assertEquals(30, SleepPolicy.DEFAULT_MINUTES)
-        assertEquals(listOf(15, 30, 45, 60, 90), SleepPolicy.DURATION_CHOICES)
         assertEquals(15_000L, SleepPolicy.FADE_MS)
     }
 
     @Test
-    fun durationCyclesAndClampsLikeSnooze() {
+    fun durationIsCustomHoursAndMinutes() {
         assertEquals("30 min", SleepPolicy.formatMinutes(30))
-        assertEquals(15, SleepPolicy.clampMinutes(1))
-        assertEquals(90, SleepPolicy.clampMinutes(200))
-        assertEquals(30, SleepPolicy.nextDurationChoice(15))
-        assertEquals(15, SleepPolicy.nextDurationChoice(90))
-        assertEquals(30 * 60_000L, SleepPolicy.durationMillis(30))
+        assertEquals("8 h", SleepPolicy.formatMinutes(8 * 60))
+        assertEquals(1, SleepPolicy.clampMinutes(0))
+        assertEquals(8 * 60, SleepPolicy.clampMinutes(8 * 60))
+        assertEquals(8 * 60 * 60_000L, SleepPolicy.durationMillis(8 * 60))
     }
 
     @Test

@@ -16,7 +16,6 @@ class AlarmPolicyTest {
         assertEquals(0, AlarmPolicy.DEFAULT_MINUTE)
         assertTrue(AlarmPolicy.SNOOZE_ENABLED_DEFAULT)
         assertEquals(10, AlarmPolicy.DEFAULT_SNOOZE_MINUTES)
-        assertEquals(listOf(5, 10, 15, 30), AlarmPolicy.SNOOZE_CHOICES)
     }
 
     @Test
@@ -26,8 +25,9 @@ class AlarmPolicyTest {
         assertEquals(23, AlarmPolicy.clampHour(99))
         assertEquals(0, AlarmPolicy.clampHour(-1))
         assertEquals(59, AlarmPolicy.clampMinute(99))
-        assertEquals(10, AlarmPolicy.clampSnoozeMinutes(11))
-        assertEquals(30, AlarmPolicy.clampSnoozeMinutes(40))
+        assertEquals(11, AlarmPolicy.clampSnoozeMinutes(11))
+        assertEquals(1, AlarmPolicy.clampSnoozeMinutes(0))
+        assertEquals("1 h 15 min", AlarmPolicy.formatSnooze(75))
     }
 
     @Test
@@ -64,8 +64,7 @@ class AlarmPolicyTest {
     @Test
     fun snoozeDelayIsMinutesFromNow() {
         assertEquals(10 * 60_000L, AlarmPolicy.snoozeDelayMillis(10))
-        assertEquals(5, AlarmPolicy.nextSnoozeChoice(30))
-        assertEquals(10, AlarmPolicy.nextSnoozeChoice(5))
+        assertEquals(90 * 60_000L, AlarmPolicy.snoozeDelayMillis(90))
     }
 }
 

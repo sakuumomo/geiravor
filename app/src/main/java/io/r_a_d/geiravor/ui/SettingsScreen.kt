@@ -31,6 +31,9 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import io.r_a_d.geiravor.compat.ExactAlarms
 import io.r_a_d.geiravor.playback.AlarmPolicy
+import io.r_a_d.geiravor.playback.DurationPolicy
+import io.r_a_d.geiravor.compat.Notifications
+import io.r_a_d.geiravor.playback.DjNotifierPolicy
 import io.r_a_d.geiravor.playback.SleepPolicy
 import io.r_a_d.geiravor.settings.SettingsPolicy
 import uniffi.geiravor_core.IrcProfile
@@ -82,6 +85,9 @@ fun SettingsScreen(
     onSleepEnabled: (Boolean) -> Unit,
     sleepMinutes: Int,
     onSleepMinutes: (Int) -> Unit,
+    djNotifierEnabled: Boolean,
+    onDjNotifierEnabled: (Boolean) -> Unit,
+    notifyOk: Boolean,
     exactAlarmOk: Boolean,
     modifier: Modifier = Modifier,
 ) {
@@ -157,6 +163,9 @@ fun SettingsScreen(
                     onSleepEnabled = onSleepEnabled,
                     sleepMinutes = sleepMinutes,
                     onSleepMinutes = onSleepMinutes,
+                    djNotifierEnabled = djNotifierEnabled,
+                    onDjNotifierEnabled = onDjNotifierEnabled,
+                    notifyOk = notifyOk,
                     exactAlarmOk = exactAlarmOk,
                 )
             }
@@ -216,10 +225,15 @@ private fun AlertSettings(
     onSleepEnabled: (Boolean) -> Unit,
     sleepMinutes: Int,
     onSleepMinutes: (Int) -> Unit,
+    djNotifierEnabled: Boolean,
+    onDjNotifierEnabled: (Boolean) -> Unit,
+    notifyOk: Boolean,
     exactAlarmOk: Boolean,
 ) {
     val context = LocalContext.current
     var timeOpen by remember { mutableStateOf(false) }
+    var snoozeOpen by remember { mutableStateOf(false) }
+    var sleepOpen by remember { mutableStateOf(false) }
     val denied = AlarmPolicy.shouldExplainExactDenied(
         needsGrant = ExactAlarms.needsRuntimeGrant(),
         canSchedule = exactAlarmOk,
@@ -249,8 +263,8 @@ private fun AlertSettings(
                 if (snoozeEnabled) {
                     SettingRow(
                         label = "Snooze for",
-                        value = "$snoozeMinutes min",
-                        onClick = { onSnoozeMinutes(AlarmPolicy.nextSnoozeChoice(snoozeMinutes)) },
+                        value = AlarmPolicy.formatSnooze(snoozeMinutes),
+                        onClick = { snoozeOpen = true },
                     )
                 }
             }
@@ -265,8 +279,41 @@ private fun AlertSettings(
                 SettingRow(
                     label = "Sleep for",
                     value = SleepPolicy.formatMinutes(sleepMinutes),
-                    onClick = { onSleepMinutes(SleepPolicy.nextDurationChoice(sleepMinutes)) },
+                    onClick = { sleepOpen = true },
                 )
+            }
+        }
+        SettingsCard {
+            Column {
+                SettingToggle(
+                    label = "DJ notifier",
+                    checked = djNotifierEnabled,
+                    onCheckedChange = onDjNotifierEnabled,
+                )
+                Text(
+                    DjNotifierPolicy.BATTERY,
+                    color = RadioTheme.muted,
+                    fontSize = 13.sp,
+                    modifier = Modifier.padding(start = 16.dp, end = 16.dp, bottom = 16.dp),
+                )
+            }
+        }
+        if (
+            djNotifierEnabled &&
+            DjNotifierPolicy.shouldExplainDenied(
+                needsGrant = Notifications.needed,
+                granted = notifyOk,
+            )
+        ) {
+            SettingsCard {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    Text(DjNotifierPolicy.NOTIFICATIONS_DENIED, color = RadioTheme.red, fontSize = 14.sp)
+                }
             }
         }
         if (denied) {
@@ -295,6 +342,83 @@ private fun AlertSettings(
             },
         )
     }
+    if (snoozeOpen) {
+        DurationDialog(
+            title = "Snooze for",
+            totalMinutes = snoozeMinutes,
+            onDismiss = { snoozeOpen = false },
+            onConfirm = { minutes ->
+                onSnoozeMinutes(minutes)
+                snoozeOpen = false
+            },
+        )
+    }
+    if (sleepOpen) {
+        DurationDialog(
+            title = "Sleep for",
+            totalMinutes = sleepMinutes,
+            onDismiss = { sleepOpen = false },
+            onConfirm = { minutes ->
+                onSleepMinutes(minutes)
+                sleepOpen = false
+            },
+        )
+    }
+}
+
+@Composable
+private fun DurationDialog(
+    title: String,
+    totalMinutes: Int,
+    onDismiss: () -> Unit,
+    onConfirm: (Int) -> Unit,
+) {
+    var hourText by remember {
+        mutableStateOf(DurationPolicy.hours(totalMinutes).toString())
+    }
+    var minuteText by remember {
+        mutableStateOf("%02d".format(DurationPolicy.minutePart(totalMinutes)))
+    }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        confirmButton = {
+            TextButton(
+                onClick = {
+                    onConfirm(
+                        DurationPolicy.fromHoursMinutes(
+                            hourText.toIntOrNull() ?: DurationPolicy.hours(totalMinutes),
+                            minuteText.toIntOrNull() ?: DurationPolicy.minutePart(totalMinutes),
+                        ),
+                    )
+                },
+            ) { Text("Set", color = RadioTheme.link) }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text("Cancel", color = RadioTheme.muted) }
+        },
+        title = { Text(title, color = RadioTheme.text) },
+        text = {
+            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                OutlinedTextField(
+                    value = hourText,
+                    onValueChange = { hourText = it.filter { ch -> ch.isDigit() }.take(2) },
+                    label = { Text("Hours") },
+                    singleLine = true,
+                    modifier = Modifier.weight(1f),
+                    colors = alarmFieldColors(),
+                )
+                OutlinedTextField(
+                    value = minuteText,
+                    onValueChange = { minuteText = it.filter { ch -> ch.isDigit() }.take(2) },
+                    label = { Text("Minutes") },
+                    singleLine = true,
+                    modifier = Modifier.weight(1f),
+                    colors = alarmFieldColors(),
+                )
+            }
+        },
+        containerColor = RadioTheme.surface,
+    )
 }
 
 @Composable

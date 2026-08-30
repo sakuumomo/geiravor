@@ -478,6 +478,10 @@ impl RadioCore {
         self.state.lock().expect("state").status.clone()
     }
 
+    pub fn refresh(&self) -> Result<(), ApiError> {
+        self.poll_once()
+    }
+
     pub fn progress(&self) -> Option<SongProgress> {
         let state = self.state.lock().expect("state");
         let status = state.status.as_ref()?;

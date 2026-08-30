@@ -9,7 +9,6 @@ object AlarmPolicy {
     const val DEFAULT_MINUTE = 0
     const val SNOOZE_ENABLED_DEFAULT = true
     const val DEFAULT_SNOOZE_MINUTES = 10
-    val SNOOZE_CHOICES = listOf(5, 10, 15, 30)
     const val EXACT_DENIED =
         "Exact alarms are off. Allow them in system settings so the alarm can fire on time."
     const val CHANNEL_ID = "alarm"
@@ -23,8 +22,9 @@ object AlarmPolicy {
 
     fun clampMinute(minute: Int): Int = minute.coerceIn(0, 59)
 
-    fun clampSnoozeMinutes(minutes: Int): Int =
-        SNOOZE_CHOICES.minByOrNull { kotlin.math.abs(it - minutes) } ?: DEFAULT_SNOOZE_MINUTES
+    fun clampSnoozeMinutes(minutes: Int): Int = DurationPolicy.clampMinutes(minutes)
+
+    fun formatSnooze(minutes: Int): String = DurationPolicy.format(minutes)
 
     fun formatTime(hour: Int, minute: Int): String =
         "%02d:%02d".format(clampHour(hour), clampMinute(minute))
@@ -48,11 +48,6 @@ object AlarmPolicy {
     }
 
     fun snoozeDelayMillis(minutes: Int): Long = clampSnoozeMinutes(minutes) * 60_000L
-
-    fun nextSnoozeChoice(current: Int): Int {
-        val i = SNOOZE_CHOICES.indexOf(clampSnoozeMinutes(current))
-        return SNOOZE_CHOICES[(i + 1) % SNOOZE_CHOICES.size]
-    }
 
     fun ringingActions(snoozeEnabled: Boolean): List<String> =
         if (snoozeEnabled) listOf("Stop", "Snooze") else listOf("Stop")

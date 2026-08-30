@@ -3,22 +3,15 @@ package io.r_a_d.geiravor.playback
 object SleepPolicy {
     const val ENABLED_DEFAULT = false
     const val DEFAULT_MINUTES = 30
-    val DURATION_CHOICES = listOf(15, 30, 45, 60, 90)
     const val FADE_MS = 15_000L
     const val TICK_SLOW_MS = 1_000L
     const val TICK_FADE_MS = 250L
 
-    fun clampMinutes(minutes: Int): Int =
-        DURATION_CHOICES.minByOrNull { kotlin.math.abs(it - minutes) } ?: DEFAULT_MINUTES
-
-    fun nextDurationChoice(current: Int): Int {
-        val i = DURATION_CHOICES.indexOf(clampMinutes(current))
-        return DURATION_CHOICES[(i + 1) % DURATION_CHOICES.size]
-    }
+    fun clampMinutes(minutes: Int): Int = DurationPolicy.clampMinutes(minutes)
 
     fun durationMillis(minutes: Int): Long = clampMinutes(minutes) * 60_000L
 
-    fun formatMinutes(minutes: Int): String = "${clampMinutes(minutes)} min"
+    fun formatMinutes(minutes: Int): String = DurationPolicy.format(minutes)
 
     fun endsAtMillis(nowMillis: Long, minutes: Int): Long =
         nowMillis + durationMillis(minutes)

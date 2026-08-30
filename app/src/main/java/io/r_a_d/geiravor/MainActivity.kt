@@ -45,6 +45,8 @@ import io.r_a_d.geiravor.playback.AlarmScheduler
 import io.r_a_d.geiravor.playback.FavePolicy
 import io.r_a_d.geiravor.playback.LivePlaybackPolicy
 import io.r_a_d.geiravor.playback.PlaybackService
+import io.r_a_d.geiravor.playback.DjNotifier
+import io.r_a_d.geiravor.playback.DjNotifierPolicy
 import io.r_a_d.geiravor.playback.SleepPolicy
 import io.r_a_d.geiravor.radio.RadioStore
 import io.r_a_d.geiravor.settings.SecretsStore
@@ -111,7 +113,9 @@ private fun GeiravorRoot() {
     var snoozeMinutes by remember { mutableStateOf(AlarmPolicy.DEFAULT_SNOOZE_MINUTES) }
     var sleepEnabled by remember { mutableStateOf(SleepPolicy.ENABLED_DEFAULT) }
     var sleepMinutes by remember { mutableStateOf(SleepPolicy.DEFAULT_MINUTES) }
+    var djNotifierEnabled by remember { mutableStateOf(DjNotifierPolicy.ENABLED_DEFAULT) }
     var exactAlarmOk by remember { mutableStateOf(ExactAlarms.canSchedule(context)) }
+    var notifyOk by remember { mutableStateOf(Notifications.granted(context)) }
 
     LaunchedEffect(Unit) {
         settings.gain.collect { stored ->
@@ -190,6 +194,9 @@ private fun GeiravorRoot() {
     LaunchedEffect(Unit) {
         settings.sleepMinutes.collect { sleepMinutes = it }
     }
+    LaunchedEffect(Unit) {
+        settings.djNotifierEnabled.collect { djNotifierEnabled = it }
+    }
     LaunchedEffect(homeNick, radioState.status?.trackId, radioState.status?.np) {
         val status = radioState.status
         val home = FavePolicy.listNick(homeNick)
@@ -202,6 +209,7 @@ private fun GeiravorRoot() {
     LifecycleResumeEffect(app) {
         app.radio.setUiVisible(true)
         exactAlarmOk = ExactAlarms.canSchedule(context)
+        notifyOk = Notifications.granted(context)
         if (alarmEnabled) {
             AlarmScheduler.scheduleDaily(context, true, alarmHour, alarmMinute)
         }
@@ -565,6 +573,27 @@ private fun GeiravorRoot() {
                         sleepMinutes = minutes
                         scope.launch { settings.setSleepMinutes(minutes) }
                     },
+                    djNotifierEnabled = djNotifierEnabled,
+                    onDjNotifierEnabled = { enabled ->
+                        djNotifierEnabled = enabled
+                        scope.launch {
+                            settings.setDjNotifierEnabled(enabled)
+                            DjNotifier.enqueue(context, enabled)
+                            if (enabled) {
+                                DjNotifier.ensureChannel(context)
+                                if (
+                                    Notifications.shouldRequest(
+                                        Notifications.needed,
+                                        Notifications.granted(context),
+                                    )
+                                ) {
+                                    permission.launch(Notifications.permission())
+                                }
+                            }
+                            notifyOk = Notifications.granted(context)
+                        }
+                    },
+                    notifyOk = notifyOk,
                     exactAlarmOk = exactAlarmOk,
                     modifier = modifier,
                 )

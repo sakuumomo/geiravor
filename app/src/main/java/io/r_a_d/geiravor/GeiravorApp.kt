@@ -15,6 +15,7 @@ import io.r_a_d.geiravor.data.GeiravorDb
 import io.r_a_d.geiravor.data.LastPaintEntity
 import io.r_a_d.geiravor.data.MembershipStore
 import io.r_a_d.geiravor.playback.AlarmBootReceiver
+import io.r_a_d.geiravor.playback.DjNotifier
 import io.r_a_d.geiravor.playback.CarModeReceiver
 import io.r_a_d.geiravor.playback.FavePolicy
 import io.r_a_d.geiravor.playback.HeadsetReceiver
@@ -69,6 +70,7 @@ class GeiravorApp : Application(), ImageLoaderFactory {
                         evictDjImage(previous)
                     }
                     ioScope.launch {
+                        DjNotifier.consider(this@GeiravorApp, settings, status, streamDown)
                         db.paint().upsert(
                             LastPaintEntity(blob = SnapshotPolicy.encode(SnapshotPolicy.fromStatus(status))),
                         )
@@ -78,6 +80,11 @@ class GeiravorApp : Application(), ImageLoaderFactory {
         )
         ioScope.launch {
             AlarmBootReceiver.restore(this@GeiravorApp)
+            val djOn = settings.djNotifierEnabled.first()
+            DjNotifier.enqueue(this@GeiravorApp, djOn)
+            if (djOn) {
+                DjNotifier.ensureChannel(this@GeiravorApp)
+            }
             if (home.isNotEmpty()) {
                 runCatching { radio.prefetchFavorites(home) }
             }
