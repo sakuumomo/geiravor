@@ -15,6 +15,9 @@ class FavePolicyTest {
         assertEquals("ListNick", FavePolicy.ircNick("", "ListNick"))
         assertEquals("ListNick", FavePolicy.ircNick("  ", "ListNick"))
         assertEquals("", FavePolicy.ircNick("", "  "))
+        assertEquals("ListNick", FavePolicy.listNick("ListNick"))
+        assertEquals("ListNick", FavePolicy.listNick("  ListNick  "))
+        assertEquals("", FavePolicy.listNick("  "))
     }
 
     @Test

@@ -25,6 +25,7 @@ pub enum IrcProfile {
 #[derive(Debug, Clone, PartialEq, Eq, uniffi::Record)]
 pub struct FaveConfig {
     pub nick: String,
+    pub list_nick: String,
     pub profile: IrcProfile,
     pub nickserv_password: String,
     pub bouncer_host: String,

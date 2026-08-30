@@ -128,12 +128,9 @@ class PlaybackService : MediaLibraryService() {
         }
         fun refreshFaveIcon(status: Status?) {
             scope.launch(Dispatchers.IO) {
-                val listedNick = FavePolicy.ircNick(ircNick, faveNick)
-                if (FavoritesPolicy.shouldFetch(listedNick)) {
-                    runCatching { radio.prefetchFavorites(listedNick) }
-                }
+                val home = FavePolicy.listNick(faveNick)
                 val filled = FavePolicy.isListed(
-                    listedNick,
+                    home,
                     status,
                     radio::isFavorite,
                 )
@@ -162,15 +159,16 @@ class PlaybackService : MediaLibraryService() {
             buttons = { nowPlayingButtons(exo.volume, faveFilled) },
             onFave = {
                 scope.launch(Dispatchers.IO) {
-                    val listedNick = FavePolicy.ircNick(ircNick, faveNick)
+                    val home = FavePolicy.listNick(faveNick)
                     val wasFilled = FavePolicy.isListed(
-                        listedNick,
+                        home,
                         radio.snapshot(),
                         radio::isFavorite,
                     )
                     val result = radio.addFave(
                         FavePolicy.config(
-                            nick = listedNick,
+                            nick = FavePolicy.ircNick(ircNick, faveNick),
+                            listNick = home,
                             profile = ircProfile,
                             nickservPassword = secrets.nickservPassword(),
                             bouncerHost = bouncerHost,
@@ -194,6 +192,10 @@ class PlaybackService : MediaLibraryService() {
                         )
                         faveFilled = RadioStore.state.value.heartFilled
                         publishButtons()
+                    }
+                    if (FavePolicy.heartUpdate(wasFilled, result).bumpList) {
+                        runCatching { radio.prefetchFavorites(home) }
+                        (application as GeiravorApp).persistHomeFaves(home)
                     }
                 }
             },
@@ -541,6 +543,7 @@ private fun nowPlayingButtons(gain: Float, faveFilled: Boolean): List<CommandBut
     val muted = LivePlaybackPolicy.isMuted(gain)
     return listOf(
         CommandButton.Builder(CommandButton.ICON_VOLUME_OFF)
+            .setIconResId(MutePolicy.iconRes(muted))
             .setSessionCommand(SessionCommand(LivePlaybackPolicy.MUTE, Bundle.EMPTY))
             .setDisplayName(if (muted) "Unmute" else "Mute")
             .setSlots(CommandButton.SLOT_BACK, CommandButton.SLOT_OVERFLOW)

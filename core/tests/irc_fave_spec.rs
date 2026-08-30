@@ -74,6 +74,7 @@ fn serve_script(script: Vec<(bool, String)>) -> (u16, thread::JoinHandle<Vec<Str
 fn afk_config(insecure: bool, port: u16) -> FaveConfig {
     FaveConfig {
         nick: "Geiravor".into(),
+        list_nick: String::new(),
         profile: IrcProfile::Bouncer,
         nickserv_password: String::new(),
         bouncer_host: "127.0.0.1".into(),

@@ -10,6 +10,8 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.OutlinedTextField
@@ -26,6 +28,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -49,6 +53,7 @@ fun FavoritesPane(
     radio: RadioCore,
     status: Status?,
     nick: String,
+    homeNick: String,
     onNick: (String) -> Unit,
     onNickPersist: (String) -> Unit,
     canRequest: Boolean?,
@@ -56,6 +61,7 @@ fun FavoritesPane(
     modifier: Modifier = Modifier,
 ) {
     val scope = rememberCoroutineScope()
+    val focus = LocalFocusManager.current
     var listing by remember { mutableStateOf("" to 1) }
     var lastPage by remember { mutableStateOf(1) }
     var rows by remember { mutableStateOf(listOf<FavoriteRow>()) }
@@ -94,9 +100,10 @@ fun FavoritesPane(
             return@LaunchedEffect
         }
         loading = true
-        val typed = listing.first.isNotEmpty()
-        if (typed) {
+        if (listing.first.isNotEmpty() || FavoritesPolicy.shouldCommitHome(homeNick, trimmed)) {
             delay(350)
+        }
+        if (FavoritesPolicy.shouldCommitHome(homeNick, trimmed)) {
             onNickPersist(trimmed)
         }
         listing = trimmed to SessionCache.favesCurrent(trimmed)
@@ -147,6 +154,13 @@ fun FavoritesPane(
             onValueChange = onNick,
             singleLine = true,
             placeholder = { Text("Rizon nick") },
+            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
+            keyboardActions = KeyboardActions(
+                onDone = {
+                    onNickPersist(nick.trim())
+                    focus.clearFocus()
+                },
+            ),
             modifier = Modifier.fillMaxWidth(),
             colors = OutlinedTextFieldDefaults.colors(
                 focusedTextColor = RadioTheme.text,

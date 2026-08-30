@@ -49,6 +49,8 @@ import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.text.HtmlCompat
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
+import io.r_a_d.geiravor.data.GeiravorDb
+import io.r_a_d.geiravor.data.NewsStore
 import io.r_a_d.geiravor.radio.SessionCache
 import kotlin.coroutines.cancellation.CancellationException
 import kotlinx.coroutines.Dispatchers
@@ -70,24 +72,57 @@ fun NewsScreen(
     var error by remember { mutableStateOf<String?>(null) }
     var loading by remember { mutableStateOf(true) }
     var selected by remember { mutableStateOf<NewsArticle?>(null) }
+    val context = LocalContext.current
 
     LaunchedEffect(radio, page, visible) {
-        loading = true
         error = null
+        val start = NewsPolicy.listStartIndex(page, visible)
+        val serverPage = start / NewsPolicy.SERVER_PER_PAGE + 1
+        val offset = start % NewsPolicy.SERVER_PER_PAGE
+        val db = GeiravorDb.get(context)
+        val cached = withContext(Dispatchers.IO) { NewsStore.loadPage(db, serverPage) }
+        if (cached != null) {
+            val (htmlLast, rows) = cached
+            var shown = rows.drop(offset).take(visible)
+            if (shown.size < visible) {
+                val extra = withContext(Dispatchers.IO) { NewsStore.loadPage(db, serverPage + 1) }
+                if (extra != null) {
+                    shown = shown + extra.second.take(visible - shown.size)
+                }
+            }
+            val lastCount = if (serverPage == htmlLast) rows.size else NewsPolicy.SERVER_PER_PAGE
+            lastPage = NewsPolicy.listLastPage(NewsPolicy.listTotal(htmlLast, lastCount), visible)
+            articles = shown
+            loading = false
+        } else {
+            loading = true
+        }
         try {
-            val start = NewsPolicy.listStartIndex(page, visible)
-            val serverPage = start / NewsPolicy.SERVER_PER_PAGE + 1
-            val offset = start % NewsPolicy.SERVER_PER_PAGE
             val first = withContext(Dispatchers.IO) { radio.news(serverPage) }
             var shown = first.data.drop(offset).take(visible)
             val htmlLast = first.lastPage.toInt().coerceAtLeast(1)
+            withContext(Dispatchers.IO) {
+                NewsStore.savePage(db, serverPage, htmlLast, first.data)
+            }
             if (shown.size < visible && first.currentPage.toInt() < htmlLast) {
                 val next = withContext(Dispatchers.IO) {
                     radio.news(first.currentPage.toInt() + 1)
                 }
                 shown = shown + next.data.take(visible - shown.size)
+                withContext(Dispatchers.IO) {
+                    NewsStore.savePage(db, first.currentPage.toInt() + 1, htmlLast, next.data)
+                }
             }
             val lastHtml = withContext(Dispatchers.IO) { radio.news(htmlLast) }
+            withContext(Dispatchers.IO) {
+                NewsStore.savePage(db, htmlLast, htmlLast, lastHtml.data)
+                NewsStore.prune(
+                    context,
+                    db,
+                    keepPages = listOf(serverPage, serverPage + 1, htmlLast),
+                    keepArticleIds = selected?.id?.let { listOf(it) }.orEmpty(),
+                )
+            }
             val total = NewsPolicy.listTotal(htmlLast, lastHtml.data.size)
             val uiLast = NewsPolicy.listLastPage(total, visible)
             lastPage = uiLast
@@ -101,9 +136,10 @@ fun NewsScreen(
         } catch (err: CancellationException) {
             throw err
         } catch (err: Exception) {
-            articles = emptyList()
-            lastPage = 1
-            error = err.message?.takeIf { it.isNotBlank() } ?: "Couldn't load news"
+            if (articles.isEmpty()) {
+                lastPage = 1
+                error = err.message?.takeIf { it.isNotBlank() } ?: "Couldn't load news"
+            }
         }
         loading = false
     }
@@ -262,19 +298,41 @@ private fun NewsArticlePane(
     val blocks = remember(displayed.text) { NewsPolicy.articleBlocks(displayed.text) }
     val composerIndex = 1 + blocks.size
 
+    val context = LocalContext.current
     LaunchedEffect(radio, article.id) {
         if (article.id <= 0) {
             comments = emptyList()
             return@LaunchedEffect
         }
+        val db = GeiravorDb.get(context)
+        val cached = withContext(Dispatchers.IO) { NewsStore.loadArticle(db, article.id) }
+        if (cached != null) {
+            val (stored, storedComments) = cached
+            if (stored.text.isNotEmpty()) {
+                displayed = displayed.copy(text = stored.text)
+            }
+            comments = storedComments
+        }
         try {
-            displayed = withContext(Dispatchers.IO) { radio.newsArticle(article.id) }
-            comments = withContext(Dispatchers.IO) { radio.newsComments(article.id) }
+            val full = withContext(Dispatchers.IO) { radio.newsArticle(article.id) }
+            val fetchedComments = withContext(Dispatchers.IO) { radio.newsComments(article.id) }
+            val previousText = displayed.text
+            displayed = displayed.copy(text = full.text.ifEmpty { displayed.text })
+            comments = fetchedComments
             commentError = null
+            withContext(Dispatchers.IO) {
+                NewsStore.evictUrls(
+                    context,
+                    NewsPolicy.droppedImageUrls(previousText, displayed.text),
+                )
+                NewsStore.saveArticle(db, displayed, fetchedComments)
+            }
         } catch (err: CancellationException) {
             throw err
         } catch (err: Exception) {
-            commentError = err.message?.takeIf { it.isNotBlank() } ?: "Couldn't load article"
+            if (comments.isEmpty() && displayed.text.isEmpty()) {
+                commentError = err.message?.takeIf { it.isNotBlank() } ?: "Couldn't load article"
+            }
         }
     }
 
@@ -349,7 +407,13 @@ private fun NewsArticlePane(
                             scope.launch {
                                 try {
                                     comments = withContext(Dispatchers.IO) {
-                                        radio.postNewsComment(article.id, draft)
+                                        val posted = radio.postNewsComment(article.id, draft)
+                                        NewsStore.saveArticle(
+                                            GeiravorDb.get(context),
+                                            displayed,
+                                            posted,
+                                        )
+                                        posted
                                     }
                                     draft = ""
                                 } catch (err: CancellationException) {

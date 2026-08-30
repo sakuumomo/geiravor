@@ -35,6 +35,17 @@ class NewsPolicyTest {
         assertFalse(NewsPolicy.imageUrlAllowed("https://evil.example/static.r-a-d.io/x.png"))
         assertFalse(NewsPolicy.imageUrlAllowed("javascript:alert(1)"))
         assertFalse(NewsPolicy.imageUrlAllowed(""))
+        assertEquals(
+            listOf("https://static.r-a-d.io/exci/2025-image.png"),
+            NewsPolicy.imageUrls("""<p>x</p><img src="https://static.r-a-d.io/exci/2025-image.png">"""),
+        )
+        assertEquals(
+            listOf("https://static.r-a-d.io/exci/old.png"),
+            NewsPolicy.droppedImageUrls(
+                """<img src="https://static.r-a-d.io/exci/old.png"><img src="https://static.r-a-d.io/exci/keep.png">""",
+                """<img src="https://static.r-a-d.io/exci/keep.png">""",
+            ),
+        )
     }
 
     @Test

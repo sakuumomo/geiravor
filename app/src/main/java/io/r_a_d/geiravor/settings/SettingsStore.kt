@@ -11,7 +11,9 @@ import io.r_a_d.geiravor.playback.FavePolicy
 import uniffi.geiravor_core.IrcProfile
 import androidx.datastore.preferences.preferencesDataStore
 import io.r_a_d.geiravor.playback.LivePlaybackPolicy
+import io.r_a_d.geiravor.radio.SnapshotPolicy
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 
 private val Context.dataStore by preferencesDataStore("geiravor")
@@ -32,6 +34,7 @@ private val ALARM_HOUR = intPreferencesKey("alarm_hour")
 private val ALARM_MINUTE = intPreferencesKey("alarm_minute")
 private val SNOOZE_ENABLED = booleanPreferencesKey("snooze_enabled")
 private val SNOOZE_MINUTES = intPreferencesKey("snooze_minutes")
+private val LAST_PAINT = stringPreferencesKey("last_paint")
 
 class SettingsStore(private val context: Context) {
     val gain: Flow<Float> = context.dataStore.data.map { prefs ->
@@ -162,5 +165,12 @@ class SettingsStore(private val context: Context) {
 
     suspend fun setSnoozeMinutes(minutes: Int) {
         context.dataStore.edit { it[SNOOZE_MINUTES] = AlarmPolicy.clampSnoozeMinutes(minutes) }
+    }
+
+    suspend fun lastPaint(): SnapshotPolicy.LastPaint? =
+        SnapshotPolicy.decode(context.dataStore.data.first()[LAST_PAINT].orEmpty())
+
+    suspend fun setLastPaint(paint: SnapshotPolicy.LastPaint) {
+        context.dataStore.edit { it[LAST_PAINT] = SnapshotPolicy.encode(paint) }
     }
 }

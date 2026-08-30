@@ -32,4 +32,17 @@ class FavoritesPolicyTest {
         assertFalse(FavoritesPolicy.rowCanRequest(allowed = true, tracksId = 6130, requestable = false))
         assertTrue(FavoritesPolicy.rowCanRequest(allowed = true, tracksId = 6130, requestable = true))
     }
+
+    @Test
+    fun otherNickIsPeekUntilHomeIsEmptyOrCommitted() {
+        assertFalse(FavoritesPolicy.isPeek(home = "", listing = "Alice"))
+        assertFalse(FavoritesPolicy.isPeek(home = "Alice", listing = "Alice"))
+        assertFalse(FavoritesPolicy.isPeek(home = "Alice", listing = "  Alice  "))
+        assertTrue(FavoritesPolicy.isPeek(home = "Alice", listing = "Bob"))
+        assertFalse(FavoritesPolicy.isPeek(home = "Alice", listing = ""))
+        assertTrue(FavoritesPolicy.shouldCommitHome(home = "", listing = "Alice"))
+        assertFalse(FavoritesPolicy.shouldCommitHome(home = "Alice", listing = "Bob"))
+        assertFalse(FavoritesPolicy.shouldCommitHome(home = "Alice", listing = "Alice"))
+        assertFalse(FavoritesPolicy.shouldCommitHome(home = "", listing = "  "))
+    }
 }

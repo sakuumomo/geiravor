@@ -53,7 +53,7 @@ No site login. User types their public **Rizon** nick.
 
 Last page is **not** in that JSON. `GET https://r-a-d.io/faves?nick=` (HTML, no `dl`) has pagination links; take the max `/faves?…page=` (ignore `/v1/request?…page=`). Past-last JSON `page=` **clamps** to the last page instead of `[]`. Probe fingerprints only if the HTML parse is 1 and page 1 was full.
 
-`RadioCore` caches search pages and faves pages + last page in process memory. Prefetch page 1 + last page when the stored nick is known. Kotlin only remembers which page/query the UI is on.
+Search and faves **listing** are not cached (process or disk): GET the page you are looking at. Home-nick **membership** (`tracks_id` + `meta`) is Room + a small RAM set hydrated at start; revalidate on start and after a successful fave/unfave. Other nicks are never written. Peeking another nick in the Favorites field GETs that list only (heart / IRC list nick stay on home). IME Done — or the first nonempty nick — commits DataStore home and drops the previous membership. Request random GETs live on tap.
 
 Persist nick in DataStore. Empty nick → empty list, not a crash. **Settings → Connection nick**, if nonempty, is the IRC nick for fave/unfave (direct-Rizon `NICK`, SASL username default, favorites overlay). The Favorites tab nick is only the public list (`GET /faves?nick=`). Empty connection nick falls back to the Favorites tab nick. The IRC nick must match the nick Hanyuu will attribute (the bouncer’s existing Rizon nick when using a bouncer).
 
@@ -76,7 +76,7 @@ This is **not** an IRC client: no channel UI, no JOIN, no chat log, no native Qu
 
 Fave while paused is allowed (Hanyuu faves station state, not local playback). Snapshot **at tap**: `isafkstream`, `trackid`, `np`. Empty/whitespace nick → no connect, no-op on Auto.
 
-One in-flight fave. Blocking worker thread — never the `/api` poller, never the Android main thread. After `001`, sample the process-wide latest snapshot already in `RadioCore` (no extra GET).
+One in-flight fave. Blocking worker thread — never the `/api` poller, never the Android main thread. After `001`, sample the process-wide latest snapshot already in `RadioCore` (no extra GET). Heart / catalog match use the Favorites (list) nick; IRC uses Connection nick (fallback to list nick). On `Timeout` / `Network` / TLS drop, retry the whole session up to two extra times. Do not retry nick-in-use, nick mismatch, SASL, unknown id, or accuracy failure.
 
 ### Accuracy — AFK (`isafkstream` at tap, `trackid > 0`)
 
@@ -142,8 +142,8 @@ Local only: `IrcIo` scripts and a localhost TLS listener that speaks 001 / PING 
 
 Search results + favorites can request when `requestable` / AFK. Show server error strings. Cooldown from can-request + snapshot. Faves JSON has no `requestable`; gray the Request button like search using the station delay (`requestcount` vs `lastplayed` / `lastrequested`, now = snapshot `current`).
 
-**Request random** (Favorites tab): one tap picks uniformly among catalog favorites (`tracks_id` present) that pass that same cooldown, across **all** pages (process HTTP cache; fetch missing pages on tap). Then the same `POST /request/{id}`. Disable when nick is empty or requests are off. If none are requestable, show that — do not POST. Not on Auto.
+**Request random** (Favorites tab): one tap picks uniformly among catalog favorites (`tracks_id` present) that pass that same cooldown, across **all** pages (GET live on tap). Then the same `POST /request/{id}`. Disable when nick is empty or requests are off. If none are requestable, show that — do not POST. Not on Auto.
 
-Search and favorites paginate. Fetch `?page=` (search) / `&page=` (faves). Bottom bar, last page > 1: previous `<` and next `>` stay pinned at the bar edges; first page, a sliding window of nearby pages, `...` (jump-to-page), last page sit in the middle. Page numbers use a width for the last page’s digit count so 9→10 does not shift prev/next — measure that slot from the pager typeface (widest digit × count), not a dp-per-character guess. Jump-to-page accepts at most that many digits. Search `last_page` is in the JSON. Faves last page: HTML pagination (above). Returning to Request or Favorites in the same process restores the cached query/nick, page, rows, and last page immediately. A successful Fave or unfave refreshes the visible Favorites page from that cache plus the in-process overlay (new catalog fave at the top of page 1; unfave removed from the current page).
+Search and favorites paginate. Fetch `?page=` (search) / `&page=` (faves). Bottom bar, last page > 1: previous `<` and next `>` stay pinned at the bar edges; first page, a sliding window of nearby pages, `...` (jump-to-page), last page sit in the middle. Page numbers use a width for the last page’s digit count so 9→10 does not shift prev/next — measure that slot from the pager typeface (widest digit × count), not a dp-per-character guess. Jump-to-page accepts at most that many digits. Search `last_page` is in the JSON. Faves last page: HTML pagination (above). Returning to Request or Favorites in the same process restores the last query/nick and page immediately, then GET that page. A successful Fave or unfave re-GETs the visible Favorites page and applies the in-process overlay (new catalog fave at the top of page 1; unfave removed from the current page).
 
 Favorites tab keeps the public nick field (list + IRC `NICK`). IRC connection (Rizon vs Bouncer, NickServ, host/port/`PASS`, Allow insecure TLS, SASL username/password, client cert/key PEM) lives on **Settings → Connection**, not this tab.

@@ -27,6 +27,8 @@ Grep `Compat:` when raising minSdk and delete.
 
 Exact alarm wrappers: `SCHEDULE_EXACT_ALARM` / `USE_EXACT_ALARM` / `canScheduleExactAlarms`. If the user denies exact alarms, fail visible with Settings copy — not a silent skip.
 
+MediaStore `RELATIVE_PATH` for saving a thread image (API 29).
+
 ## Not here
 
 NDK 16 KB page size and AGP flags live in `012-build.md`, not Kotlin `SDK_INT` checks.

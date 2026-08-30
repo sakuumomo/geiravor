@@ -193,6 +193,15 @@ class AutoBrowseTest {
                 activelyPlaying = true,
             ),
         )
+        assertFalse(
+            AutoBrowse.skipRedundantLiveSet(
+                currentMediaId = AutoBrowse.NOW_PLAYING,
+                currentUri = LivePlaybackPolicy.STREAM_URL,
+                incoming = listOf(AutoBrowse.NOW_PLAYING to LivePlaybackPolicy.STREAM_URL),
+                activelyPlaying = true,
+                metadataOnly = true,
+            ),
+        )
     }
 
     @Test

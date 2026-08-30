@@ -6,8 +6,11 @@ import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -16,6 +19,8 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -30,6 +35,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -42,9 +48,14 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
+import coil.imageLoader
+import coil.request.SuccessResult
 import io.r_a_d.geiravor.R
+import io.r_a_d.geiravor.compat.SaveImage
 import io.r_a_d.geiravor.playback.LivePlaybackPolicy
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
+import android.graphics.drawable.BitmapDrawable
 import uniffi.geiravor_core.RadioCore
 import uniffi.geiravor_core.SongProgress
 import uniffi.geiravor_core.Status
@@ -250,13 +261,10 @@ fun NowPlayingScreen(
             }
         }
         val context = LocalContext.current
-        if (showThread) status?.thread?.let { url ->
-            Text(
-                text = url,
-                color = RadioTheme.link,
-                modifier = Modifier.clickable {
-                    context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)))
-                },
+        if (showThread) {
+            ThreadBlock(
+                isAfkStream = status?.isAfkStream == true,
+                thread = status?.thread,
             )
         }
         val djUrl = status?.let { djImageUrl(it.dj.image) }
@@ -312,5 +320,73 @@ fun NowPlayingScreen(
             modifier = Modifier.fillMaxWidth(),
         )
         Spacer(Modifier.height(8.dp))
+    }
+}
+
+@OptIn(ExperimentalFoundationApi::class)
+@Composable
+private fun ThreadBlock(
+    isAfkStream: Boolean,
+    thread: String?,
+) {
+    val kind = ThreadPolicy.kind(isAfkStream, thread)
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    var menu by remember { mutableStateOf(false) }
+    fun open(url: String) {
+        context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)))
+    }
+    when (kind) {
+        ThreadPolicy.Kind.Hidden -> {}
+        ThreadPolicy.Kind.Link -> {
+            val url = ThreadPolicy.linkUrl(thread.orEmpty()) ?: return
+            Text(
+                text = url,
+                color = RadioTheme.link,
+                modifier = Modifier.clickable { open(url) },
+            )
+        }
+        ThreadPolicy.Kind.Image -> {
+            val url = ThreadPolicy.imageUrl(thread.orEmpty()) ?: return
+            Box {
+                AsyncImage(
+                    model = ImageRequest.Builder(context)
+                        .data(url)
+                        .crossfade(false)
+                        .build(),
+                    contentDescription = "Thread",
+                    contentScale = ContentScale.Fit,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .combinedClickable(
+                            onClick = { open(url) },
+                            onLongClick = { menu = true },
+                        ),
+                )
+                DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
+                    DropdownMenuItem(
+                        text = { Text("Save") },
+                        onClick = {
+                            menu = false
+                            scope.launch {
+                                val result = context.imageLoader.execute(
+                                    ImageRequest.Builder(context).data(url).build(),
+                                )
+                                val bitmap = (result as? SuccessResult)?.drawable as? BitmapDrawable
+                                val name = Uri.parse(url).lastPathSegment?.ifBlank { null } ?: "thread.jpg"
+                                bitmap?.bitmap?.let { SaveImage.saveJpeg(context, it, name) }
+                            }
+                        },
+                    )
+                    DropdownMenuItem(
+                        text = { Text("Open") },
+                        onClick = {
+                            menu = false
+                            open(url)
+                        },
+                    )
+                }
+            }
+        }
     }
 }

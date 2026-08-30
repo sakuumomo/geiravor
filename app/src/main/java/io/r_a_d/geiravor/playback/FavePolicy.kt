@@ -26,6 +26,8 @@ object FavePolicy {
         return connection.ifEmpty { listNick.trim() }
     }
 
+    fun listNick(favesNick: String): String = favesNick.trim()
+
     fun sanitizePort(port: Int): Int =
         if (port in PORT_MIN..PORT_MAX) port else DEFAULT_BOUNCER_PORT
 
@@ -45,8 +47,10 @@ object FavePolicy {
         clientCertPem: String,
         clientKeyPem: String,
         tlsFingerprint: String,
+        listNick: String = "",
     ): FaveConfig = FaveConfig(
         nick = nick,
+        listNick = listNick(listNick).ifEmpty { nick.trim() },
         profile = profile,
         nickservPassword = nickservPassword,
         bouncerHost = bouncerHost,
@@ -87,11 +91,16 @@ object FavePolicy {
         nick: String,
         status: Status?,
         query: (String, Long, String) -> Boolean,
-    ): Boolean = query(
-        nick,
-        catalogTrackId(status?.isAfkStream == true, status?.trackId ?: 0L),
-        status?.np.orEmpty(),
-    )
+    ): Boolean {
+        if (nick.isEmpty()) {
+            return false
+        }
+        return query(
+            nick,
+            catalogTrackId(status?.isAfkStream == true, status?.trackId ?: 0L),
+            status?.np.orEmpty(),
+        )
+    }
 
     fun probeMessage(result: FaveResult): Pair<Boolean, String> =
         when (result.kind) {

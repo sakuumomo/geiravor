@@ -198,6 +198,16 @@ object NewsPolicy {
         return blocks
     }
 
+    fun imageUrls(html: String): List<String> =
+        articleBlocks(html).mapNotNull { block ->
+            block.url.takeIf { it.isNotEmpty() }
+        }
+
+    fun droppedImageUrls(previous: String, next: String): List<String> {
+        val keep = imageUrls(next).toSet()
+        return imageUrls(previous).filter { it !in keep }
+    }
+
     private fun attrValue(attrs: String, name: String): String =
         attr(name).find(attrs)?.groupValues?.getOrNull(1).orEmpty()
 

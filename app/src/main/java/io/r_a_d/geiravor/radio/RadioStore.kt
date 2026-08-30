@@ -38,6 +38,17 @@ object RadioStore : StatusListener {
         }
     }
 
+    fun hydrateStatus(status: Status) {
+        val apply = {
+            _state.value = _state.value.copy(status = status)
+        }
+        if (Looper.myLooper() == main.looper) {
+            apply()
+        } else {
+            main.post(apply)
+        }
+    }
+
     fun setHeart(
         filled: Boolean,
         notice: String? = null,

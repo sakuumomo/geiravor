@@ -82,6 +82,7 @@ object AutoBrowse {
         currentUri: String?,
         incoming: List<Pair<String?, String?>>,
         activelyPlaying: Boolean,
+        metadataOnly: Boolean = false,
     ): Boolean {
         if (incoming.isEmpty()) {
             return false
@@ -93,6 +94,12 @@ object AutoBrowse {
         val incomingSettings = incoming.all { (id, _) -> isSettingsToggle(id.orEmpty()) }
         if (!incomingLive && !incomingSettings) {
             return false
+        }
+        if (metadataOnly && incomingLive && incoming.size == 1) {
+            val (id, uri) = incoming[0]
+            if (id == currentMediaId && uri == currentUri) {
+                return false
+            }
         }
         if (activelyPlaying) {
             return true

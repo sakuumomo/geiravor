@@ -16,9 +16,9 @@ use crate::news::{
 };
 use crate::np::split_np;
 use crate::irc::{
-    DEFAULT_BOUNCER_PORT, FaveConfig, FaveKind, FaveResult, IrcProfile, RIZON_HOST, RIZON_PORT,
-    TapSnapshot, TlsIrc, attach_nick, connect_irc, connected_message, nick_is_empty, run_add_fave,
-    run_probe,
+    DEFAULT_BOUNCER_PORT, FaveConfig, FaveKind, FaveResult, IrcError, IrcProfile, RIZON_HOST,
+    RIZON_PORT, TapSnapshot, TlsIrc, attach_nick, connect_irc, connected_message, nick_is_empty,
+    run_add_fave, run_probe,
 };
 use crate::poll::poll_interval;
 use crate::progress::{SongProgress, song_progress};
@@ -91,16 +91,10 @@ pub trait StatusListener: Send + Sync {
 
 #[derive(Default)]
 struct HttpCache {
-    search: HashMap<(String, i32), SearchPage>,
-    faves: HashMap<(String, i32), Vec<FavoriteRow>>,
-    faves_last: HashMap<String, i32>,
+    membership: HashMap<String, Vec<FavoriteRow>>,
     fave_plus: HashMap<String, Vec<FavoriteRow>>,
     fave_minus: HashMap<String, Vec<FavoriteRow>>,
-    news_pages: HashMap<i32, Vec<NewsArticle>>,
-    news_last: Option<i32>,
-    news_bodies: HashMap<i64, String>,
-    news_html: HashMap<i64, String>,
-    comments: HashMap<i64, Vec<NewsComment>>,
+    news_html: Option<(i64, String)>,
 }
 
 #[derive(uniffi::Object)]
@@ -215,58 +209,9 @@ impl RadioCore {
             .unwrap_or(0)
     }
 
-    fn cached_search(&self, query: &str, page: i32) -> Option<SearchPage> {
-        self.http_cache
-            .lock()
-            .expect("cache")
-            .search
-            .get(&(query.to_string(), page))
-            .cloned()
-    }
-
-    fn cached_news_page(&self, page: i32) -> Option<NewsPage> {
-        let cache = self.http_cache.lock().expect("cache");
-        let data = cache.news_pages.get(&page)?.clone();
-        Some(NewsPage {
-            current_page: page,
-            last_page: cache.news_last.unwrap_or(page).max(1),
-            data,
-        })
-    }
-
-    fn cached_faves(&self, nick: &str, page: i32) -> Option<Vec<FavoriteRow>> {
-        self.http_cache
-            .lock()
-            .expect("cache")
-            .faves
-            .get(&(nick.to_string(), page))
-            .cloned()
-    }
-
-    fn cached_faves_last(&self, nick: &str) -> Option<i32> {
-        self.http_cache
-            .lock()
-            .expect("cache")
-            .faves_last
-            .get(nick)
-            .copied()
-    }
-
     fn faves_rows(&self, nick: &str, page: i32) -> Result<Vec<FavoriteRow>, ApiError> {
-        if let Some(hit) = self.cached_faves(nick, page) {
-            return Ok(hit);
-        }
         let _fetch = self.faves_fetch.lock().expect("faves_fetch");
-        if let Some(hit) = self.cached_faves(nick, page) {
-            return Ok(hit);
-        }
-        let rows = parse_faves(&self.client.get(&faves_url(nick, page))?)?;
-        self.http_cache
-            .lock()
-            .expect("cache")
-            .faves
-            .insert((nick.to_string(), page), rows.clone());
-        Ok(rows)
+        parse_faves(&self.client.get(&faves_url(nick, page))?)
     }
 
     fn resolve_faves_last(
@@ -275,29 +220,22 @@ impl RadioCore {
         page: i32,
         data: &[FavoriteRow],
     ) -> Result<i32, ApiError> {
-        if let Some(last) = self.cached_faves_last(nick) {
-            return Ok(last);
+        if (data.len() as i32) < FAVES_PER_PAGE {
+            return Ok(page);
         }
-        let last = if (data.len() as i32) < FAVES_PER_PAGE {
-            page
-        } else {
-            let html_last = self
-                .client
-                .get(&faves_html_url(nick))
-                .map(|html| parse_faves_last_page(&html))
-                .unwrap_or(1);
-            if html_last > 1 {
-                html_last
-            } else {
-                discover_last_page(page.max(1), |probe| {
-                    self.faves_rows(nick, probe)
-                        .map(|rows| PageSample::from_rows(&rows))
-                        .unwrap_or_else(|_| PageSample::from_parts(0, ""))
-                })
-            }
-        };
-        let mut cache = self.http_cache.lock().expect("cache");
-        Ok(*cache.faves_last.entry(nick.to_string()).or_insert(last))
+        let html_last = self
+            .client
+            .get(&faves_html_url(nick))
+            .map(|html| parse_faves_last_page(&html))
+            .unwrap_or(1);
+        if html_last > 1 {
+            return Ok(html_last);
+        }
+        Ok(discover_last_page(page.max(1), |probe| {
+            self.faves_rows(nick, probe)
+                .map(|rows| PageSample::from_rows(&rows))
+                .unwrap_or_else(|_| PageSample::from_parts(0, ""))
+        }))
     }
 
     pub(crate) fn catalog_id_for(&self, nick: &str, tap: &TapSnapshot) -> Option<i64> {
@@ -311,13 +249,7 @@ impl RadioCore {
             .get(nick)
             .into_iter()
             .flatten()
-            .chain(
-                cache
-                    .faves
-                    .iter()
-                    .filter(|((n, _), _)| n == nick)
-                    .flat_map(|(_, rows)| rows),
-            )
+            .chain(cache.membership.get(nick).into_iter().flatten())
             .find(|row| row_is_song(row, lookup, &tap.np))
             .and_then(|row| row.tracks_id)
             .filter(|id| *id > 0)
@@ -404,13 +336,26 @@ fn should_unfave(already: bool, catalog_id: Option<i64>) -> bool {
     already && catalog_id.is_some_and(|id| id > 0)
 }
 
-fn open_irc(config: &FaveConfig) -> Result<TlsIrc, FaveResult> {
+const FAVE_EXTRA_ATTEMPTS: u32 = 2;
+
+fn cache_nick(config: &FaveConfig) -> String {
+    let list = config.list_nick.trim();
+    if list.is_empty() {
+        config.nick.trim().to_string()
+    } else {
+        list.to_string()
+    }
+}
+
+fn open_irc(config: &FaveConfig) -> Result<TlsIrc, IrcError> {
     let (host, port, insecure) = match config.profile {
         IrcProfile::Rizon => (RIZON_HOST.to_string(), RIZON_PORT, false),
         IrcProfile::Bouncer => {
             let host = config.bouncer_host.trim();
             if host.is_empty() {
-                return Err(FaveResult::failed("Bouncer host is required."));
+                return Err(IrcError::Protocol {
+                    detail: "Bouncer host is required.".into(),
+                });
             }
             let port = if config.bouncer_port == 0 {
                 DEFAULT_BOUNCER_PORT
@@ -428,7 +373,26 @@ fn open_irc(config: &FaveConfig) -> Result<TlsIrc, FaveResult> {
         &config.client_key_pem,
         &config.tls_fingerprint,
     )
-    .map_err(|e| FaveResult::failed(e.user_message()))
+}
+
+impl RadioCore {
+    fn fetch_news_entry(&self, id: i64) -> Result<(String, String, Vec<NewsComment>), ApiError> {
+        let _fetch = self.news_fetch.lock().expect("news_fetch");
+        if let Some((cached_id, html)) = self.http_cache.lock().expect("cache").news_html.as_ref() {
+            if *cached_id == id {
+                return Ok((
+                    html.clone(),
+                    parse_news_entry_body(html),
+                    parse_news_comments(html),
+                ));
+            }
+        }
+        let html = self.client.get(&news_entry_url(id))?;
+        let body = parse_news_entry_body(&html);
+        let comments = parse_news_comments(&html);
+        self.http_cache.lock().expect("cache").news_html = Some((id, html.clone()));
+        Ok((html, body, comments))
+    }
 }
 
 #[uniffi::export]
@@ -530,20 +494,8 @@ impl RadioCore {
             return Ok(SearchPage::empty());
         }
         let page = page.max(1);
-        if let Some(hit) = self.cached_search(query, page) {
-            return Ok(hit);
-        }
         let _fetch = self.search_fetch.lock().expect("search_fetch");
-        if let Some(hit) = self.cached_search(query, page) {
-            return Ok(hit);
-        }
-        let parsed = parse_search(&self.client.get(&search_url(query, page))?)?;
-        self.http_cache
-            .lock()
-            .expect("cache")
-            .search
-            .insert((query.to_string(), page), parsed.clone());
-        Ok(parsed)
+        parse_search(&self.client.get(&search_url(query, page))?)
     }
 
     pub fn can_request(&self) -> Result<bool, ApiError> {
@@ -552,101 +504,37 @@ impl RadioCore {
 
     pub fn news(&self, page: i32) -> Result<NewsPage, ApiError> {
         let page = page.max(1);
-        if let Some(hit) = self.cached_news_page(page) {
-            return Ok(hit);
-        }
         let _fetch = self.news_fetch.lock().expect("news_fetch");
-        if let Some(hit) = self.cached_news_page(page) {
-            return Ok(hit);
-        }
-        let parsed = parse_news_list(&self.client.get(&news_list_url(page))?, page);
-        let mut cache = self.http_cache.lock().expect("cache");
-        cache.news_pages.insert(page, parsed.data.clone());
-        cache.news_last = Some(parsed.last_page.max(cache.news_last.unwrap_or(1)));
-        Ok(parsed)
-    }
-
-    fn ensure_news_entry(&self, id: i64) -> Result<(), ApiError> {
-        if id <= 0 {
-            return Ok(());
-        }
-        {
-            let cache = self.http_cache.lock().expect("cache");
-            if cache.news_bodies.contains_key(&id) && cache.comments.contains_key(&id) {
-                return Ok(());
-            }
-        }
-        let _fetch = self.news_fetch.lock().expect("news_fetch");
-        {
-            let cache = self.http_cache.lock().expect("cache");
-            if cache.news_bodies.contains_key(&id) && cache.comments.contains_key(&id) {
-                return Ok(());
-            }
-        }
-        let html = self.client.get(&news_entry_url(id))?;
-        self.store_news_entry(id, &html);
-        Ok(())
-    }
-
-    fn store_news_entry(&self, id: i64, html: &str) {
-        let body = parse_news_entry_body(html);
-        let comments = parse_news_comments(html);
-        let mut cache = self.http_cache.lock().expect("cache");
-        cache.news_html.insert(id, html.to_string());
-        cache.news_bodies.insert(id, body);
-        cache.comments.insert(id, comments);
-    }
-
-    fn listed_news(&self, id: i64) -> Option<NewsArticle> {
-        let cache = self.http_cache.lock().expect("cache");
-        cache
-            .news_pages
-            .values()
-            .flatten()
-            .find(|a| a.id == id)
-            .cloned()
+        Ok(parse_news_list(&self.client.get(&news_list_url(page))?, page))
     }
 
     pub fn news_article(&self, id: i64) -> Result<NewsArticle, ApiError> {
-        self.ensure_news_entry(id)?;
-        let mut article = self.listed_news(id).unwrap_or(NewsArticle {
+        if id <= 0 {
+            return Err(ApiError::Decode {
+                detail: "missing news id".into(),
+            });
+        }
+        let (_, body, _) = self.fetch_news_entry(id)?;
+        Ok(NewsArticle {
             id,
             title: String::new(),
             header: String::new(),
-            text: String::new(),
+            text: body,
             updated_at: String::new(),
             author: NewsAuthor {
                 id: 0,
                 user: String::new(),
                 role: String::new(),
             },
-        });
-        if let Some(text) = self
-            .http_cache
-            .lock()
-            .expect("cache")
-            .news_bodies
-            .get(&id)
-            .cloned()
-        {
-            article.text = text;
-        }
-        Ok(article)
+        })
     }
 
     pub fn news_comments(&self, id: i64) -> Result<Vec<NewsComment>, ApiError> {
         if id <= 0 {
             return Ok(Vec::new());
         }
-        self.ensure_news_entry(id)?;
-        Ok(self
-            .http_cache
-            .lock()
-            .expect("cache")
-            .comments
-            .get(&id)
-            .cloned()
-            .unwrap_or_default())
+        let (_, _, comments) = self.fetch_news_entry(id)?;
+        Ok(comments)
     }
 
     pub fn post_news_comment(&self, id: i64, body: String) -> Result<Vec<NewsComment>, ApiError> {
@@ -667,21 +555,7 @@ impl RadioCore {
             });
         }
         let url = news_entry_url(id);
-        let html = match self
-            .http_cache
-            .lock()
-            .expect("cache")
-            .news_html
-            .get(&id)
-            .cloned()
-        {
-            Some(hit) => hit,
-            None => {
-                let fetched = self.client.get(&url)?;
-                self.store_news_entry(id, &fetched);
-                fetched
-            }
-        };
+        let (html, _, _) = self.fetch_news_entry(id)?;
         let token = extract_csrf_token(&html)?;
         let posted = match self
             .client
@@ -696,15 +570,9 @@ impl RadioCore {
             }
             Err(e) => return Err(e),
         };
-        self.store_news_entry(id, &posted);
-        Ok(self
-            .http_cache
-            .lock()
-            .expect("cache")
-            .comments
-            .get(&id)
-            .cloned()
-            .unwrap_or_default())
+        let comments = parse_news_comments(&posted);
+        self.http_cache.lock().expect("cache").news_html = Some((id, posted));
+        Ok(comments)
     }
 
     pub fn favorites(&self, nick: String, page: i32) -> Result<FavoritesPage, ApiError> {
@@ -747,18 +615,90 @@ impl RadioCore {
             return true;
         }
         cache
-            .faves
-            .iter()
-            .filter(|((n, _), _)| n == nick)
-            .flat_map(|(_, rows)| rows)
+            .membership
+            .get(nick)
+            .into_iter()
+            .flatten()
             .any(|row| row_is_song(row, track_id, &np))
     }
 
+    pub fn import_membership(&self, nick: String, rows: Vec<FavoriteRow>) {
+        let nick = nick.trim();
+        if nick.is_empty() {
+            return;
+        }
+        self.http_cache
+            .lock()
+            .expect("cache")
+            .membership
+            .insert(nick.to_string(), rows);
+    }
+
+    pub fn export_membership(&self, nick: String) -> Vec<FavoriteRow> {
+        let nick = nick.trim();
+        if nick.is_empty() {
+            return Vec::new();
+        }
+        let cache = self.http_cache.lock().expect("cache");
+        let mut data = cache
+            .membership
+            .get(nick)
+            .cloned()
+            .unwrap_or_default();
+        if let Some(minus) = cache.fave_minus.get(nick) {
+            data.retain(|row| {
+                !minus
+                    .iter()
+                    .any(|m| row_is_song(m, row.tracks_id.unwrap_or(0), &row.meta))
+            });
+        }
+        if let Some(plus) = cache.fave_plus.get(nick) {
+            for extra in plus.iter().rev() {
+                if !data
+                    .iter()
+                    .any(|row| row_is_song(extra, row.tracks_id.unwrap_or(0), &row.meta))
+                {
+                    data.insert(0, extra.clone());
+                }
+            }
+        }
+        data
+    }
+
+    pub fn keep_membership(&self, nick: String) {
+        let nick = nick.trim().to_string();
+        let mut cache = self.http_cache.lock().expect("cache");
+        if nick.is_empty() {
+            cache.membership.clear();
+            cache.fave_plus.clear();
+            cache.fave_minus.clear();
+            return;
+        }
+        cache.membership.retain(|k, _| k == &nick);
+        cache.fave_plus.retain(|k, _| k == &nick);
+        cache.fave_minus.retain(|k, _| k == &nick);
+    }
+
+    fn fetch_all_fave_rows(&self, nick: &str) -> Result<Vec<FavoriteRow>, ApiError> {
+        let first = self.faves_rows(nick, 1)?;
+        let last = self.resolve_faves_last(nick, 1, &first)?;
+        let mut rows = first;
+        for page in 2..=last.max(1) {
+            rows.extend(self.faves_rows(nick, page)?);
+        }
+        Ok(rows)
+    }
+
     pub fn prefetch_favorites(&self, nick: String) -> Result<(), ApiError> {
-        if nick.trim().is_empty() {
+        let nick = nick.trim();
+        if nick.is_empty() {
             return Ok(());
         }
-        let _ = self.favorites(nick, 1)?;
+        let rows = self.fetch_all_fave_rows(nick)?;
+        let mut cache = self.http_cache.lock().expect("cache");
+        cache.membership.insert(nick.to_string(), rows);
+        cache.fave_plus.remove(nick);
+        cache.fave_minus.remove(nick);
         Ok(())
     }
 
@@ -778,35 +718,56 @@ impl RadioCore {
             track_id: status.track_id,
             np: status.np.clone(),
         };
+        let list_nick = cache_nick(&config);
         let lookup_id = lookup_track_id(&tap);
-        let catalog_id = self.catalog_id_for(&nick, &tap);
+        let catalog_id = self.catalog_id_for(&list_nick, &tap);
         let unfave = should_unfave(
-            self.is_favorite(nick.clone(), lookup_id, tap.np.clone()),
+            self.is_favorite(list_nick.clone(), lookup_id, tap.np.clone()),
             catalog_id,
         );
         let attach = attach_nick(config.profile, &nick);
-        let mut conn = match open_irc(&config) {
-            Ok(c) => c,
-            Err(e) => return e,
-        };
-        let latest = || self.snapshot().map(|s| s.np).unwrap_or_default();
-        let result = match run_add_fave(
-            &mut conn,
-            &config,
-            &tap,
-            latest,
-            &attach,
-            unfave,
-            catalog_id,
-        ) {
-            Ok(r) => r,
-            Err(e) => FaveResult::failed(e.user_message()),
-        };
-        let _ = conn.close_notify();
-        if result.kind == FaveKind::Success {
-            self.remember_toggle(&nick, &tap, catalog_id, result.favorited);
+        let mut last_err = None;
+        for attempt in 0..=FAVE_EXTRA_ATTEMPTS {
+            let mut conn = match open_irc(&config) {
+                Ok(c) => c,
+                Err(e) if e.is_retryable() && attempt < FAVE_EXTRA_ATTEMPTS => {
+                    last_err = Some(e);
+                    continue;
+                }
+                Err(e) => return FaveResult::failed(e.user_message()),
+            };
+            let latest = || self.snapshot().map(|s| s.np).unwrap_or_default();
+            let result = match run_add_fave(
+                &mut conn,
+                &config,
+                &tap,
+                latest,
+                &attach,
+                unfave,
+                catalog_id,
+            ) {
+                Ok(r) => r,
+                Err(e) if e.is_retryable() && attempt < FAVE_EXTRA_ATTEMPTS => {
+                    let _ = conn.close_notify();
+                    last_err = Some(e);
+                    continue;
+                }
+                Err(e) => {
+                    let _ = conn.close_notify();
+                    return FaveResult::failed(e.user_message());
+                }
+            };
+            let _ = conn.close_notify();
+            if result.kind == FaveKind::Success {
+                self.remember_toggle(&list_nick, &tap, catalog_id, result.favorited);
+            }
+            return result;
         }
-        result
+        FaveResult::failed(
+            last_err
+                .map(|e| e.user_message())
+                .unwrap_or_else(|| "Fave failed.".into()),
+        )
     }
 
     pub fn probe_irc(&self, config: FaveConfig) -> FaveResult {
@@ -820,7 +781,7 @@ impl RadioCore {
         let attach = attach_nick(config.profile, &nick);
         let mut conn = match open_irc(&config) {
             Ok(c) => c,
-            Err(e) => return e,
+            Err(e) => return FaveResult::failed(e.user_message()),
         };
         let result = match run_probe(&mut conn, &config, &attach) {
             Ok(()) => FaveResult {
@@ -911,6 +872,38 @@ mod tests {
         "Mori Yuuya - Seitokai Yakuindomo no March"
     }
 
+    fn membership_row(id: i64, meta: &str) -> FavoriteRow {
+        FavoriteRow {
+            tracks_id: Some(id),
+            meta: meta.into(),
+            artist: String::new(),
+            title: meta.into(),
+            last_requested: None,
+            last_played: None,
+            request_count: None,
+        }
+    }
+
+    #[test]
+    fn keep_membership_drops_other_nicks_and_empty_clears() {
+        let core = core();
+        core.import_membership(
+            "Alice".into(),
+            vec![membership_row(1, "A - One")],
+        );
+        core.import_membership(
+            "Bob".into(),
+            vec![membership_row(2, "B - Two")],
+        );
+        assert!(core.is_favorite("Alice".into(), 1, "A - One".into()));
+        assert!(core.is_favorite("Bob".into(), 2, "B - Two".into()));
+        core.keep_membership("Bob".into());
+        assert!(!core.is_favorite("Alice".into(), 1, "A - One".into()));
+        assert!(core.is_favorite("Bob".into(), 2, "B - Two".into()));
+        core.keep_membership("  ".into());
+        assert!(!core.is_favorite("Bob".into(), 2, "B - Two".into()));
+    }
+
     #[test]
     fn unfave_only_when_catalog_id_known() {
         assert!(!should_unfave(true, None));
@@ -920,9 +913,9 @@ mod tests {
     }
 
     #[test]
-    fn overlay_toggle_fills_then_unfills_without_wiping_http_cache() {
+    fn overlay_toggle_fills_then_unfills_without_wiping_membership() {
         let core = core();
-        let page = core.favorites("Geiravor".into(), 1).unwrap();
+        core.prefetch_favorites("Geiravor".into()).unwrap();
         assert!(core.is_favorite("Geiravor".into(), 6130, np().into()));
         let tap = TapSnapshot {
             is_afk: true,
@@ -938,7 +931,6 @@ mod tests {
             .data
             .iter()
             .any(|r| r.tracks_id == Some(6130)));
-        assert_eq!(page.data[0].tracks_id, Some(6130));
         core.remember_toggle("Geiravor", &tap, Some(6130), true);
         assert!(core.is_favorite("Geiravor".into(), 6130, np().into()));
         assert!(core
@@ -952,7 +944,7 @@ mod tests {
     #[test]
     fn live_dj_leftover_trackid_is_not_a_catalog_id() {
         let core = core();
-        let _ = core.favorites("Geiravor".into(), 1).unwrap();
+        core.prefetch_favorites("Geiravor".into()).unwrap();
         let tap = TapSnapshot {
             is_afk: false,
             track_id: 99,
@@ -991,7 +983,7 @@ mod tests {
     #[test]
     fn live_dj_matching_fave_row_is_catalog_id() {
         let core = core();
-        let _ = core.favorites("Geiravor".into(), 1).unwrap();
+        core.prefetch_favorites("Geiravor".into()).unwrap();
         let tap = TapSnapshot {
             is_afk: false,
             track_id: 99,

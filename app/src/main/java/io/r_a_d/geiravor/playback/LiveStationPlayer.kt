@@ -44,15 +44,15 @@ internal class LiveStationPlayer(
             shadeSpace(),
             SessionMetadata.durationMs(songWindow()),
         )
+        val previous = apiMetadata
         apiMetadata = meta
         if (meta != null) {
             exo.setPlaylistMetadata(meta)
         }
-        val current = exo.currentMediaItem
-        val updated = SessionMetadata.replaceLiveMetadata(current, meta)
-        val index = exo.currentMediaItemIndex
-        if (updated != null && index >= 0) {
-            exo.replaceMediaItem(index, updated)
+        if (meta != null && meta != previous) {
+            listeners.values.forEach { listener ->
+                listener.onMediaMetadataChanged(meta)
+            }
         }
     }
 
@@ -269,14 +269,14 @@ internal class LiveStationPlayer(
     }
 
     override fun replaceMediaItem(index: Int, mediaItem: MediaItem) {
-        if (skipRedundant(listOf(mediaItem))) {
+        if (skipRedundant(listOf(mediaItem), metadataOnly = true)) {
             return
         }
         super.replaceMediaItem(index, mediaItem)
     }
 
     override fun replaceMediaItems(fromIndex: Int, toIndex: Int, mediaItems: List<MediaItem>) {
-        if (skipRedundant(mediaItems)) {
+        if (skipRedundant(mediaItems, metadataOnly = true)) {
             return
         }
         super.replaceMediaItems(fromIndex, toIndex, mediaItems)
@@ -284,7 +284,7 @@ internal class LiveStationPlayer(
 
     private fun liveItem(): MediaItem = SessionMetadata.liveMediaItem(apiMetadata)
 
-    private fun skipRedundant(items: List<MediaItem>): Boolean {
+    private fun skipRedundant(items: List<MediaItem>, metadataOnly: Boolean = false): Boolean {
         val current = exo.currentMediaItem
         val activelyPlaying = exo.playWhenReady &&
             (exo.playbackState == STATE_READY || exo.playbackState == STATE_BUFFERING)
@@ -293,6 +293,7 @@ internal class LiveStationPlayer(
             currentUri = current?.localConfiguration?.uri?.toString(),
             incoming = items.map { it.mediaId to it.localConfiguration?.uri?.toString() },
             activelyPlaying = activelyPlaying,
+            metadataOnly = metadataOnly,
         )
     }
 

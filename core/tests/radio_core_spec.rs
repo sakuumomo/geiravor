@@ -141,9 +141,15 @@ fn search_uses_json_api_path_and_empty_query_skips_http() {
             .starts_with("https://r-a-d.io/api/search/")
     );
     *client.last.lock().expect("lock") = String::new();
-    let cached = core.search("Aimer with chelly (EGOIST)".into(), 1).unwrap();
-    assert_eq!(cached.data[0].id, 10136);
-    assert!(client.last.lock().expect("lock").is_empty());
+    let again = core.search("Aimer with chelly (EGOIST)".into(), 1).unwrap();
+    assert_eq!(again.data[0].id, 10136);
+    assert!(
+        client
+            .last
+            .lock()
+            .expect("lock")
+            .starts_with("https://r-a-d.io/api/search/")
+    );
 }
 
 #[test]
@@ -158,7 +164,7 @@ fn can_request_uses_capital_main_endpoint() {
 }
 
 #[test]
-fn news_hits_html_list_and_caches() {
+fn news_hits_html_list_every_time() {
     let client = Arc::new(UrlClient::new(include_str!("fixtures/news_list.html")));
     let core = RadioCore::with_client(client.clone());
     let page = core.news(1).unwrap();
@@ -171,9 +177,12 @@ fn news_hits_html_list_and_caches() {
         "https://r-a-d.io/news"
     );
     *client.last.lock().expect("lock") = String::new();
-    let cached = core.news(1).unwrap();
-    assert_eq!(cached.data[1].title, "Holid/a/y Stre/a/ms 2025 Schedule");
-    assert!(client.last.lock().expect("lock").is_empty());
+    let again = core.news(1).unwrap();
+    assert_eq!(again.data[1].title, "Holid/a/y Stre/a/ms 2025 Schedule");
+    assert_eq!(
+        *client.last.lock().expect("lock"),
+        "https://r-a-d.io/news"
+    );
 }
 
 struct NewsRouteClient {
@@ -246,6 +255,7 @@ fn favorites_empty_nick_skips_http_kethsar_hits_api() {
     assert!(client.last.lock().expect("lock").is_empty());
     let page = core.favorites("Kethsar".into(), 1).unwrap();
     assert_eq!(page.data[0].tracks_id, Some(6130));
+    core.prefetch_favorites("Kethsar".into()).unwrap();
     assert!(core.is_favorite("Kethsar".into(), 6130, String::new()));
     assert!(!core.is_favorite("Kethsar".into(), 0, "not a song".into()));
     assert_eq!(
@@ -260,6 +270,7 @@ fn add_fave_empty_nick_is_noop_without_connect() {
     let core = RadioCore::with_client(client);
     let result = core.add_fave(FaveConfig {
         nick: "  ".into(),
+        list_nick: String::new(),
         profile: IrcProfile::Rizon,
         nickserv_password: String::new(),
         bouncer_host: String::new(),
@@ -281,6 +292,7 @@ fn probe_irc_empty_nick_does_not_connect() {
     let core = RadioCore::with_client(client);
     let result = core.probe_irc(FaveConfig {
         nick: "  ".into(),
+        list_nick: String::new(),
         profile: IrcProfile::Rizon,
         nickserv_password: String::new(),
         bouncer_host: String::new(),
@@ -309,10 +321,11 @@ fn prefetch_favorites_empty_nick_skips_http() {
         ["https://r-a-d.io/faves?nick=Kethsar&page=1&dl=true"]
     );
     core.prefetch_favorites("Kethsar".into()).unwrap();
+    assert_eq!(client.urls.lock().expect("urls").len(), 2);
     let again = core.favorites("Kethsar".into(), 1).unwrap();
     assert_eq!(again.data[0].tracks_id, Some(6130));
     assert_eq!(again.last_page, 1);
-    assert_eq!(client.urls.lock().expect("urls").len(), 1);
+    assert_eq!(client.urls.lock().expect("urls").len(), 3);
 }
 
 struct RouteClient {
@@ -349,7 +362,7 @@ fn hundred_faves_json() -> String {
 }
 
 #[test]
-fn favorites_full_page_caches_json_and_html_last() {
+fn favorites_listing_hits_http_every_time() {
     let client = Arc::new(RouteClient {
         json: hundred_faves_json(),
         html: include_str!("fixtures/faves_pagination.html").into(),
@@ -368,8 +381,7 @@ fn favorites_full_page_caches_json_and_html_last() {
     );
     let again = core.favorites("Kethsar".into(), 1).unwrap();
     assert_eq!(again.last_page, 64);
-    core.prefetch_favorites("Kethsar".into()).unwrap();
-    assert_eq!(client.urls.lock().expect("urls").len(), 2);
+    assert_eq!(client.urls.lock().expect("urls").len(), 4);
 }
 
 struct FaveRequestClient {

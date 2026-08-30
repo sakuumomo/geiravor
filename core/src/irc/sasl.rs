@@ -55,6 +55,7 @@ mod tests {
     fn cfg(user: &str, pass: &str, cert: &str) -> FaveConfig {
         FaveConfig {
             nick: "Geiravor".into(),
+            list_nick: String::new(),
             profile: IrcProfile::Bouncer,
             nickserv_password: String::new(),
             bouncer_host: String::new(),

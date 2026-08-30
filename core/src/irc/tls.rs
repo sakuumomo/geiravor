@@ -55,6 +55,13 @@ impl IrcError {
             Self::Protocol { detail } => detail.clone(),
         }
     }
+
+    pub fn is_retryable(&self) -> bool {
+        matches!(
+            self,
+            Self::Network { .. } | Self::Tls { .. } | Self::Timeout { .. }
+        )
+    }
 }
 
 fn install_ring() {
@@ -502,6 +509,41 @@ mod tests {
         assert!(fingerprints_equal(&expected.to_lowercase(), &expected));
         assert!(fingerprints_equal("", "AA:BB"));
         assert!(!fingerprints_equal("00:11", "AA:BB"));
+    }
+
+    #[test]
+    #[test]
+    fn only_drop_errors_are_retryable() {
+        use super::IrcError;
+        assert!(IrcError::Timeout {
+            detail: "t".into()
+        }
+        .is_retryable());
+        assert!(IrcError::Network {
+            detail: "n".into()
+        }
+        .is_retryable());
+        assert!(IrcError::Tls {
+            detail: "tls".into()
+        }
+        .is_retryable());
+        assert!(!IrcError::NickInUse {
+            detail: "x".into()
+        }
+        .is_retryable());
+        assert!(!IrcError::Sasl {
+            detail: "x".into()
+        }
+        .is_retryable());
+        assert!(!IrcError::NickMismatch {
+            wanted: "a".into(),
+            got: "b".into()
+        }
+        .is_retryable());
+        assert!(!IrcError::Protocol {
+            detail: "x".into()
+        }
+        .is_retryable());
     }
 
     #[test]

@@ -198,6 +198,7 @@ mod tests {
     fn rizon_config(nick: &str) -> FaveConfig {
         FaveConfig {
             nick: nick.into(),
+            list_nick: String::new(),
             profile: IrcProfile::Rizon,
             nickserv_password: String::new(),
             bouncer_host: String::new(),
@@ -215,6 +216,7 @@ mod tests {
     fn bouncer_config(pass: &str) -> FaveConfig {
         FaveConfig {
             nick: "Geiravor".into(),
+            list_nick: String::new(),
             profile: IrcProfile::Bouncer,
             nickserv_password: "should-not-send".into(),
             bouncer_host: "127.0.0.1".into(),
