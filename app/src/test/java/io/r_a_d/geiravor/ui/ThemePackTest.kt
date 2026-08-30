@@ -34,6 +34,16 @@ class ThemePackTest {
         assertFalse(RadioPacks.christmas.glass)
         assertTrue(RadioPacks.halloween.glass)
         assertTrue(RadioPacks.newyears.glass)
+        assertTrue(
+            RadioPacks.channelLuma(RadioPacks.highlight(RadioPacks.newyears)) >
+                RadioPacks.channelLuma(RadioPacks.newyears.blue),
+        )
+        assertTrue(
+            RadioPacks.channelLuma(RadioPacks.highlight(RadioPacks.halloween)) >=
+                RadioPacks.channelLuma(RadioPacks.halloween.blue),
+        )
+        assertEquals(RadioPacks.defaultDark.blue, RadioPacks.highlight(RadioPacks.defaultDark))
+        assertEquals(RadioPacks.christmas.blue, RadioPacks.highlight(RadioPacks.christmas))
         assertEquals(
             listOf(
                 RadioPacks.DEFAULT_DARK,

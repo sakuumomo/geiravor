@@ -4,7 +4,7 @@
 
 ## List (paginated)
 
-HTML only: `GET https://r-a-d.io/news` (page 1) and `GET https://r-a-d.io/news?page=` (2…). The site’s HTML page size is **20**; the app **does not show 20**. The list page is sized to the pane: as many cards as fit **without scrolling**, then `PageTabs` over that window (may span two HTML pages). Last HTML page is the max `/news?page=` in that HTML, or the current page when the page is short.
+HTML only: `GET https://r-a-d.io/news` (page 1) and `GET https://r-a-d.io/news?page=` (2…). The site’s HTML page size is **20**; the app **does not show 20**. The list page is sized to the pane: as many cards as fit **without scrolling**, then `PageTabs` over that window. Each UI page stays inside one HTML page. Leftover cards on a short HTML page (including the last) stay leftover — do **not** fill the pane from the previous or next HTML page. Last HTML page is the max `/news?page=` in that HTML, or the current page when the page is short.
 
 Each card: `href="/news/{id}"`, `news-title`, author, date (`<time>` inner `on YYYY-MM-DD`), `header` flavor in `message-body`. Do **not** repeat `header` in the article.
 
@@ -14,7 +14,7 @@ List pages, article bodies, and comments live in Room. Open list/article: show d
 
 `GET https://r-a-d.io/news/{id}` is HTML: body + comments + gorilla CSRF. One GET fills both. Persist body and comments in Room; revalidate on open; **write only if different**. Replace comments on a successful POST. Drop Coil files for image URLs that leave the article.
 
-The article is the `message-body` HTML (paragraphs, `<br>`, `<em>`, `<strong>`, `<img>`, `<time>`), not the list flavor. Skip the relative `data-type="medium"` timeago line.
+The article is the `message-body` HTML (paragraphs, `<br>`, `<em>`, `<strong>`, `<img>`, `<time>`), not the list flavor. Skip the relative `data-type="medium"` timeago line. **← News** stays pinned at the top of the article while the body and comments scroll.
 
 `<time datetime="{unix}" data-type="local" data-dur="{ms}">` is converted to the device local timezone the same way the site’s JS does (`data-dur` is a range when non-zero). Do not leave the inner UTC `+0000` string, and do not substitute the raw unix value.
 

@@ -33,6 +33,8 @@ MediaStore `RELATIVE_PATH` for saving a thread image (API 29).
 
 Compose `Modifier.blur` / RenderEffect (API 31) for holiday glass. Below 31 the glass is the 50% black scrim only.
 
+`UiModeManager.setApplicationNightMode` (API 31) so Auto can follow Default vs Default light. Below 31 this is a no-op.
+
 ## Not here
 
 NDK 16 KB page size and AGP flags live in `012-build.md`, not Kotlin `SDK_INT` checks.

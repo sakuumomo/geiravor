@@ -1,6 +1,7 @@
 package io.r_a_d.geiravor.ui
 
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -26,6 +27,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -579,6 +581,7 @@ private fun SettingChoice(
     Row(
         modifier = Modifier
             .fillMaxWidth()
+            .background(if (selected) RadioTheme.highlight.copy(alpha = 0.28f) else Color.Transparent)
             .clickable(onClick = onClick)
             .padding(16.dp),
         verticalAlignment = Alignment.CenterVertically,
@@ -591,7 +594,7 @@ private fun SettingChoice(
         )
         Text(
             if (selected) "●" else "○",
-            color = if (selected) RadioTheme.blue else RadioTheme.muted,
+            color = if (selected) RadioTheme.highlight else RadioTheme.muted,
             fontSize = 16.sp,
         )
     }
@@ -621,7 +624,7 @@ private fun SettingToggle(
             onCheckedChange = null,
             colors = SwitchDefaults.colors(
                 checkedThumbColor = RadioTheme.text,
-                checkedTrackColor = RadioTheme.blue,
+                checkedTrackColor = RadioTheme.highlight,
                 uncheckedThumbColor = RadioTheme.muted,
                 uncheckedTrackColor = RadioTheme.border,
             ),

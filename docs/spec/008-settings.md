@@ -45,6 +45,6 @@ Settings sections are **General | Auto | Connection**. Alarm / snooze / sleep / 
 | Opt out of holiday themes | DataStore bool | **false** (auto allowed) | Settings → General (auto only) |
 | Convert schedule times to local | DataStore bool | **false** | Settings → General |
 
-Theme pick may be any of the five packs, any day. Holiday **auto** still applies when the live site is serving them, opt-out is off, and a holiday window is open (`005-ui.md`). Opt-out does not block a manual holiday pick. Auto follows Default / Default light; a holiday user pick maps to Default on Auto.
+Theme pick may be any of the five packs, any day. Holiday **auto** still applies when the live site is serving them, opt-out is off, and a holiday window is open (`005-ui.md`). Opt-out does not block a manual holiday pick. Auto follows Default / Default light (holiday user pick or holiday auto → Default / night). Application night mode is set from that same dark/light split (`004-android-auto.md`).
 
 Schedule local-time rewrite uses zone `America/New_York` as the source (`013-schedule-staff.md`). Toggle off shows the stored body.

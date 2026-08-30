@@ -600,7 +600,7 @@ private fun nowPlayingButtons(gain: Float, faveFilled: Boolean): List<CommandBut
     val label = LivePlaybackPolicy.volumeLabel(gain)
     val muted = LivePlaybackPolicy.isMuted(gain)
     return listOf(
-        CommandButton.Builder(CommandButton.ICON_VOLUME_OFF)
+        CommandButton.Builder(MutePolicy.commandIcon(muted))
             .setIconResId(MutePolicy.iconRes(muted))
             .setSessionCommand(SessionCommand(LivePlaybackPolicy.MUTE, Bundle.EMPTY))
             .setDisplayName(if (muted) "Unmute" else "Mute")

@@ -93,16 +93,34 @@ object NewsPolicy {
         return kotlin.math.floor(availableDp / slot).toInt().coerceAtLeast(1)
     }
 
-    fun listStartIndex(page: Int, visible: Int): Int =
-        (page.coerceAtLeast(1) - 1) * visible.coerceAtLeast(1)
-
-    fun listLastPage(total: Int, visible: Int): Int {
+    fun uiPagesForCount(count: Int, visible: Int): Int {
         val vis = visible.coerceAtLeast(1)
-        val n = total.coerceAtLeast(0)
+        val n = count.coerceAtLeast(0)
         if (n <= 0) {
-            return 1
+            return 0
         }
         return (n + vis - 1) / vis
+    }
+
+    /** UI pages stay inside one HTML page; leftover is short, not filled from the next/previous. */
+    fun listLastPage(serverLast: Int, lastPageCount: Int, visible: Int): Int {
+        val last = serverLast.coerceAtLeast(1)
+        val vis = visible.coerceAtLeast(1)
+        val perFull = uiPagesForCount(SERVER_PER_PAGE, vis).coerceAtLeast(1)
+        val lastUi = uiPagesForCount(lastPageCount.coerceIn(0, SERVER_PER_PAGE), vis)
+        return ((last - 1) * perFull + lastUi).coerceAtLeast(1)
+    }
+
+    fun serverPage(uiPage: Int, visible: Int): Int {
+        val vis = visible.coerceAtLeast(1)
+        val perFull = uiPagesForCount(SERVER_PER_PAGE, vis).coerceAtLeast(1)
+        return ((uiPage.coerceAtLeast(1) - 1) / perFull) + 1
+    }
+
+    fun serverOffset(uiPage: Int, visible: Int): Int {
+        val vis = visible.coerceAtLeast(1)
+        val perFull = uiPagesForCount(SERVER_PER_PAGE, vis).coerceAtLeast(1)
+        return ((uiPage.coerceAtLeast(1) - 1) % perFull) * vis
     }
 
     fun listTotal(serverLast: Int, lastPageCount: Int): Int {

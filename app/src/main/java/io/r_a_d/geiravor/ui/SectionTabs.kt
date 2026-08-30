@@ -27,7 +27,7 @@ fun SectionTabs(
             if (selected in positions.indices) {
                 TabRowDefaults.SecondaryIndicator(
                     modifier = Modifier.tabIndicatorOffset(positions[selected]),
-                    color = RadioTheme.blue,
+                    color = RadioTheme.highlight,
                 )
             }
         },

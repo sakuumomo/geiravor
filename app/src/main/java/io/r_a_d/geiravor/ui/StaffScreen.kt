@@ -1,14 +1,21 @@
 package io.r_a_d.geiravor.ui
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.foundation.layout.IntrinsicSize
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -19,6 +26,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextAlign
@@ -101,14 +109,61 @@ fun StaffScreen(
                 }
             }
             else -> {
-                Column(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .verticalScroll(rememberScrollState()),
-                    verticalArrangement = Arrangement.spacedBy(20.dp),
-                ) {
-                    StaffPolicy.groups(members).forEach { (role, group) ->
-                        StaffGroup(role = role, members = group)
+                BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
+                    val widthDp = maxWidth.value.toInt()
+                    val groups = StaffPolicy.groups(members)
+                    val staff = groups.first { it.first == "staff" }
+                    val dev = groups.first { it.first == "dev" }
+                    val djs = groups.first { it.first == "dj" }
+                    Column(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .verticalScroll(rememberScrollState()),
+                        verticalArrangement = Arrangement.spacedBy(20.dp),
+                    ) {
+                        if (StaffPolicy.pairStaffAndDev(widthDp)) {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(IntrinsicSize.Max),
+                                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                            ) {
+                                StaffGroup(
+                                    role = staff.first,
+                                    members = staff.second,
+                                    columns = StaffPolicy.PHONE_COLUMNS,
+                                    modifier = Modifier.weight(1f),
+                                )
+                                Box(
+                                    modifier = Modifier
+                                        .width(2.dp)
+                                        .fillMaxHeight()
+                                        .background(RadioTheme.border),
+                                )
+                                StaffGroup(
+                                    role = dev.first,
+                                    members = dev.second,
+                                    columns = StaffPolicy.PHONE_COLUMNS,
+                                    modifier = Modifier.weight(1f),
+                                )
+                            }
+                        } else {
+                            StaffGroup(
+                                role = staff.first,
+                                members = staff.second,
+                                columns = StaffPolicy.columns(widthDp, staff.first),
+                            )
+                            StaffGroup(
+                                role = dev.first,
+                                members = dev.second,
+                                columns = StaffPolicy.columns(widthDp, dev.first),
+                            )
+                        }
+                        StaffGroup(
+                            role = djs.first,
+                            members = djs.second,
+                            columns = StaffPolicy.columns(widthDp, djs.first),
+                        )
                     }
                 }
             }
@@ -117,14 +172,28 @@ fun StaffScreen(
 }
 
 @Composable
-private fun StaffGroup(role: String, members: List<StaffMember>) {
-    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+private fun StaffGroup(
+    role: String,
+    members: List<StaffMember>,
+    columns: Int,
+    modifier: Modifier = Modifier,
+) {
+    Column(
+        modifier = modifier,
+        verticalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
         Text(
             StaffPolicy.label(role),
             color = NewsPolicy.nameColor(role, RadioTheme.text),
             fontSize = 18.sp,
         )
-        members.chunked(2).forEach { row ->
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(2.dp)
+                .background(RadioTheme.border),
+        )
+        StaffPolicy.rows(members, columns).forEach { row ->
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(12.dp),
@@ -132,7 +201,7 @@ private fun StaffGroup(role: String, members: List<StaffMember>) {
                 row.forEach { member ->
                     StaffCard(member = member, modifier = Modifier.weight(1f))
                 }
-                if (row.size == 1) {
+                repeat(columns - row.size) {
                     Box(modifier = Modifier.weight(1f))
                 }
             }
@@ -156,7 +225,8 @@ private fun StaffCard(member: StaffMember, modifier: Modifier = Modifier) {
                 contentDescription = member.name,
                 modifier = Modifier
                     .fillMaxWidth()
-                    .aspectRatio(1f),
+                    .aspectRatio(1f)
+                    .clip(RoundedCornerShape(6.dp)),
                 contentScale = ContentScale.Crop,
             )
         }

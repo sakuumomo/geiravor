@@ -23,6 +23,7 @@ import io.r_a_d.geiravor.playback.HeadsetReceiver
 import io.r_a_d.geiravor.radio.RadioStore
 import io.r_a_d.geiravor.radio.SnapshotPolicy
 import io.r_a_d.geiravor.settings.SettingsStore
+import io.r_a_d.geiravor.compat.setApplicationNight
 import io.r_a_d.geiravor.ui.RadioPacks
 import io.r_a_d.geiravor.ui.RadioTheme
 import io.r_a_d.geiravor.ui.ThemePolicy
@@ -147,17 +148,15 @@ class GeiravorApp : Application(), ImageLoaderFactory {
         val car = !ThemePolicy.holidayPacksOnThisUi(
             resources.configuration.uiMode and Configuration.UI_MODE_TYPE_MASK,
         )
-        val pack = if (car) {
-            ThemePolicy.autoPack(userPick)
-        } else {
-            ThemePolicy.activePack(userPick, sniffed, optOut, date)
-        }
+        val phonePack = ThemePolicy.activePack(userPick, sniffed, optOut, date)
+        val pack = if (car) ThemePolicy.autoPack(phonePack) else phonePack
         val key = ThemePolicy.windowKey(date)
         if (key != null && sniffed != null && sniffed in RadioPacks.HOLIDAYS) {
             settings.setThemeSeenOn(key)
         }
         withContext(Dispatchers.Main) {
             RadioTheme.apply(pack)
+            setApplicationNight(this@GeiravorApp, ThemePolicy.isNight(phonePack))
         }
     }
 

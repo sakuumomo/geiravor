@@ -393,7 +393,7 @@ private fun GeiravorRoot() {
                             icon = { Text(dest.icon) },
                             label = { TabLabel(dest.label) },
                             colors = NavigationBarItemDefaults.colors(
-                                selectedIconColor = RadioTheme.blue,
+                                selectedIconColor = RadioTheme.highlight,
                                 selectedTextColor = RadioTheme.text,
                                 indicatorColor = RadioTheme.border,
                                 unselectedIconColor = RadioTheme.muted,

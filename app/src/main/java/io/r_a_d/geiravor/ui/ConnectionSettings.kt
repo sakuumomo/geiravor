@@ -123,7 +123,7 @@ fun ConnectionSettings(
                 Switch(
                     checked = allowInsecureTls,
                     onCheckedChange = onAllowInsecureTls,
-                    colors = SwitchDefaults.colors(checkedTrackColor = RadioTheme.blue),
+                    colors = SwitchDefaults.colors(checkedTrackColor = RadioTheme.highlight),
                 )
             }
         } else {

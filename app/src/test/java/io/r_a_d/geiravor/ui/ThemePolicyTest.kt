@@ -160,6 +160,20 @@ class ThemePolicyTest {
         assertEquals(RadioPacks.DEFAULT_DARK, ThemePolicy.autoPack(RadioPacks.CHRISTMAS))
         assertEquals(RadioPacks.DEFAULT_LIGHT, ThemePolicy.autoPack(RadioPacks.DEFAULT_LIGHT))
         assertFalse(ThemePolicy.OPT_OUT_DEFAULT)
+        assertFalse(ThemePolicy.isNight(RadioPacks.DEFAULT_LIGHT))
+        assertTrue(ThemePolicy.isNight(RadioPacks.DEFAULT_DARK))
+        assertTrue(ThemePolicy.isNight(RadioPacks.CHRISTMAS))
+        assertTrue(ThemePolicy.isNight(RadioPacks.HALLOWEEN))
+        assertTrue(ThemePolicy.isNight(RadioPacks.NEWYEARS))
+        val holidayOnLight = ThemePolicy.activePack(
+            RadioPacks.DEFAULT_LIGHT,
+            RadioPacks.HALLOWEEN,
+            optOut = false,
+            date = LocalDate.of(2026, 10, 31),
+        )
+        assertEquals(RadioPacks.HALLOWEEN, holidayOnLight)
+        assertEquals(RadioPacks.DEFAULT_DARK, ThemePolicy.autoPack(holidayOnLight))
+        assertTrue(ThemePolicy.isNight(holidayOnLight))
     }
 
     @Test

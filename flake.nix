@@ -84,6 +84,17 @@
           sdkRoot = "${android-sdk}/share/android-sdk";
           ndkRoot = "${sdkRoot}/ndk/${ndkVersion}";
           aapt2 = "${sdkRoot}/build-tools/${buildToolsVersion}/aapt2";
+          # DHU 2.1 (2022-12-15) is the last extras;google;auto. On a 2026
+          # clock it rejects the phone GAL cert. No 2.2 extra exists; fake
+          # time inside the FHS wrap. Override with DHU_FAKETIME.
+          # FAKETIME_DONT_FAKE_MONOTONIC avoids the EGL freeze.
+          dhuWrapper = pkgs.writeShellScript "desktop-head-unit-wrapped" ''
+            export LD_PRELOAD="${pkgs.libfaketime}/lib/libfaketime.so.1''${LD_PRELOAD:+:$LD_PRELOAD}"
+            export FAKETIME="''${DHU_FAKETIME:-@2024-06-01 12:00:00}"
+            export FAKETIME_DONT_FAKE_MONOTONIC=1
+            echo "DHU process clock: $(date -u '+%Y-%m-%d') (FAKETIME=$FAKETIME)" >&2
+            exec "${sdkRoot}/extras/google/auto/desktop-head-unit" "$@"
+          '';
           dhuFhs = pkgs.buildFHSEnv {
             pname = "desktop-head-unit";
             version = "2.1";
@@ -112,8 +123,9 @@
                 systemd
                 vulkan-loader
                 libusb1
+                libfaketime
               ];
-            runScript = "${sdkRoot}/extras/google/auto/desktop-head-unit";
+            runScript = "${dhuWrapper}";
           };
         in
         {

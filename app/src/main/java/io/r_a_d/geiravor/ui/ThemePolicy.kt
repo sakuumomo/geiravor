@@ -42,6 +42,10 @@ object ThemePolicy {
         return if (pick in RadioPacks.HOLIDAYS) RadioPacks.DEFAULT_DARK else pick
     }
 
+    /** Auto has no holiday tokens. Default light is day; everything else is night. */
+    fun isNight(pack: String): Boolean =
+        clampUserPick(pack) != RadioPacks.DEFAULT_LIGHT
+
     fun activePack(
         userPick: String,
         sniffed: String?,

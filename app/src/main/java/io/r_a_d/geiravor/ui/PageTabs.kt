@@ -129,14 +129,18 @@ private fun PagerChip(
     val selected = item.current
     Text(
         PagerPolicy.label(item),
-        color = if (item.enabled) RadioTheme.text else RadioTheme.muted.copy(alpha = 0.35f),
+        color = when {
+            !item.enabled -> RadioTheme.muted.copy(alpha = 0.35f)
+            selected -> RadioTheme.onHighlight
+            else -> RadioTheme.text
+        },
         fontSize = PagerTextSize,
         textAlign = TextAlign.Center,
         maxLines = 1,
         modifier = Modifier
             .then(if (minWidth != null) Modifier.widthIn(min = minWidth) else Modifier)
             .clip(RoundedCornerShape(4.dp))
-            .background(if (selected) RadioTheme.blue else RadioTheme.surface)
+            .background(if (selected) RadioTheme.highlight else RadioTheme.surface)
             .clickable(enabled = item.enabled && !selected, onClick = onClick)
             .padding(horizontal = 8.dp, vertical = 8.dp),
     )

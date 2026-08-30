@@ -60,17 +60,17 @@ Do not advertise `COMMAND_GET_TIMELINE` (hides Auto’s empty Queue button). Do 
 
 A **Fave** custom action on the now-playing card (`LivePlaybackPolicy.FAVE`) uses the same IRC add-fave path as the phone (`006-requests-faves.md`). Empty nick → no-op (keep advertising the command). It must not start, stop, or replace the live item, and must not rewrite now-playing metadata to display the result. Heart is **filled** when the current song is already a favorite (cached `/faves` rows or a successful Fave this session); outline otherwise. Same icon on the media notification custom action. On Auto, the compact **unfocused** card is Mute (back) and Fave (forward — skip-next is not advertised). Focused adds Vol − (back secondary) and Vol + (forward secondary). Use media button preferences (not custom-layout list order).
 
-No request, news, schedule, staff, thread, or search in Auto. No Favorites browse folder. Dark/light on Auto follows the app theme pick (`008-settings.md`). Holiday token packs are phone-only.
+No request, news, schedule, staff, thread, or search in Auto. No Favorites browse folder. Holiday token packs are phone-only. Dark/light is the only theme Auto can follow: Default light → day; Default, a holiday user pick, or holiday auto → night (`UiModeManager.setApplicationNightMode`, API 31+). Auto only honors that if the head unit is set to match the phone. Mute/Fave/Vol use Media3 `ICON_*` so Auto can tint them. No wallpaper, glass, or `--edenlight-color` on the dash.
 
 ## DHU
 
 Desktop Head Unit is the car screen. Waydroid (or a physical phone) is still the phone; DHU does not replace the phone.
 
-In `nix develop`, `extras-google-auto` provides `desktop-head-unit` (FHS-wrapped). Pair with Waydroid:
+In `nix develop`, `extras-google-auto` provides `desktop-head-unit` (FHS-wrapped). DHU **2.1** is the last Google extra; its TLS check fails on a 2026 clock (communication error 14 / “waiting for phone”). The wrap fakes the process clock (`DHU_FAKETIME`, default `@2024-06-01 12:00:00`, `FAKETIME_DONT_FAKE_MONOTONIC=1`) so GAL verify succeeds. Pair with Waydroid:
 
 1. Waydroid running, Geiravor and **Android Auto** installed in it (Play Store).
-2. Android Auto → ⋮ → **Start head unit server** (once per session).
-3. `./scripts/dhu.sh` (adb connect + `adb forward tcp:5277 tcp:5277` + DHU).
+2. Android Auto → ⋮ → **Start head unit server** (once per session). The script waits for `:5277` and exits if it never appears.
+3. `./scripts/dhu.sh` (adb connect, talk to Waydroid `:5277` directly, keep stdin open). On Linux with a user systemd it runs as `geiravor-dhu.service` so bwrap `--die-with-parent` does not die with the shell. `./scripts/dhu.sh --stop` ends it. `./scripts/dhu.sh --foreground` execs in this terminal.
 
 Unknown sources still apply inside Waydroid. DHU is the Auto test rig. It is **not** a merge gate (`011-testing.md`). Phone features must not wait on it.
 

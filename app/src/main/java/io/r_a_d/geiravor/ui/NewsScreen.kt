@@ -9,6 +9,7 @@ import android.view.View
 import android.widget.TextView
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -17,6 +18,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -93,20 +95,13 @@ fun NewsScreen(
             return@LaunchedEffect
         }
         error = null
-        val start = NewsPolicy.listStartIndex(page, visible)
-        val serverPage = start / NewsPolicy.SERVER_PER_PAGE + 1
-        val offset = start % NewsPolicy.SERVER_PER_PAGE
+        val serverPage = NewsPolicy.serverPage(page, visible)
+        val offset = NewsPolicy.serverOffset(page, visible)
         val db = GeiravorDb.get(context)
         val cached = withContext(Dispatchers.IO) { NewsStore.loadPage(db, serverPage) }
         if (cached != null) {
             val (htmlLast, rows) = cached
-            var shown = rows.drop(offset).take(visible)
-            if (shown.size < visible) {
-                val extra = withContext(Dispatchers.IO) { NewsStore.loadPage(db, serverPage + 1) }
-                if (extra != null) {
-                    shown = shown + extra.second.take(visible - shown.size)
-                }
-            }
+            val shown = rows.drop(offset).take(visible)
             val storedLast = if (serverPage == htmlLast) {
                 rows.size
             } else {
@@ -121,7 +116,7 @@ fun NewsScreen(
             if (lastCount != null) {
                 showList(
                     shown,
-                    NewsPolicy.listLastPage(NewsPolicy.listTotal(htmlLast, lastCount), visible),
+                    NewsPolicy.listLastPage(htmlLast, lastCount, visible),
                     page,
                     visible,
                 )
@@ -134,30 +129,19 @@ fun NewsScreen(
         }
         try {
             val first = withContext(Dispatchers.IO) { radio.news(serverPage) }
-            var shown = first.data.drop(offset).take(visible)
+            val shown = first.data.drop(offset).take(visible)
             val htmlLast = first.lastPage.toInt().coerceAtLeast(1)
-            var fetchedNextCount: Int? = null
             withContext(Dispatchers.IO) {
                 NewsStore.savePage(db, serverPage, htmlLast, first.data)
-            }
-            if (shown.size < visible && first.currentPage.toInt() < htmlLast) {
-                val next = withContext(Dispatchers.IO) {
-                    radio.news(first.currentPage.toInt() + 1)
-                }
-                fetchedNextCount = next.data.size
-                shown = shown + next.data.take(visible - shown.size)
-                withContext(Dispatchers.IO) {
-                    NewsStore.savePage(db, first.currentPage.toInt() + 1, htmlLast, next.data)
-                }
             }
             if (shown.isNotEmpty()) {
                 articles = shown
                 loading = false
             }
-            val storedLast = when {
-                serverPage == htmlLast -> first.data.size
-                first.currentPage.toInt() + 1 == htmlLast -> fetchedNextCount
-                else -> withContext(Dispatchers.IO) {
+            val storedLast = if (serverPage == htmlLast) {
+                first.data.size
+            } else {
+                withContext(Dispatchers.IO) {
                     NewsStore.loadPage(db, htmlLast)?.second?.size
                 }
             }
@@ -178,14 +162,11 @@ fun NewsScreen(
                 NewsStore.prune(
                     context,
                     db,
-                    keepPages = listOf(serverPage, serverPage + 1, htmlLast),
+                    keepPages = listOf(serverPage, htmlLast),
                     keepArticleIds = selected?.id?.let { listOf(it) }.orEmpty(),
                 )
             }
-            val uiLast = NewsPolicy.listLastPage(
-                NewsPolicy.listTotal(htmlLast, lastCount),
-                visible,
-            )
+            val uiLast = NewsPolicy.listLastPage(htmlLast, lastCount, visible)
             val clamped = PagerPolicy.clampPage(page, uiLast)
             SessionCache.putNewsCurrent(clamped)
             (context.applicationContext as? GeiravorApp)?.refreshTheme(processStart = false)
@@ -404,21 +385,44 @@ private fun NewsArticlePane(
         }
     }
 
-    LazyColumn(
-        state = listState,
-        modifier = modifier
-            .fillMaxSize()
-            .padding(16.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp),
-    ) {
-        item(key = "head") {
-            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+    Column(modifier = modifier.fillMaxSize()) {
+        Box(modifier = Modifier.fillMaxWidth()) {
+            FrostBackdrop(Modifier.matchParentSize())
+            Box(
+                Modifier
+                    .matchParentSize()
+                    .background(
+                        if (RadioTheme.glass) androidx.compose.ui.graphics.Color.Transparent else RadioTheme.background,
+                    ),
+            )
+            Column(modifier = Modifier.fillMaxWidth()) {
                 Text(
                     "← News",
                     color = RadioTheme.link,
                     fontSize = 14.sp,
-                    modifier = Modifier.clickable(onClick = onBack),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable(onClick = onBack)
+                        .padding(horizontal = 16.dp, vertical = 12.dp),
                 )
+                Box(
+                    Modifier
+                        .fillMaxWidth()
+                        .height(1.dp)
+                        .background(RadioTheme.border),
+                )
+            }
+        }
+        LazyColumn(
+            state = listState,
+            modifier = Modifier
+                .weight(1f)
+                .fillMaxWidth()
+                .padding(start = 16.dp, end = 16.dp, bottom = 16.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+        item(key = "head") {
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 Text(displayed.title, color = RadioTheme.text, fontSize = 20.sp)
                 NewsByline(
                     name = displayed.author.user,
@@ -505,6 +509,7 @@ private fun NewsArticlePane(
                 },
                 onCommentLink = { jumpTo = it },
             )
+        }
         }
     }
 }

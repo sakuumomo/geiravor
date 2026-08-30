@@ -28,7 +28,7 @@ cargo test --manifest-path core/Cargo.toml
 
 Needs a flake-capable Nix. `aarch64-linux` is not a 0.1.0 flake target.
 
-Android Auto: projected (phone → dash). A real car has been used for 0.1.0. Sideload still needs Auto **Unknown sources**. Desktop Head Unit is in `nix develop` (`./scripts/dhu.sh`) for testing; it is not a merge gate.
+Android Auto: projected (phone → dash). A real car has been used for 0.1.0. Sideload still needs Auto **Unknown sources**. Desktop Head Unit is in `nix develop` (`./scripts/dhu.sh`; Head Unit Server must already be listening). It is not a merge gate.
 
 ## Specs
 

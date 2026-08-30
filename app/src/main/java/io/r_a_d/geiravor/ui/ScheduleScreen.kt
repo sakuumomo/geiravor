@@ -145,7 +145,7 @@ private fun ScheduleRow(
     val highlight = SchedulePolicy.isToday(day.weekday, today)
     RadioCard(
         modifier = Modifier.fillMaxWidth(),
-        border = if (highlight) BorderStroke(2.dp, RadioTheme.blue) else BorderStroke(1.dp, RadioTheme.border),
+        border = if (highlight) BorderStroke(2.dp, RadioTheme.highlight) else BorderStroke(1.dp, RadioTheme.border),
     ) {
         Row(
             modifier = Modifier

@@ -36,7 +36,7 @@ Semver `X.Y.Z` is identical in `versionName`, Cargo `version`, and User-Agent `G
 nix develop
 cargo test --manifest-path core/Cargo.toml
 ./gradlew :app:assembleDebug
-./scripts/dhu.sh   # DHU + Waydroid; Android Auto Head Unit Server must be running
+./scripts/dhu.sh   # DHU + Waydroid; waits for Head Unit Server; --stop to end
 ```
 
 Host `cargo test` does not need the NDK. Do not GET the Icecast URL in tests.

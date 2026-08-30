@@ -4,6 +4,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.lerp
 import io.r_a_d.geiravor.R
 
 data class RadioColors(
@@ -135,6 +136,32 @@ object RadioPacks {
             NEWYEARS -> newyears
             else -> defaultDark
         }
+
+    /**
+     * Selection chrome (theme radios, pager current, tab indicator).
+     * Glass packs sit on wallpaper; official `--edenlight-color` can vanish, so lift that
+     * same hue until it reads. Play/progress keep [RadioColors.blue].
+     */
+    fun highlight(colors: RadioColors): Color {
+        if (!colors.glass) {
+            return colors.blue
+        }
+        var lifted = colors.blue
+        var t = 0f
+        while (channelLuma(lifted) < GLASS_HIGHLIGHT_LUMA && t < 0.7f) {
+            t += 0.08f
+            lifted = lerp(colors.blue, Color.White, t)
+        }
+        return lifted
+    }
+
+    fun onHighlight(colors: RadioColors): Color =
+        if (channelLuma(highlight(colors)) > 0.45f) Color(0xDE1A1A1A) else Color.White
+
+    internal fun channelLuma(color: Color): Float =
+        0.2126f * color.red + 0.7152f * color.green + 0.0722f * color.blue
+
+    private const val GLASS_HIGHLIGHT_LUMA = 0.58f
 }
 
 object RadioTheme {
@@ -161,8 +188,10 @@ object RadioTheme {
     val link get() = current.link
     val wallpaper get() = current.wallpaper
     val glass get() = current.glass
+    val highlight get() = RadioPacks.highlight(current)
+    val onHighlight get() = RadioPacks.onHighlight(current)
     val onBlue get(): Color {
-        val l = 0.2126f * current.blue.red + 0.7152f * current.blue.green + 0.0722f * current.blue.blue
+        val l = RadioPacks.channelLuma(current.blue)
         return if (l > 0.45f) Color(0xDE1A1A1A) else Color.White
     }
 }
