@@ -765,9 +765,34 @@ impl RadioCore {
         }
         let rows = self.fetch_all_fave_rows(nick)?;
         let mut cache = self.http_cache.lock().expect("cache");
-        cache.membership.insert(nick.to_string(), rows);
-        cache.fave_plus.remove(nick);
-        cache.fave_minus.remove(nick);
+        cache.membership.insert(nick.to_string(), rows.clone());
+        if let Some(plus) = cache.fave_plus.get_mut(nick) {
+            plus.retain(|row| {
+                !rows
+                    .iter()
+                    .any(|have| row_is_song(have, row.tracks_id.unwrap_or(0), &row.meta))
+            });
+        }
+        if cache
+            .fave_plus
+            .get(nick)
+            .is_some_and(|rows| rows.is_empty())
+        {
+            cache.fave_plus.remove(nick);
+        }
+        if let Some(minus) = cache.fave_minus.get_mut(nick) {
+            minus.retain(|row| {
+                rows.iter()
+                    .any(|have| row_is_song(have, row.tracks_id.unwrap_or(0), &row.meta))
+            });
+        }
+        if cache
+            .fave_minus
+            .get(nick)
+            .is_some_and(|rows| rows.is_empty())
+        {
+            cache.fave_minus.remove(nick);
+        }
         Ok(())
     }
 
@@ -1027,6 +1052,28 @@ mod tests {
             core.is_favorite("Geiravor".into(), 0, "DJ - Only".into()),
             core.catalog_id_for("Geiravor", &tap)
         ));
+    }
+
+    #[test]
+    fn prefetch_keeps_overlay_until_get_includes_the_song() {
+        let core = core();
+        core.prefetch_favorites("Geiravor".into()).unwrap();
+        let added = TapSnapshot {
+            is_afk: true,
+            track_id: 42,
+            np: "New - Song".into(),
+        };
+        core.remember_toggle("Geiravor", &added, Some(42), true);
+        core.prefetch_favorites("Geiravor".into()).unwrap();
+        assert!(core.is_favorite("Geiravor".into(), 42, "New - Song".into()));
+        let gone = TapSnapshot {
+            is_afk: true,
+            track_id: 6130,
+            np: np().into(),
+        };
+        core.remember_toggle("Geiravor", &gone, Some(6130), false);
+        core.prefetch_favorites("Geiravor".into()).unwrap();
+        assert!(!core.is_favorite("Geiravor".into(), 6130, np().into()));
     }
 
     #[test]

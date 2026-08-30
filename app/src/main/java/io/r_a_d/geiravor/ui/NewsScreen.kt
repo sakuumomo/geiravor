@@ -218,7 +218,7 @@ fun NewsScreen(
                 .weight(1f)
                 .fillMaxWidth(),
         ) {
-            val fit = NewsPolicy.cardsThatFit(maxHeight.value)
+            val fit = NewsPolicy.paneCards(NewsPolicy.cardsThatFit(maxHeight.value))
             LaunchedEffect(fit) {
                 if (visible != fit) {
                     visible = fit

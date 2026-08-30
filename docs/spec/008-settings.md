@@ -18,7 +18,7 @@ Android Auto Settings tab surfaces the same two auto-start flags (On/Off subtitl
 
 | Key | Storage | Notes |
 |---|---|---|
-| Favorites nick | DataStore | Public list only (`GET /faves?nick=`) |
+| Favorites nick | DataStore | Public list only (`GET /faves?nick=`); empty → Connection nick |
 | Connection nick | DataStore | IRC fave/unfave nick; empty → Favorites nick |
 | NickServ password | EncryptedSharedPreferences | Direct Rizon only when SASL was not used; never log |
 | IRC profile | DataStore | Rizon (default) vs bouncer |

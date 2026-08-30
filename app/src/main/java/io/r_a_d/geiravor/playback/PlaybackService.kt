@@ -176,7 +176,7 @@ class PlaybackService : MediaLibraryService() {
         }
         fun refreshFaveIcon(status: Status?) {
             scope.launch(Dispatchers.IO) {
-                val home = FavePolicy.listNick(faveNick)
+                val home = FavePolicy.listNick(faveNick, ircNick)
                 val filled = FavePolicy.isListed(
                     home,
                     status,
@@ -207,7 +207,7 @@ class PlaybackService : MediaLibraryService() {
             buttons = { nowPlayingButtons(player.volume, faveFilled) },
             onFave = {
                 scope.launch(Dispatchers.IO) {
-                    val home = FavePolicy.listNick(faveNick)
+                    val home = FavePolicy.listNick(faveNick, ircNick)
                     val wasFilled = FavePolicy.isListed(
                         home,
                         radio.snapshot(),

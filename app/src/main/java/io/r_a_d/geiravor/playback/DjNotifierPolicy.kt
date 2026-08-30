@@ -26,6 +26,14 @@ object DjNotifierPolicy {
         djName = status.dj.name,
     )
 
+    fun isHanyuu(name: String): Boolean {
+        val fold = name.trim().lowercase()
+        return fold == "hanyuu-sama" || fold == "hanyuu"
+    }
+
+    /** AFK stream or Hanyuu (`isafkstream` can lag a takeover). */
+    fun isAfkDj(seen: Seen): Boolean = seen.isAfk || isHanyuu(seen.djName)
+
     fun shouldNotify(
         enabled: Boolean,
         previous: Seen?,
@@ -38,10 +46,10 @@ object DjNotifierPolicy {
         if (previous == null) {
             return false
         }
-        if (next.isAfk) {
+        if (isAfkDj(next)) {
             return false
         }
-        if (previous.isAfk) {
+        if (isAfkDj(previous)) {
             return true
         }
         return previous.djId != next.djId || previous.djName != next.djName

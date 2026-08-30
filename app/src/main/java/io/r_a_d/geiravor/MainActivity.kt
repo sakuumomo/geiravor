@@ -218,9 +218,9 @@ private fun GeiravorRoot() {
     LaunchedEffect(Unit) {
         settings.djNotifierEnabled.collect { djNotifierEnabled = it }
     }
-    LaunchedEffect(homeNick, radioState.status?.trackId, radioState.status?.np) {
+    LaunchedEffect(homeNick, ircNick, radioState.status?.trackId, radioState.status?.np) {
         val status = radioState.status
-        val home = FavePolicy.listNick(homeNick)
+        val home = FavePolicy.listNick(homeNick, ircNick)
         val filled = withContext(Dispatchers.IO) {
             FavePolicy.isListed(home, status, app.radio::isFavorite)
         }
@@ -312,7 +312,7 @@ private fun GeiravorRoot() {
             faveBusy = true
             scope.launch {
                 val (result, wasFilled) = withContext(Dispatchers.IO) {
-                    val home = FavePolicy.listNick(homeNick)
+                    val home = FavePolicy.listNick(homeNick, ircNick)
                     val listed = FavePolicy.isListed(
                         home,
                         app.radio.snapshot(),
@@ -346,7 +346,7 @@ private fun GeiravorRoot() {
                     bumpList = heart.bumpList,
                 )
                 if (heart.bumpList) {
-                    val home = FavePolicy.listNick(homeNick)
+                    val home = FavePolicy.listNick(homeNick, ircNick)
                     withContext(Dispatchers.IO) {
                         runCatching { app.radio.prefetchFavorites(home) }
                     }
@@ -436,11 +436,12 @@ private fun GeiravorRoot() {
                     onCanRequest = RadioStore::setCanRequest,
                     favesNick = favesNick,
                     homeNick = homeNick,
+                    listFallback = ircNick,
                     onFavesNick = { favesNick = it },
                     onFavesNickPersist = { nick ->
                         scope.launch {
                             settings.setFavesNick(nick)
-                            val home = FavePolicy.listNick(nick)
+                            val home = FavePolicy.listNick(nick, ircNick)
                             withContext(Dispatchers.IO) {
                                 app.radio.keepMembership(home)
                                 if (home.isNotEmpty()) {

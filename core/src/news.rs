@@ -158,13 +158,22 @@ pub fn parse_news_last_page(html: &str) -> i32 {
 pub fn parse_news_list(html: &str, page: i32) -> NewsPage {
     let data = parse_news_list_items(html);
     let page = page.max(1);
-    let mut last = parse_news_last_page(html).max(1);
-    if (data.len() as i32) < NEWS_PER_PAGE {
-        last = last.max(page);
-    }
+    let pager = parse_news_last_page(html).max(1);
+    let last = if data.is_empty() {
+        // Valkyrie still marks a past-last `?page=` current with an empty list.
+        if pager == page {
+            (pager - 1).max(1)
+        } else {
+            pager
+        }
+    } else if (data.len() as i32) < NEWS_PER_PAGE {
+        pager.max(page)
+    } else {
+        pager.max(page)
+    };
     NewsPage {
         current_page: page,
-        last_page: last.max(page),
+        last_page: last,
         data,
     }
 }
@@ -403,5 +412,21 @@ mod tests {
         attach_news_ids(&mut articles, &ids);
         assert_eq!(articles[0].id, 82);
         assert_eq!(articles[1].id, 81);
+    }
+
+    #[test]
+    fn empty_html_page_is_past_last_not_a_new_last_page() {
+        let phantom = r#"<nav class="pagination">
+            <a href="/news?page=1">1</a>
+            <a href="/news?page=4">4</a>
+            <a class="is-current" href="/news?page=5">5</a>
+        </nav>
+        <div id="news-content"></div>"#;
+        let page = parse_news_list(phantom, 5);
+        assert!(page.data.is_empty());
+        assert_eq!(page.last_page, 4);
+        let far = parse_news_list("<div id=\"news-content\"></div>", 8);
+        assert!(far.data.is_empty());
+        assert_eq!(far.last_page, 1);
     }
 }

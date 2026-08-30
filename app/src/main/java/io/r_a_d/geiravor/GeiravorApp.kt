@@ -68,7 +68,7 @@ class GeiravorApp : Application(), ImageLoaderFactory {
         paint?.let { RadioStore.hydrateStatus(SnapshotPolicy.toStatus(it)) }
         var lastPaint = paint
         val home = runBlocking(Dispatchers.IO) {
-            FavePolicy.listNick(settings.favesNick.first())
+            FavePolicy.listNick(settings.favesNick.first(), settings.ircNick.first())
         }
         if (home.isNotEmpty()) {
             val rows = runBlocking(Dispatchers.IO) { db.faves().forNick(home) }

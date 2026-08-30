@@ -4,7 +4,7 @@
 
 ## List (paginated)
 
-HTML only: `GET https://r-a-d.io/news` (page 1) and `GET https://r-a-d.io/news?page=` (2…). The site’s HTML page size is **20**; the app **does not show 20**. The list page is sized to the pane: as many cards as fit **without scrolling**, then `PageTabs` over that window. Each UI page stays inside one HTML page. Leftover cards on a short HTML page (including the last) stay leftover — do **not** fill the pane from the previous or next HTML page. Last HTML page is the max `/news?page=` in that HTML, or the current page when the page is short.
+HTML only: `GET https://r-a-d.io/news` (page 1) and `GET https://r-a-d.io/news?page=` (2…). The site’s HTML page size is **20**; the app **does not show 20**. The list page is sized to the pane: as many cards as fit **without scrolling**, then `PageTabs` over that window. Each UI page stays inside one HTML page. Leftover cards on a short HTML page (including the last) stay leftover — do **not** fill the pane from the previous or next HTML page. If a full HTML page would leave only 1–2 leftover cards, use fewer cards so that page divides evenly (still no scroll). Last HTML page is the max `/news?page=` in that HTML, or the current page when the page is short. An **empty** HTML page is past-last: do not take it as last even if the pager marks it current (Valkyrie still renders `?page=` past the last full page).
 
 Each card: `href="/news/{id}"`, `news-title`, author, date (`<time>` inner `on YYYY-MM-DD`), `header` flavor in `message-body`. Do **not** repeat `header` in the article.
 

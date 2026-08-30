@@ -26,7 +26,10 @@ object FavePolicy {
         return connection.ifEmpty { listNick.trim() }
     }
 
-    fun listNick(favesNick: String): String = favesNick.trim()
+    fun listNick(favesNick: String, connectionNick: String = ""): String {
+        val list = favesNick.trim()
+        return list.ifEmpty { connectionNick.trim() }
+    }
 
     fun sanitizePort(port: Int): Int =
         if (port in PORT_MIN..PORT_MAX) port else DEFAULT_BOUNCER_PORT

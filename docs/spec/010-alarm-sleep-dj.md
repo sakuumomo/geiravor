@@ -14,6 +14,6 @@ One-shot timer to stop playback through the same play/stop path (`003-playback.m
 
 ## DJ-online notifier
 
-Opt-in, default **off**. **WorkManager** periodic (15 minutes, network required) plus the process `/api` poller watching snapshot `dj` / `isafkstream`. Do **not** use a `specialUse` foreground service to poll. Notify on AFK → live DJ and on a live DJ identity change. Do not notify live → AFK, on the first sample after opt-in, or while stream-down. Tap opens the app.
+Opt-in, default **off**. **WorkManager** periodic (15 minutes, network required) plus the process `/api` poller watching snapshot `dj` / `isafkstream`. Do **not** use a `specialUse` foreground service to poll. Notify on AFK → live DJ and on a live DJ identity change. Do **not** notify when the next DJ is Hanyuu (`isafkstream` or `dj.djname` Hanyuu / Hanyuu-sama — the AFK stream; `isafkstream` can lag a takeover). Do not notify live → AFK, on the first sample after opt-in, or while stream-down. Song / `np` changes are not a notify. Tap opens the app.
 
 No push channel exists from the station. Settings → Alerts documents battery cost. If notification permission is denied, fail visible with Settings copy — not a silent skip. Do not GET Icecast.

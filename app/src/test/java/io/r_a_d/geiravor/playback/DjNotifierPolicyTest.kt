@@ -51,6 +51,53 @@ class DjNotifierPolicyTest {
     }
 
     @Test
+    fun hanyuuDoesNotNotifyEvenIfMarkedLive() {
+        val afk = seen(isAfk = true, id = 18, name = "Hanyuu-sama")
+        val hanyuuLive = seen(isAfk = false, id = 18, name = "Hanyuu-sama")
+        val live = seen(isAfk = false, id = 7, name = "exci")
+        assertFalse(
+            DjNotifierPolicy.shouldNotify(
+                enabled = true,
+                previous = afk,
+                next = hanyuuLive,
+                streamDown = false,
+            ),
+        )
+        assertFalse(
+            DjNotifierPolicy.shouldNotify(
+                enabled = true,
+                previous = live,
+                next = hanyuuLive,
+                streamDown = false,
+            ),
+        )
+        assertFalse(
+            DjNotifierPolicy.shouldNotify(
+                enabled = true,
+                previous = live,
+                next = seen(isAfk = false, id = 18, name = "Hanyuu"),
+                streamDown = false,
+            ),
+        )
+        assertTrue(DjNotifierPolicy.isHanyuu("Hanyuu-sama"))
+        assertTrue(DjNotifierPolicy.isAfkDj(hanyuuLive))
+    }
+
+    @Test
+    fun hanyuuToLiveDjNotifies() {
+        val hanyuu = seen(isAfk = false, id = 18, name = "Hanyuu-sama")
+        val live = seen(isAfk = false, id = 7, name = "exci")
+        assertTrue(
+            DjNotifierPolicy.shouldNotify(
+                enabled = true,
+                previous = hanyuu,
+                next = live,
+                streamDown = false,
+            ),
+        )
+    }
+
+    @Test
     fun liveToAfkDoesNotNotify() {
         val live = seen(isAfk = false, id = 7, name = "exci")
         val afk = seen(isAfk = true, id = 1, name = "Hanyuu-sama")
@@ -111,6 +158,7 @@ class DjNotifierPolicyTest {
         )
         assertEquals("exci is online", DjNotifierPolicy.body("exci"))
         assertEquals("A DJ is online", DjNotifierPolicy.body("  "))
+        assertFalse(DjNotifierPolicy.isHanyuu("exci"))
     }
 
     private fun seen(isAfk: Boolean, id: Long, name: String) =

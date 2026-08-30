@@ -93,6 +93,16 @@ object NewsPolicy {
         return kotlin.math.floor(availableDp / slot).toInt().coerceAtLeast(1)
     }
 
+    /** Drop a 1–2 card leftover of a full HTML page; still no more cards than fit. */
+    fun paneCards(fit: Int): Int {
+        val vis = fit.coerceAtLeast(1)
+        val rem = SERVER_PER_PAGE % vis
+        if (rem == 0 || rem * 2 >= vis) {
+            return vis
+        }
+        return (vis downTo 1).first { SERVER_PER_PAGE % it == 0 }
+    }
+
     fun uiPagesForCount(count: Int, visible: Int): Int {
         val vis = visible.coerceAtLeast(1)
         val n = count.coerceAtLeast(0)

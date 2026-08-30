@@ -54,6 +54,7 @@ fun FavoritesPane(
     status: Status?,
     nick: String,
     homeNick: String,
+    listFallback: String,
     onNick: (String) -> Unit,
     onNickPersist: (String) -> Unit,
     canRequest: Boolean?,
@@ -67,7 +68,11 @@ fun FavoritesPane(
     var rows by remember { mutableStateOf(listOf<FavoriteRow>()) }
     var message by remember { mutableStateOf<Pair<Boolean, String>?>(null) }
     var busyId by remember { mutableStateOf<Long?>(null) }
-    var loading by remember { mutableStateOf(FavoritesPolicy.shouldFetch(nick)) }
+    var loading by remember {
+        mutableStateOf(
+            FavoritesPolicy.shouldFetch(nick) || FavoritesPolicy.shouldFetch(listFallback),
+        )
+    }
     val listState = rememberLazyListState()
     val listRevision by remember {
         RadioStore.state.map { it.faveListRevision }.distinctUntilChanged()
@@ -87,33 +92,34 @@ fun FavoritesPane(
     val committed = listing.first
     val page = listing.second
 
-    LaunchedEffect(nick) {
-        if (!FavoritesPolicy.shouldFetch(nick)) {
+    LaunchedEffect(nick, listFallback) {
+        val fetch = nick.trim().ifEmpty { listFallback.trim() }
+        if (!FavoritesPolicy.shouldFetch(fetch)) {
             listing = "" to 1
             lastPage = 1
             rows = emptyList()
             loading = false
             return@LaunchedEffect
         }
-        val trimmed = nick.trim()
-        if (listing.first == trimmed) {
+        if (listing.first == fetch) {
             return@LaunchedEffect
         }
         loading = true
-        if (listing.first.isNotEmpty() || FavoritesPolicy.shouldCommitHome(homeNick, trimmed)) {
+        val typed = nick.trim()
+        if (listing.first.isNotEmpty() || FavoritesPolicy.shouldCommitHome(homeNick, typed)) {
             delay(350)
         }
-        if (FavoritesPolicy.shouldCommitHome(homeNick, trimmed)) {
-            onNickPersist(trimmed)
+        if (FavoritesPolicy.shouldCommitHome(homeNick, typed)) {
+            onNickPersist(typed)
         }
-        listing = trimmed to SessionCache.favesCurrent(trimmed)
+        listing = fetch to SessionCache.favesCurrent(fetch)
     }
 
     LaunchedEffect(listing, listRevision) {
         if (!FavoritesPolicy.shouldFetch(committed)) {
             rows = emptyList()
             lastPage = 1
-            if (!FavoritesPolicy.shouldFetch(nick)) {
+            if (!FavoritesPolicy.shouldFetch(nick) && !FavoritesPolicy.shouldFetch(listFallback)) {
                 loading = false
             }
             return@LaunchedEffect
@@ -156,7 +162,9 @@ fun FavoritesPane(
             value = nick,
             onValueChange = onNick,
             singleLine = true,
-            placeholder = { Text("Rizon nick") },
+            placeholder = {
+                Text(listFallback.trim().ifEmpty { "Rizon nick" })
+            },
             keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
             keyboardActions = KeyboardActions(
                 onDone = {
@@ -180,7 +188,7 @@ fun FavoritesPane(
                 busyId = FavoritesPolicy.RANDOM_BUSY_ID
                 scope.launch {
                     val result = withContext(Dispatchers.IO) {
-                        runCatching { radio.requestRandomFavorite(nick.trim()) }
+                        runCatching { radio.requestRandomFavorite(committed) }
                     }
                     busyId = null
                     result.onSuccess { done ->
@@ -198,7 +206,7 @@ fun FavoritesPane(
                     }
                 }
             },
-            enabled = FavoritesPolicy.randomCanRequest(allowed, nick) && busyId == null,
+            enabled = FavoritesPolicy.randomCanRequest(allowed, committed) && busyId == null,
             modifier = Modifier.fillMaxWidth(),
             colors = radioButtonColors(),
         ) {
@@ -270,7 +278,7 @@ fun FavoritesPane(
                 )
             }
             if (
-                committed == nick.trim() &&
+                committed == nick.trim().ifEmpty { listFallback.trim() } &&
                 FavoritesPolicy.shouldFetch(committed) &&
                 rows.isEmpty() &&
                 message == null &&
