@@ -8,6 +8,14 @@ object SectionLayout {
         Favorites("Favorites"),
     }
 
+    enum class BoardSection(val label: String) {
+        News("News"),
+        Schedule("Schedule"),
+        Staff("Staff"),
+    }
+
+    fun boardSections(): List<BoardSection> = BoardSection.entries.toList()
+
     enum class SettingsSection(val label: String) {
         General("General"),
         Auto("Auto"),

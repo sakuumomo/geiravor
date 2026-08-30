@@ -12,6 +12,10 @@ Play and stop the live stream, see now playing / last played / queue, and contro
 
 Search and request on AFK, nick favorites (list + IRC add-fave), news, alarm/snooze, sleep timer, and an opt-in DJ-online notifier. Phone tabs Now Playing | Songs | News | Settings.
 
+## What 0.3.0 is
+
+Schedule and staff on a **Board** tab (News | Schedule | Staff), extra themes (Default light plus Christmas / Halloween / New Years with wallpapers), and disk writes only when the payload changed. Phone tabs Now Playing | Songs | Board | Settings. Version bump happens when this drop ships; current tagged release is still 0.2.0.
+
 ## Build
 
 Nix is the supported toolchain:

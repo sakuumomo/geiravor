@@ -3,6 +3,7 @@ package io.r_a_d.geiravor.radio
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Test
 import uniffi.geiravor_core.Dj
 import uniffi.geiravor_core.ListEntry
@@ -53,5 +54,31 @@ class SnapshotPolicyTest {
     fun emptyBlobIsIgnored() {
         assertNull(SnapshotPolicy.decode(""))
         assertNull(SnapshotPolicy.decode("   "))
+    }
+
+    @Test
+    fun diskSkipIgnoresCurrentAndListeners() {
+        val base = SnapshotPolicy.fromStatus(
+            Status(
+                np = "A - B",
+                artist = "A",
+                title = "B",
+                listeners = 10,
+                isAfkStream = true,
+                requesting = true,
+                current = 1000,
+                startTime = 900,
+                endTime = 1200,
+                trackId = 1,
+                thread = null,
+                dj = Dj(id = 1, name = "Hanyuu", image = "1.png"),
+                queue = emptyList(),
+                lastPlayed = emptyList(),
+                tags = emptyList(),
+            ),
+        )
+        assertTrue(SnapshotPolicy.sameOnDisk(base, base.copy(current = 1001, listeners = 11)))
+        assertFalse(SnapshotPolicy.sameOnDisk(base, base.copy(np = "C - D")))
+        assertFalse(SnapshotPolicy.sameOnDisk(null, base))
     }
 }

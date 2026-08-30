@@ -27,9 +27,14 @@ use crate::search::{
     CAN_REQUEST_URL, RequestResult, SearchPage, parse_can_request, parse_request_result,
     parse_search, request_url, search_url,
 };
+use crate::schedule::{SCHEDULE_URL, ScheduleDay, parse_schedule};
+use crate::staff::{STAFF_URL, StaffMember, parse_staff};
+use crate::html::parse_theme_name;
 use crate::status::{API_URL, Status, parse_status};
 
-/// Process HTTP for `/api`, search, request, favorites, and news.
+const SITE_URL: &str = "https://r-a-d.io/";
+
+/// HTTP transport for `/api`, search, request, favorites, news, schedule, and staff.
 pub trait ApiClient: Send + Sync {
     fn get(&self, url: &str) -> Result<String, ApiError>;
     fn post_csrf(&self, url: &str, token: &str) -> Result<String, ApiError>;
@@ -106,6 +111,9 @@ pub struct RadioCore {
     search_fetch: Mutex<()>,
     faves_fetch: Mutex<()>,
     news_fetch: Mutex<()>,
+    staff_fetch: Mutex<()>,
+    schedule_fetch: Mutex<()>,
+    theme_name: Mutex<Option<String>>,
     ui_visible: AtomicBool,
     playing: AtomicBool,
     failures: AtomicU32,
@@ -124,6 +132,9 @@ impl RadioCore {
             search_fetch: Mutex::new(()),
             faves_fetch: Mutex::new(()),
             news_fetch: Mutex::new(()),
+            staff_fetch: Mutex::new(()),
+            schedule_fetch: Mutex::new(()),
+            theme_name: Mutex::new(None),
             ui_visible: AtomicBool::new(false),
             playing: AtomicBool::new(false),
             failures: AtomicU32::new(0),
@@ -388,6 +399,7 @@ impl RadioCore {
             }
         }
         let html = self.client.get(&news_entry_url(id))?;
+        self.remember_theme(&html);
         let body = parse_news_entry_body(&html);
         let comments = parse_news_comments(&html);
         self.http_cache.lock().expect("cache").news_html = Some((id, html.clone()));
@@ -509,7 +521,39 @@ impl RadioCore {
     pub fn news(&self, page: i32) -> Result<NewsPage, ApiError> {
         let page = page.max(1);
         let _fetch = self.news_fetch.lock().expect("news_fetch");
-        Ok(parse_news_list(&self.client.get(&news_list_url(page))?, page))
+        let html = self.client.get(&news_list_url(page))?;
+        self.remember_theme(&html);
+        Ok(parse_news_list(&html, page))
+    }
+
+    pub fn staff(&self) -> Result<Vec<StaffMember>, ApiError> {
+        let _fetch = self.staff_fetch.lock().expect("staff_fetch");
+        let html = self.client.get(STAFF_URL)?;
+        self.remember_theme(&html);
+        Ok(parse_staff(&html))
+    }
+
+    pub fn schedule(&self) -> Result<Vec<ScheduleDay>, ApiError> {
+        let _fetch = self.schedule_fetch.lock().expect("schedule_fetch");
+        let html = self.client.get(SCHEDULE_URL)?;
+        self.remember_theme(&html);
+        Ok(parse_schedule(&html))
+    }
+
+    pub fn theme_name(&self) -> Option<String> {
+        self.theme_name.lock().expect("theme_name").clone()
+    }
+
+    pub fn sniff_theme(&self) -> Result<Option<String>, ApiError> {
+        let html = self.client.get(SITE_URL)?;
+        self.remember_theme(&html);
+        Ok(self.theme_name())
+    }
+
+    fn remember_theme(&self, html: &str) {
+        if let Some(name) = parse_theme_name(html) {
+            *self.theme_name.lock().expect("theme_name") = Some(name);
+        }
     }
 
     pub fn news_article(&self, id: i64) -> Result<NewsArticle, ApiError> {

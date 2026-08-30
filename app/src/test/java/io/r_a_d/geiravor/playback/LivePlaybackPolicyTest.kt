@@ -11,6 +11,7 @@ class LivePlaybackPolicyTest {
     fun streamUrlIsOfficialM3u() {
         assertEquals("https://stream.r-a-d.io/main.mp3", LivePlaybackPolicy.STREAM_URL)
         assertFalse(LivePlaybackPolicy.STREAM_URL.startsWith("https://r-a-d.io/main"))
+        assertEquals("https://r-a-d.io/api/dj-image/", LivePlaybackPolicy.DJ_IMAGE_BASE)
     }
 
     @Test

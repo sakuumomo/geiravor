@@ -37,4 +37,14 @@ Android Auto Settings tab surfaces the same two auto-start flags (On/Off subtitl
 
 Settings sections are **General | Auto | Connection**. Alarm / snooze / sleep / DJ notifier live under General unless they overflow — then an **Alerts** section tab, still not a fifth bottom tab. IRC connection (nick, profile, NickServ, bouncer host/port/`PASS`, Allow insecure TLS, TLS fingerprint, SASL, client PEM, Test connection) is **Settings → Connection**. The Favorites tab nick stays the public list. NickServ / bouncer `PASS` / SASL password have no copy/cut.
 
-Theme stays `default-dark` until a later spec.
+## 0.3.0
+
+| Key | Storage | Default | UI |
+|---|---|---|---|
+| Theme pack | DataStore | `default-dark` | Settings → General: **Default** \| **Default light** \| **Christmas** \| **Halloween** \| **New Years** |
+| Opt out of holiday themes | DataStore bool | **false** (auto allowed) | Settings → General (auto only) |
+| Convert schedule times to local | DataStore bool | **false** | Settings → General |
+
+Theme pick may be any of the five packs, any day. Holiday **auto** still applies when the live site is serving them, opt-out is off, and a holiday window is open (`005-ui.md`). Opt-out does not block a manual holiday pick. Auto follows Default / Default light; a holiday user pick maps to Default on Auto.
+
+Schedule local-time rewrite uses zone `America/New_York` as the source (`013-schedule-staff.md`). Toggle off shows the stored body.

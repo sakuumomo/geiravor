@@ -5,6 +5,7 @@ import androidx.media3.common.Player
 
 object LivePlaybackPolicy {
     const val STREAM_URL = "https://stream.r-a-d.io/main.mp3"
+    const val DJ_IMAGE_BASE = "https://r-a-d.io/api/dj-image/"
     const val DEFAULT_GAIN = 0.8f
     const val VOLUME_STEP_PERCENT = 5f
     const val VOLUME_UP = "io.r_a_d.geiravor.VOLUME_UP"

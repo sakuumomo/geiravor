@@ -28,7 +28,8 @@ A listener can play and stop the live stream on a phone (minSdk 26) and from And
 | **0.1.0** | First ship: live listener + Android Auto core. `versionCode` 1. |
 | **0.1.x** | Fixes only. |
 | **0.2.0** | Search, request, nick favorites (list + IRC add-fave), news, alarm/snooze, sleep timer, DJ-online notifier. `versionCode` 2. |
-| **0.3.0+** | Further site-parity (schedule, staff, submit, extra themes, …) while still pre-1.0. |
+| **0.3.0** | Schedule, staff, extra themes (default-light + Christmas / Halloween / New Years), disk writes only when the payload changed. `versionCode` 3. |
+| **0.4.0+** | Further site-parity (submit, help, remaining themes, …) while still pre-1.0. |
 | **1.0.0** | Not a feature dump. The maintainer runs the app, finds it satisfactory, and we bump. May follow 0.1.0 or a later 0.x. |
 | After 1.0.0 | Breaking → MAJOR, features → MINOR, fixes → PATCH. |
 
@@ -55,9 +56,17 @@ Phone chrome: bottom tabs **Now Playing | Songs | News | Settings**. Songs secti
 
 Success: a listener can search and request on AFK, list and add favorites under their Rizon nick, read news, set alarm/sleep, and opt into a DJ-online notice — without a site login and without an IRC client.
 
+## 0.3.0 scope
+
+Schedule + staff (HTML), extra themes (`default-dark`, `default-light`, Christmas, Halloween, New Years), disk cache writes only when the payload actually changed. Dropped from this slice: **submit**, **help**.
+
+Phone chrome: bottom tabs **Now Playing | Songs | Board | Settings**. Board sections **News | Schedule | Staff** (default News). Two-pane right: **Songs | Board | Settings**. Auto stays lean: no schedule, staff, news, search, request, or thread; **dark/light follows the app**; holiday packs are phone-only.
+
+Success: a listener can read the weekly schedule and staff roster, optionally convert schedule times to the device timezone, pick Default, Default light, Christmas, Halloween, or New Years any day, and get holiday palettes automatically when the live site is serving them — without a site login.
+
 ## Later
 
-Everything user-facing on the site: schedule, staff, submit, help, extra themes.
+Submit, help, remaining public themes (suzu, TuiCSS, Eden Light), DJ CSS (`dj.theme_id` / `dj.css`).
 
 ## Identity
 

@@ -173,12 +173,7 @@ fun ConnectionSettings(
             onClick = onTest,
             enabled = !testBusy,
             modifier = Modifier.fillMaxWidth(),
-            colors = ButtonDefaults.buttonColors(
-                containerColor = RadioTheme.blue,
-                contentColor = RadioTheme.text,
-                disabledContainerColor = RadioTheme.border,
-                disabledContentColor = RadioTheme.muted,
-            ),
+            colors = radioButtonColors(),
         ) {
             Text("Test connection")
         }

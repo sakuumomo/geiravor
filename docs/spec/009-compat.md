@@ -29,6 +29,10 @@ Exact alarm wrappers: `SCHEDULE_EXACT_ALARM` / `USE_EXACT_ALARM` / `canScheduleE
 
 MediaStore `RELATIVE_PATH` for saving a thread image (API 29).
 
+## 0.3.0
+
+Compose `Modifier.blur` / RenderEffect (API 31) for holiday glass. Below 31 the glass is the 50% black scrim only.
+
 ## Not here
 
 NDK 16 KB page size and AGP flags live in `012-build.md`, not Kotlin `SDK_INT` checks.

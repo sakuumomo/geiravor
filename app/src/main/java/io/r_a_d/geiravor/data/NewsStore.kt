@@ -85,18 +85,45 @@ object NewsStore {
         return row.lastPage to articles
     }
 
-    suspend fun savePage(db: GeiravorDb, page: Int, lastPage: Int, articles: List<NewsArticle>) {
-        db.news().upsertPage(
-            NewsPageEntity(
-                page = page,
-                lastPage = lastPage,
-                ids = articles.joinToString(",") { it.id.toString() },
-            ),
+    fun pageWrite(
+        existingPage: NewsPageEntity?,
+        existingById: Map<Long, NewsArticleEntity>,
+        page: Int,
+        lastPage: Int,
+        articles: List<NewsArticle>,
+    ): Pair<NewsPageEntity, List<NewsArticleEntity>>? {
+        val nextPage = NewsPageEntity(
+            page = page,
+            lastPage = lastPage,
+            ids = articles.joinToString(",") { it.id.toString() },
         )
-        articles.forEach { article ->
-            val existing = db.news().article(article.id)
-            db.news().upsertArticle(mergeListRow(existing, article))
+        val nextArticles = articles.map { article ->
+            mergeListRow(existingById[article.id], article)
         }
+        val pageChanged = DiskPolicy.changed(existingPage, nextPage)
+        val articlesChanged = nextArticles.any { row ->
+            DiskPolicy.changed(existingById[row.id], row)
+        }
+        if (!pageChanged && !articlesChanged) {
+            return null
+        }
+        return nextPage to nextArticles
+    }
+
+    suspend fun savePage(db: GeiravorDb, page: Int, lastPage: Int, articles: List<NewsArticle>): Boolean {
+        val existingPage = db.news().page(page)
+        val ids = articles.map { it.id }
+        val existingById = if (ids.isEmpty()) {
+            emptyMap()
+        } else {
+            db.news().articles(ids).associateBy { it.id }
+        }
+        val write = pageWrite(existingPage, existingById, page, lastPage, articles) ?: return false
+        db.news().upsertPage(write.first)
+        write.second.forEach { row ->
+            db.news().upsertArticle(row)
+        }
+        return true
     }
 
     suspend fun loadArticle(db: GeiravorDb, id: Long): Pair<NewsArticle, List<NewsComment>>? {
@@ -105,16 +132,36 @@ object NewsStore {
         return toArticle(article) to comments
     }
 
+    fun articleWrite(
+        existing: NewsArticleEntity?,
+        existingComments: List<NewsCommentEntity>,
+        article: NewsArticle,
+        comments: List<NewsComment>,
+    ): Pair<NewsArticleEntity, List<NewsCommentEntity>>? {
+        val next = fromArticle(article)
+        val nextComments = fromComments(article.id, comments)
+        if (!DiskPolicy.changed(existing, next) && !DiskPolicy.changed(existingComments, nextComments)) {
+            return null
+        }
+        return next to nextComments
+    }
+
     suspend fun saveArticle(
         db: GeiravorDb,
         article: NewsArticle,
         comments: List<NewsComment>,
-    ) {
-        db.news().upsertArticle(fromArticle(article))
-        db.news().deleteComments(article.id)
-        if (comments.isNotEmpty()) {
-            db.news().upsertComments(fromComments(article.id, comments))
+    ): Boolean {
+        val existing = db.news().article(article.id)
+        val existingComments = db.news().comments(article.id)
+        val write = articleWrite(existing, existingComments, article, comments) ?: return false
+        db.news().upsertArticle(write.first)
+        if (DiskPolicy.changed(existingComments, write.second)) {
+            db.news().deleteComments(article.id)
+            if (write.second.isNotEmpty()) {
+                db.news().upsertComments(write.second)
+            }
         }
+        return true
     }
 
     suspend fun prune(

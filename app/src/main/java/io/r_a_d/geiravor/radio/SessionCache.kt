@@ -7,6 +7,7 @@ object SessionCache {
     private var searchQuery: String = ""
     private var searchCurrent: Int = 1
     private var newsCurrent: Int = 1
+    private var boardSection: String = "News"
 
     fun favesCurrent(nick: String): Int = synchronized(lock) { favesCurrent[nick.trim()] ?: 1 }
 
@@ -35,12 +36,19 @@ object SessionCache {
         synchronized(lock) { newsCurrent = page.coerceAtLeast(1) }
     }
 
+    fun boardSection(): String = synchronized(lock) { boardSection }
+
+    fun putBoardSection(section: String) {
+        synchronized(lock) { boardSection = section }
+    }
+
     fun clearForTests() {
         synchronized(lock) {
             favesCurrent.clear()
             searchQuery = ""
             searchCurrent = 1
             newsCurrent = 1
+            boardSection = "News"
         }
     }
 }

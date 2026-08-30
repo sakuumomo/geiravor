@@ -6,6 +6,7 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.WindowInsets
@@ -13,6 +14,9 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.systemBarsPadding
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.res.painterResource
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.NavigationBarItemDefaults
@@ -55,10 +59,14 @@ import io.r_a_d.geiravor.settings.SettingsStore
 import uniffi.geiravor_core.IrcProfile
 import io.r_a_d.geiravor.ui.AppLayout
 import io.r_a_d.geiravor.ui.AppTab
+import io.r_a_d.geiravor.ui.BoardScreen
 import io.r_a_d.geiravor.ui.FavoritesPolicy
-import io.r_a_d.geiravor.ui.NewsScreen
+import io.r_a_d.geiravor.ui.FrostBackdrop
+import io.r_a_d.geiravor.ui.GeiravorTheme
 import io.r_a_d.geiravor.ui.NowPlayingScreen
 import io.r_a_d.geiravor.ui.RadioTheme
+import io.r_a_d.geiravor.ui.SchedulePolicy
+import io.r_a_d.geiravor.ui.ThemePolicy
 import io.r_a_d.geiravor.ui.SettingsScreen
 import io.r_a_d.geiravor.ui.SongsScreen
 import io.r_a_d.geiravor.ui.TabLabel
@@ -85,6 +93,9 @@ private fun GeiravorRoot() {
     val scope = rememberCoroutineScope()
     var gain by remember { mutableStateOf(LivePlaybackPolicy.DEFAULT_GAIN) }
     var autoStartOnPlug by remember { mutableStateOf(SettingsPolicy.AUTO_START_DEFAULT) }
+    var convertScheduleTimes by remember { mutableStateOf(SchedulePolicy.CONVERT_DEFAULT) }
+    var themePack by remember { mutableStateOf(ThemePolicy.USER_DEFAULT) }
+    var holidayOptOut by remember { mutableStateOf(ThemePolicy.OPT_OUT_DEFAULT) }
     var autoStartInVehicle by remember { mutableStateOf(SettingsPolicy.AUTO_START_VEHICLE_DEFAULT) }
     var controller by remember { mutableStateOf<MediaController?>(null) }
     var playing by remember { mutableStateOf(false) }
@@ -127,6 +138,15 @@ private fun GeiravorRoot() {
     }
     LaunchedEffect(Unit) {
         settings.autoStartOnPlug.collect { autoStartOnPlug = it }
+    }
+    LaunchedEffect(Unit) {
+        settings.convertScheduleTimes.collect { convertScheduleTimes = it }
+    }
+    LaunchedEffect(Unit) {
+        settings.themePack.collect { themePack = it }
+    }
+    LaunchedEffect(Unit) {
+        settings.holidayOptOut.collect { holidayOptOut = it }
     }
     LaunchedEffect(Unit) {
         settings.autoStartInVehicle.collect { autoStartInVehicle = it }
@@ -339,13 +359,33 @@ private fun GeiravorRoot() {
     val twoPane = AppLayout.twoPane(configuration.screenWidthDp, configuration.smallestScreenWidthDp)
     val shown = AppLayout.clampTab(tab, twoPane)
 
-    Surface(modifier = Modifier.fillMaxSize(), color = RadioTheme.background) {
+    val wallpaper = RadioTheme.wallpaper
+    val page = if (wallpaper != null) Color.Transparent else RadioTheme.background
+    GeiravorTheme {
+    Box(modifier = Modifier.fillMaxSize()) {
+        if (wallpaper != null) {
+            Image(
+                painter = painterResource(wallpaper),
+                contentDescription = null,
+                modifier = Modifier.fillMaxSize(),
+                contentScale = ContentScale.Crop,
+            )
+        }
+    Surface(modifier = Modifier.fillMaxSize(), color = page) {
         Scaffold(
             modifier = Modifier.systemBarsPadding(),
-            containerColor = RadioTheme.background,
+            containerColor = page,
             contentWindowInsets = WindowInsets(0, 0, 0, 0),
             bottomBar = {
-                NavigationBar(containerColor = RadioTheme.surface) {
+                Box {
+                    FrostBackdrop(Modifier.matchParentSize())
+                    NavigationBar(
+                        containerColor = if (RadioTheme.glass) {
+                            Color.Transparent
+                        } else {
+                            RadioTheme.surface
+                        },
+                    ) {
                     AppLayout.tabs(twoPane).forEach { dest ->
                         NavigationBarItem(
                             selected = shown == dest,
@@ -360,6 +400,7 @@ private fun GeiravorRoot() {
                                 unselectedTextColor = RadioTheme.muted,
                             ),
                         )
+                    }
                     }
                 }
             },
@@ -410,8 +451,12 @@ private fun GeiravorRoot() {
                     modifier = modifier,
                 )
             }
-            val news: @Composable (Modifier) -> Unit = { modifier ->
-                NewsScreen(radio = app.radio, modifier = modifier)
+            val board: @Composable (Modifier) -> Unit = { modifier ->
+                BoardScreen(
+                    radio = app.radio,
+                    convertScheduleTimes = convertScheduleTimes,
+                    modifier = modifier,
+                )
             }
             val settings: @Composable (Modifier) -> Unit = { modifier ->
                 SettingsScreen(
@@ -419,6 +464,27 @@ private fun GeiravorRoot() {
                     onAutoStartOnPlug = { enabled ->
                         autoStartOnPlug = enabled
                         scope.launch { settings.setAutoStartOnPlug(enabled) }
+                    },
+                    convertScheduleTimes = convertScheduleTimes,
+                    onConvertScheduleTimes = { enabled ->
+                        convertScheduleTimes = enabled
+                        scope.launch { settings.setConvertScheduleTimes(enabled) }
+                    },
+                    themePack = themePack,
+                    onThemePack = { id ->
+                        themePack = id
+                        scope.launch {
+                            settings.setThemePack(id)
+                            app.refreshTheme(processStart = false)
+                        }
+                    },
+                    holidayOptOut = holidayOptOut,
+                    onHolidayOptOut = { enabled ->
+                        holidayOptOut = enabled
+                        scope.launch {
+                            settings.setHolidayOptOut(enabled)
+                            app.refreshTheme(processStart = false)
+                        }
                     },
                     autoStartInVehicle = autoStartInVehicle,
                     onAutoStartInVehicle = { enabled ->
@@ -604,7 +670,7 @@ private fun GeiravorRoot() {
                     VerticalDivider(color = RadioTheme.border)
                     Box(modifier = Modifier.weight(1f).fillMaxHeight()) {
                         when (shown) {
-                            AppTab.News -> news(Modifier.fillMaxSize())
+                            AppTab.Board -> board(Modifier.fillMaxSize())
                             AppTab.Settings -> settings(Modifier.fillMaxSize())
                             else -> songs(Modifier.fillMaxSize())
                         }
@@ -614,10 +680,12 @@ private fun GeiravorRoot() {
                 when (shown) {
                     AppTab.NowPlaying -> nowPlaying(paneModifier)
                     AppTab.Songs -> songs(paneModifier)
-                    AppTab.News -> news(paneModifier)
+                    AppTab.Board -> board(paneModifier)
                     AppTab.Settings -> settings(paneModifier)
                 }
             }
         }
+    }
+    }
     }
 }

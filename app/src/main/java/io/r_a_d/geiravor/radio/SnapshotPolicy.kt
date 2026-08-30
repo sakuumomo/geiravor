@@ -1,5 +1,6 @@
 package io.r_a_d.geiravor.radio
 
+import io.r_a_d.geiravor.data.DiskPolicy
 import uniffi.geiravor_core.Dj
 import uniffi.geiravor_core.ListEntry
 import uniffi.geiravor_core.Status
@@ -88,6 +89,10 @@ object SnapshotPolicy {
             tags = if (paint.tags.isEmpty()) emptyList() else paint.tags.split('\u001f'),
         )
     }
+
+    /** `current` and `listeners` tick every poll; they must not force a Room rewrite. */
+    fun sameOnDisk(old: LastPaint?, new: LastPaint): Boolean =
+        !DiskPolicy.changed(old?.copy(current = 0, listeners = 0), new.copy(current = 0, listeners = 0))
 
     fun encode(paint: LastPaint): String {
         val props = Properties()

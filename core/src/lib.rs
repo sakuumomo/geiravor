@@ -2,9 +2,12 @@ uniffi::setup_scaffolding!();
 
 mod csrf;
 mod favorites;
+mod html;
 mod http;
 mod irc;
 mod news;
+mod schedule;
+mod staff;
 mod np;
 mod poll;
 mod progress;
@@ -45,6 +48,9 @@ pub use search::{
     CAN_REQUEST_URL, RequestResult, SEARCH_URL, SearchHit, SearchPage, parse_can_request,
     parse_request_result, parse_search, search_url,
 };
+pub use html::parse_theme_name;
+pub use schedule::{SCHEDULE_URL, ScheduleDay, parse_schedule};
+pub use staff::{STAFF_URL, StaffMember, parse_staff};
 pub use status::{
     API_URL, Dj, ListEntry, ParseError, STREAM_URL, Status, dj_image_url, parse_status,
 };

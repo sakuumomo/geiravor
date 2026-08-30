@@ -197,12 +197,7 @@ fun FavoritesPane(
             },
             enabled = FavoritesPolicy.randomCanRequest(allowed, nick) && busyId == null,
             modifier = Modifier.fillMaxWidth(),
-            colors = ButtonDefaults.buttonColors(
-                containerColor = RadioTheme.blue,
-                contentColor = RadioTheme.text,
-                disabledContainerColor = RadioTheme.border,
-                disabledContentColor = RadioTheme.muted,
-            ),
+            colors = radioButtonColors(),
         ) {
             Text("Request random")
         }
@@ -328,12 +323,7 @@ private fun FavoriteRowView(
             onClick = onRequest,
             enabled = enabled && requestable,
             modifier = Modifier.alpha(if (requestable) 1f else 0f),
-            colors = ButtonDefaults.buttonColors(
-                containerColor = RadioTheme.blue,
-                contentColor = RadioTheme.text,
-                disabledContainerColor = RadioTheme.border,
-                disabledContentColor = RadioTheme.muted,
-            ),
+            colors = radioButtonColors(),
         ) {
             Text("Request", fontSize = 12.sp)
         }

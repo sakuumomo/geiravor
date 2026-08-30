@@ -15,6 +15,8 @@ import uniffi.geiravor_core.IrcProfile
 import androidx.datastore.preferences.preferencesDataStore
 import io.r_a_d.geiravor.playback.LivePlaybackPolicy
 import io.r_a_d.geiravor.radio.SnapshotPolicy
+import io.r_a_d.geiravor.ui.SchedulePolicy
+import io.r_a_d.geiravor.ui.ThemePolicy
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
@@ -41,6 +43,11 @@ private val SLEEP_ENABLED = booleanPreferencesKey("sleep_enabled")
 private val SLEEP_MINUTES = intPreferencesKey("sleep_minutes")
 private val SLEEP_ENDS_AT = longPreferencesKey("sleep_ends_at")
 private val DJ_NOTIFIER = booleanPreferencesKey("dj_notifier")
+private val CONVERT_SCHEDULE_TIMES = booleanPreferencesKey("convert_schedule_times")
+private val THEME_PACK = stringPreferencesKey("theme_pack")
+private val HOLIDAY_OPT_OUT = booleanPreferencesKey("holiday_opt_out")
+private val THEME_SEEN_ON = stringPreferencesKey("theme_seen_on")
+private val THEME_LAST_SNIFF = longPreferencesKey("theme_last_sniff")
 private val DJ_SEEN_SET = booleanPreferencesKey("dj_seen_set")
 private val DJ_SEEN_AFK = booleanPreferencesKey("dj_seen_afk")
 private val DJ_SEEN_ID = longPreferencesKey("dj_seen_id")
@@ -128,6 +135,26 @@ class SettingsStore(private val context: Context) {
         prefs[DJ_NOTIFIER] ?: DjNotifierPolicy.ENABLED_DEFAULT
     }
 
+    val convertScheduleTimes: Flow<Boolean> = context.dataStore.data.map { prefs ->
+        prefs[CONVERT_SCHEDULE_TIMES] ?: SchedulePolicy.CONVERT_DEFAULT
+    }
+
+    val themePack: Flow<String> = context.dataStore.data.map { prefs ->
+        ThemePolicy.clampUserPick(prefs[THEME_PACK] ?: ThemePolicy.USER_DEFAULT)
+    }
+
+    val holidayOptOut: Flow<Boolean> = context.dataStore.data.map { prefs ->
+        prefs[HOLIDAY_OPT_OUT] ?: ThemePolicy.OPT_OUT_DEFAULT
+    }
+
+    val themeSeenOn: Flow<String> = context.dataStore.data.map { prefs ->
+        prefs[THEME_SEEN_ON].orEmpty()
+    }
+
+    val themeLastSniff: Flow<Long> = context.dataStore.data.map { prefs ->
+        prefs[THEME_LAST_SNIFF] ?: 0L
+    }
+
     suspend fun djSeen(): DjNotifierPolicy.Seen? {
         val prefs = context.dataStore.data.first()
         if (prefs[DJ_SEEN_SET] != true) {
@@ -159,6 +186,26 @@ class SettingsStore(private val context: Context) {
 
     suspend fun setAutoStartOnPlug(enabled: Boolean) {
         context.dataStore.edit { it[AUTO_START_ON_PLUG] = enabled }
+    }
+
+    suspend fun setConvertScheduleTimes(enabled: Boolean) {
+        context.dataStore.edit { it[CONVERT_SCHEDULE_TIMES] = enabled }
+    }
+
+    suspend fun setThemePack(id: String) {
+        context.dataStore.edit { it[THEME_PACK] = ThemePolicy.clampUserPick(id) }
+    }
+
+    suspend fun setHolidayOptOut(enabled: Boolean) {
+        context.dataStore.edit { it[HOLIDAY_OPT_OUT] = enabled }
+    }
+
+    suspend fun setThemeSeenOn(window: String) {
+        context.dataStore.edit { it[THEME_SEEN_ON] = window }
+    }
+
+    suspend fun setThemeLastSniff(epochMillis: Long) {
+        context.dataStore.edit { it[THEME_LAST_SNIFF] = epochMillis }
     }
 
     suspend fun setAutoStartInVehicle(enabled: Boolean) {

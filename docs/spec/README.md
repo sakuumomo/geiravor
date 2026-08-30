@@ -4,7 +4,7 @@ These files are **normative**. Code implements them. Live [r-a-d.io](https://r-a
 
 ## How to change a spec
 
-1. Edit the relevant file. Mark the **0.1.0 / 0.2.0 / later** section you are changing.
+1. Edit the relevant file. Mark the **0.1.0 / 0.2.0 / 0.3.0 / later** section you are changing.
 2. Keep other specs consistent (especially `000-product.md` and `002-api.md`).
 3. Do not implement a feature that is not in a spec.
 
@@ -25,6 +25,7 @@ These files are **normative**. Code implements them. Live [r-a-d.io](https://r-a
 | [010-alarm-sleep-dj.md](010-alarm-sleep-dj.md) | 0.2.0 alarm, sleep, DJ notifier |
 | [011-testing.md](011-testing.md) | Fixtures, unit, DHU |
 | [012-build.md](012-build.md) | Nix, Gradle, NDK, semver |
+| [013-schedule-staff.md](013-schedule-staff.md) | 0.3.0 schedule / staff HTML |
 
 ## Versions
 

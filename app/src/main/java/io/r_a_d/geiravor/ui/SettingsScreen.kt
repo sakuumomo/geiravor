@@ -42,6 +42,12 @@ import uniffi.geiravor_core.IrcProfile
 fun SettingsScreen(
     autoStartOnPlug: Boolean,
     onAutoStartOnPlug: (Boolean) -> Unit,
+    convertScheduleTimes: Boolean,
+    onConvertScheduleTimes: (Boolean) -> Unit,
+    themePack: String,
+    onThemePack: (String) -> Unit,
+    holidayOptOut: Boolean,
+    onHolidayOptOut: (Boolean) -> Unit,
     autoStartInVehicle: Boolean,
     onAutoStartInVehicle: (Boolean) -> Unit,
     ircNick: String,
@@ -111,6 +117,12 @@ fun SettingsScreen(
                 SectionLayout.SettingsSection.General -> GeneralSettings(
                     autoStartOnPlug = autoStartOnPlug,
                     onAutoStartOnPlug = onAutoStartOnPlug,
+                    convertScheduleTimes = convertScheduleTimes,
+                    onConvertScheduleTimes = onConvertScheduleTimes,
+                    themePack = themePack,
+                    onThemePack = onThemePack,
+                    holidayOptOut = holidayOptOut,
+                    onHolidayOptOut = onHolidayOptOut,
                     versionName = versionName,
                 )
                 SectionLayout.SettingsSection.Auto -> AutoSettings(
@@ -177,6 +189,12 @@ fun SettingsScreen(
 private fun GeneralSettings(
     autoStartOnPlug: Boolean,
     onAutoStartOnPlug: (Boolean) -> Unit,
+    convertScheduleTimes: Boolean,
+    onConvertScheduleTimes: (Boolean) -> Unit,
+    themePack: String,
+    onThemePack: (String) -> Unit,
+    holidayOptOut: Boolean,
+    onHolidayOptOut: (Boolean) -> Unit,
     versionName: String,
     modifier: Modifier = Modifier,
 ) {
@@ -190,6 +208,37 @@ private fun GeneralSettings(
                 label = "Auto-start on plug",
                 checked = autoStartOnPlug,
                 onCheckedChange = onAutoStartOnPlug,
+            )
+        }
+        SettingsCard {
+            Column {
+                Text(
+                    "Theme",
+                    color = RadioTheme.text,
+                    fontSize = 16.sp,
+                    modifier = Modifier.padding(start = 16.dp, top = 16.dp, end = 16.dp),
+                )
+                RadioPacks.PICKS.forEach { (id, label) ->
+                    SettingChoice(
+                        label = label,
+                        selected = themePack == id,
+                        onClick = { onThemePack(id) },
+                    )
+                }
+            }
+        }
+        SettingsCard {
+            SettingToggle(
+                label = "Opt out of holiday themes",
+                checked = holidayOptOut,
+                onCheckedChange = onHolidayOptOut,
+            )
+        }
+        SettingsCard {
+            SettingToggle(
+                label = "Convert schedule times to local",
+                checked = convertScheduleTimes,
+                onCheckedChange = onConvertScheduleTimes,
             )
         }
         SettingsCard {
@@ -518,12 +567,34 @@ private fun AutoSettings(
 
 @Composable
 private fun SettingsCard(content: @Composable () -> Unit) {
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(containerColor = RadioTheme.surface),
-        border = BorderStroke(1.dp, RadioTheme.border),
-        content = { content() },
-    )
+    RadioCard(modifier = Modifier.fillMaxWidth(), content = content)
+}
+
+@Composable
+private fun SettingChoice(
+    label: String,
+    selected: Boolean,
+    onClick: () -> Unit,
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick)
+            .padding(16.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(
+            text = label,
+            color = RadioTheme.text,
+            fontSize = 16.sp,
+            modifier = Modifier.weight(1f),
+        )
+        Text(
+            if (selected) "●" else "○",
+            color = if (selected) RadioTheme.blue else RadioTheme.muted,
+            fontSize = 16.sp,
+        )
+    }
 }
 
 @Composable

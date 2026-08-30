@@ -9,7 +9,7 @@ object AppLayout {
 
     fun tabs(twoPane: Boolean): List<AppTab> =
         if (twoPane) {
-            listOf(AppTab.Songs, AppTab.News, AppTab.Settings)
+            listOf(AppTab.Songs, AppTab.Board, AppTab.Settings)
         } else {
             AppTab.entries.toList()
         }

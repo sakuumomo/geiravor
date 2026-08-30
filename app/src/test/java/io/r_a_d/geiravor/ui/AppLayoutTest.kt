@@ -17,9 +17,9 @@ class AppLayoutTest {
     }
 
     @Test
-    fun phoneTabsAreNowPlayingSongsNewsSettings() {
+    fun phoneTabsAreNowPlayingSongsBoardSettings() {
         assertEquals(
-            listOf(AppTab.NowPlaying, AppTab.Songs, AppTab.News, AppTab.Settings),
+            listOf(AppTab.NowPlaying, AppTab.Songs, AppTab.Board, AppTab.Settings),
             AppLayout.tabs(twoPane = false),
         )
         assertEquals(AppTab.entries.toList(), AppLayout.tabs(twoPane = false))
@@ -28,7 +28,7 @@ class AppLayoutTest {
     @Test
     fun twoPaneOmitsNowPlayingTab() {
         assertEquals(
-            listOf(AppTab.Songs, AppTab.News, AppTab.Settings),
+            listOf(AppTab.Songs, AppTab.Board, AppTab.Settings),
             AppLayout.tabs(twoPane = true),
         )
     }
@@ -36,7 +36,7 @@ class AppLayoutTest {
     @Test
     fun labelsAreFavoritesNotFaves() {
         assertEquals("Now Playing", AppTab.NowPlaying.label)
-        assertEquals("News", AppTab.News.label)
+        assertEquals("Board", AppTab.Board.label)
         assertTrue(AppTab.entries.none { it.label.contains("Faves") })
         assertEquals(2, TabLabelPolicy.MAX_LINES)
     }
@@ -46,6 +46,6 @@ class AppLayoutTest {
         assertEquals(AppTab.NowPlaying, AppLayout.clampTab(AppTab.NowPlaying, twoPane = false))
         assertEquals(AppTab.Songs, AppLayout.clampTab(AppTab.NowPlaying, twoPane = true))
         assertEquals(AppTab.Settings, AppLayout.clampTab(AppTab.Settings, twoPane = true))
-        assertEquals(AppTab.News, AppLayout.clampTab(AppTab.News, twoPane = true))
+        assertEquals(AppTab.Board, AppLayout.clampTab(AppTab.Board, twoPane = true))
     }
 }

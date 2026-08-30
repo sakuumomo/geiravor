@@ -49,6 +49,7 @@ import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.text.HtmlCompat
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
+import io.r_a_d.geiravor.GeiravorApp
 import io.r_a_d.geiravor.data.GeiravorDb
 import io.r_a_d.geiravor.data.NewsStore
 import io.r_a_d.geiravor.radio.SessionCache
@@ -187,6 +188,7 @@ fun NewsScreen(
             )
             val clamped = PagerPolicy.clampPage(page, uiLast)
             SessionCache.putNewsCurrent(clamped)
+            (context.applicationContext as? GeiravorApp)?.refreshTheme(processStart = false)
             if (clamped != page) {
                 page = clamped
             } else {
@@ -303,12 +305,10 @@ private fun NewsListCard(
     onOpen: () -> Unit,
 ) {
     val blurb = NewsPolicy.plainText(article.header)
-    Card(
+    RadioCard(
         modifier = Modifier
             .fillMaxWidth()
             .clickable(onClick = onOpen),
-        colors = CardDefaults.cardColors(containerColor = RadioTheme.surface),
-        border = BorderStroke(1.dp, RadioTheme.border),
     ) {
         Column(
             modifier = Modifier
@@ -486,12 +486,7 @@ private fun NewsArticlePane(
                         },
                         enabled = NewsPolicy.commentAllowed(draft) && !busy,
                         modifier = Modifier.fillMaxWidth(),
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = RadioTheme.blue,
-                            contentColor = RadioTheme.text,
-                            disabledContainerColor = RadioTheme.border,
-                            disabledContentColor = RadioTheme.muted,
-                        ),
+                        colors = radioButtonColors(),
                     ) {
                         Text("Submit")
                     }
@@ -520,11 +515,7 @@ private fun NewsCommentCard(
     onQuote: () -> Unit,
     onCommentLink: (Long) -> Unit,
 ) {
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(containerColor = RadioTheme.surface),
-        border = BorderStroke(1.dp, RadioTheme.border),
-    ) {
+    RadioCard(modifier = Modifier.fillMaxWidth()) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()

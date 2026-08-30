@@ -23,4 +23,11 @@ class SessionCacheTest {
         assertEquals("Aimer", SessionCache.searchQuery())
         assertEquals(2, SessionCache.searchCurrent())
     }
+
+    @Test
+    fun boardSectionSurvivesLeave() {
+        assertEquals("News", SessionCache.boardSection())
+        SessionCache.putBoardSection("Schedule")
+        assertEquals("Schedule", SessionCache.boardSection())
+    }
 }

@@ -1,12 +1,9 @@
 package io.r_a_d.geiravor.ui
 
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -28,11 +25,7 @@ fun SongSection(
     modifier: Modifier = Modifier,
     showTitle: Boolean = true,
 ) {
-    Card(
-        modifier = modifier,
-        colors = CardDefaults.cardColors(containerColor = RadioTheme.surface),
-        border = BorderStroke(1.dp, RadioTheme.border),
-    ) {
+    RadioCard(modifier = modifier) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()

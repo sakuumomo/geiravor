@@ -4,6 +4,7 @@ import android.app.Application
 import android.app.UiModeManager
 import android.content.Intent
 import android.content.IntentFilter
+import android.content.res.Configuration
 import androidx.core.content.ContextCompat
 import coil.ImageLoader
 import coil.ImageLoaderFactory
@@ -22,15 +23,24 @@ import io.r_a_d.geiravor.playback.HeadsetReceiver
 import io.r_a_d.geiravor.radio.RadioStore
 import io.r_a_d.geiravor.radio.SnapshotPolicy
 import io.r_a_d.geiravor.settings.SettingsStore
+import io.r_a_d.geiravor.ui.RadioPacks
+import io.r_a_d.geiravor.ui.RadioTheme
+import io.r_a_d.geiravor.ui.ThemePolicy
 import uniffi.geiravor_core.RadioCore
 import uniffi.geiravor_core.Status
 import uniffi.geiravor_core.StatusListener
 import uniffi.geiravor_core.djImageUrl
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.withContext
+import java.time.Instant
+import java.time.LocalDate
+import kotlin.coroutines.coroutineContext
 
 class GeiravorApp : Application(), ImageLoaderFactory {
     lateinit var radio: RadioCore
@@ -52,6 +62,7 @@ class GeiravorApp : Application(), ImageLoaderFactory {
             fromRoom ?: settings.lastPaint()
         }
         paint?.let { RadioStore.hydrateStatus(SnapshotPolicy.toStatus(it)) }
+        var lastPaint = paint
         val home = runBlocking(Dispatchers.IO) {
             FavePolicy.listNick(settings.favesNick.first())
         }
@@ -69,11 +80,17 @@ class GeiravorApp : Application(), ImageLoaderFactory {
                     if (!previous.isNullOrEmpty() && previous != status.dj.image) {
                         evictDjImage(previous)
                     }
+                    val next = SnapshotPolicy.fromStatus(status)
+                    if (!SnapshotPolicy.sameOnDisk(lastPaint, next)) {
+                        lastPaint = next
+                        ioScope.launch {
+                            db.paint().upsert(
+                                LastPaintEntity(blob = SnapshotPolicy.encode(next)),
+                            )
+                        }
+                    }
                     ioScope.launch {
                         DjNotifier.consider(this@GeiravorApp, settings, status, streamDown)
-                        db.paint().upsert(
-                            LastPaintEntity(blob = SnapshotPolicy.encode(SnapshotPolicy.fromStatus(status))),
-                        )
                     }
                 }
             },
@@ -89,6 +106,12 @@ class GeiravorApp : Application(), ImageLoaderFactory {
                 runCatching { radio.prefetchFavorites(home) }
             }
             persistHomeFaves(home)
+            var start = true
+            while (coroutineContext.isActive) {
+                applyTheme(processStart = start)
+                start = false
+                delay(ThemePolicy.delayMs(LocalDate.now(), java.time.ZonedDateTime.now()))
+            }
         }
         ContextCompat.registerReceiver(
             this,
@@ -104,6 +127,40 @@ class GeiravorApp : Application(), ImageLoaderFactory {
         )
     }
 
+    fun refreshTheme(processStart: Boolean) {
+        ioScope.launch { applyTheme(processStart) }
+    }
+
+    private suspend fun applyTheme(processStart: Boolean) {
+        val settings = SettingsStore(this)
+        val date = LocalDate.now()
+        val now = Instant.now()
+        val last = settings.themeLastSniff.first().takeIf { it > 0L }?.let(Instant::ofEpochMilli)
+        val seen = settings.themeSeenOn.first().ifEmpty { null }
+        val optOut = settings.holidayOptOut.first()
+        val userPick = settings.themePack.first()
+        var sniffed = radio.themeName()
+        if (ThemePolicy.shouldSniff(date, now, last, seen, processStart)) {
+            sniffed = runCatching { radio.sniffTheme() }.getOrNull() ?: sniffed
+            settings.setThemeLastSniff(now.toEpochMilli())
+        }
+        val car = !ThemePolicy.holidayPacksOnThisUi(
+            resources.configuration.uiMode and Configuration.UI_MODE_TYPE_MASK,
+        )
+        val pack = if (car) {
+            ThemePolicy.autoPack(userPick)
+        } else {
+            ThemePolicy.activePack(userPick, sniffed, optOut, date)
+        }
+        val key = ThemePolicy.windowKey(date)
+        if (key != null && sniffed != null && sniffed in RadioPacks.HOLIDAYS) {
+            settings.setThemeSeenOn(key)
+        }
+        withContext(Dispatchers.Main) {
+            RadioTheme.apply(pack)
+        }
+    }
+
     fun persistHomeFaves(nick: String) {
         val home = FavePolicy.listNick(nick)
         ioScope.launch {
@@ -113,8 +170,13 @@ class GeiravorApp : Application(), ImageLoaderFactory {
                 return@launch
             }
             db.faves().deleteOtherNicks(home)
+            val incoming = MembershipStore.fromRows(home, radio.exportMembership(home))
+            val existing = db.faves().forNick(home)
+            if (!MembershipStore.changed(existing, incoming)) {
+                return@launch
+            }
             db.faves().deleteNick(home)
-            db.faves().insertAll(MembershipStore.fromRows(home, radio.exportMembership(home)))
+            db.faves().insertAll(incoming)
         }
     }
 

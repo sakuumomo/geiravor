@@ -139,7 +139,7 @@ fun NowPlayingScreen(
         }
         Button(
             onClick = onPlayToggle,
-            colors = ButtonDefaults.buttonColors(containerColor = RadioTheme.blue),
+            colors = radioButtonColors(),
             modifier = Modifier.fillMaxWidth(),
         ) {
             Text(if (playing) "Stop" else "Play Stream")
@@ -171,7 +171,7 @@ fun NowPlayingScreen(
             )
             Text(
                 text = percent.toInt().toString(),
-                color = RadioTheme.muted,
+                color = RadioTheme.onBackgroundMuted,
                 modifier = Modifier.padding(start = 8.dp),
             )
         }
@@ -184,7 +184,7 @@ fun NowPlayingScreen(
                     if (faveFilled) R.drawable.ic_fave_filled else R.drawable.ic_fave,
                 ),
                 contentDescription = "Fave",
-                tint = if (faveFilled) RadioTheme.blue else RadioTheme.muted,
+                tint = if (faveFilled) RadioTheme.blue else RadioTheme.onBackgroundMuted,
                 modifier = Modifier
                     .clickable(enabled = !faveBusy, onClick = onFave)
                     .padding(8.dp)
@@ -192,7 +192,7 @@ fun NowPlayingScreen(
             )
             Text(
                 text = StreamStatus.headline(status?.np, streamDown),
-                color = RadioTheme.text,
+                color = RadioTheme.onBackground,
                 fontSize = 22.sp,
                 textAlign = TextAlign.Center,
                 maxLines = 2,
@@ -202,7 +202,7 @@ fun NowPlayingScreen(
             if (StreamStatus.hasTagContent(status?.tags)) {
                 Text(
                     text = if (tagsOpen) "−" else "+",
-                    color = RadioTheme.muted,
+                    color = RadioTheme.onBackgroundMuted,
                     fontSize = 22.sp,
                     modifier = Modifier
                         .clickable { tagsOpen = !tagsOpen }
@@ -226,7 +226,7 @@ fun NowPlayingScreen(
         if (tagsOpen && StreamStatus.hasTagContent(status?.tags)) {
             Text(
                 text = status!!.tags.filter { it.isNotBlank() }.joinToString(" "),
-                color = RadioTheme.muted,
+                color = RadioTheme.onBackgroundMuted,
                 textAlign = TextAlign.Center,
             )
         }
@@ -254,10 +254,10 @@ fun NowPlayingScreen(
         ) {
             Text(
                 text = "Listeners: ${status?.listeners ?: "—"}",
-                color = RadioTheme.muted,
+                color = RadioTheme.onBackgroundMuted,
             )
             if (clock != null) {
-                Text(text = clock, color = RadioTheme.text)
+                Text(text = clock, color = RadioTheme.onBackground)
             }
         }
         val context = LocalContext.current
@@ -284,7 +284,7 @@ fun NowPlayingScreen(
         )
         Text(
             text = status?.dj?.name ?: "",
-            color = RadioTheme.text,
+            color = RadioTheme.onBackground,
             fontSize = 20.sp,
             textAlign = TextAlign.Center,
             maxLines = 1,
@@ -299,20 +299,20 @@ fun NowPlayingScreen(
             nextInQueueMeta = status?.queue?.firstOrNull()?.meta,
             isAfkStream = status?.isAfkStream,
         )
-        Text("Next", color = RadioTheme.muted, fontSize = 12.sp)
+        Text("Next", color = RadioTheme.onBackgroundMuted, fontSize = 12.sp)
         Text(
             text = neighbors.next,
-            color = RadioTheme.text,
+            color = RadioTheme.onBackground,
             fontSize = 14.sp,
             textAlign = TextAlign.Center,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
             modifier = Modifier.fillMaxWidth(),
         )
-        Text("Previous", color = RadioTheme.muted, fontSize = 12.sp)
+        Text("Previous", color = RadioTheme.onBackgroundMuted, fontSize = 12.sp)
         Text(
             text = neighbors.previous,
-            color = RadioTheme.text,
+            color = RadioTheme.onBackground,
             fontSize = 14.sp,
             textAlign = TextAlign.Center,
             maxLines = 1,

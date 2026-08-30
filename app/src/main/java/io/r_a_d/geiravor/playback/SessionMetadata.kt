@@ -126,7 +126,7 @@ object SessionMetadata {
             title = status.title.trim(),
             artist = status.artist.trim(),
             albumArtist = status.dj.name.trim(),
-            artworkUrl = "https://r-a-d.io/api/dj-image/${status.dj.image}",
+            artworkUrl = LivePlaybackPolicy.DJ_IMAGE_BASE + status.dj.image,
         )
     }
 

@@ -248,12 +248,7 @@ private fun SearchRow(
         Button(
             onClick = onRequest,
             enabled = enabled,
-            colors = ButtonDefaults.buttonColors(
-                containerColor = RadioTheme.blue,
-                contentColor = RadioTheme.text,
-                disabledContainerColor = RadioTheme.border,
-                disabledContentColor = RadioTheme.muted,
-            ),
+            colors = radioButtonColors(),
         ) {
             Text("Request", fontSize = 12.sp)
         }

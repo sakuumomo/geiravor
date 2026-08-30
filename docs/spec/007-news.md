@@ -8,11 +8,11 @@ HTML only: `GET https://r-a-d.io/news` (page 1) and `GET https://r-a-d.io/news?p
 
 Each card: `href="/news/{id}"`, `news-title`, author, date (`<time>` inner `on YYYY-MM-DD`), `header` flavor in `message-body`. Do **not** repeat `header` in the article.
 
-List pages, article bodies, and comments live in Room. Open list/article: show disk, revalidate that page/id, replace rows, drop pages you are not on. Kotlin remembers which UI page is selected.
+List pages, article bodies, and comments live in Room. Open list/article: show disk, revalidate that page/id, **write only if the payload actually changed** (`DiskPolicy.changed`, `001-architecture.md`). If it changed, update the screen; if it is the same, do not write and do not flash loading. Drop pages you are not on. Kotlin remembers which UI page is selected.
 
 ## Article
 
-`GET https://r-a-d.io/news/{id}` is HTML: body + comments + gorilla CSRF. One GET fills both. Persist body and comments in Room; revalidate on open; replace comments on a successful POST. Drop Coil files for image URLs that leave the article.
+`GET https://r-a-d.io/news/{id}` is HTML: body + comments + gorilla CSRF. One GET fills both. Persist body and comments in Room; revalidate on open; **write only if different**. Replace comments on a successful POST. Drop Coil files for image URLs that leave the article.
 
 The article is the `message-body` HTML (paragraphs, `<br>`, `<em>`, `<strong>`, `<img>`, `<time>`), not the list flavor. Skip the relative `data-type="medium"` timeago line.
 

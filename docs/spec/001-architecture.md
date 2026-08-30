@@ -10,6 +10,8 @@ Rust owns domain, HTTP to `/api`, JSON, poll policy, now-playing reducer. Kotlin
 
 **Not in Kotlin (0.2.0):** search/faves HTTP, JSON (and faves last-page HTML extract), IRC add-fave. Home-nick membership RAM lives in `RadioCore`; Room persistence is Kotlin.
 
+**Not in Kotlin (0.3.0):** schedule/staff HTML parse, theme name from `/assets/{name}/`. Room persistence, DiskPolicy, Compose, DataStore, Coil stay Kotlin.
+
 ## Layout
 
 - `core/` — Rust crate: `rlib` + `cdylib`, UniFFI. No Android types.
@@ -32,7 +34,7 @@ UniFFI callbacks arrive off the main thread. Kotlin hops to Main before Compose 
 - No OpenSSL
 - No `rustls-platform-verifier` in 0.1.0
 - User-Agent `Geiravor/X.Y.Z` (same as `versionName`)
-- Trait `ApiClient` (`get` today). 0.2.0 adds `search` / `can_request` / `request` / `faves` / `news` on this trait (`006-requests-faves.md`, `007-news.md`). Cookie jar on the same blocking `reqwest` client (`_gorilla_csrf` + `X-CSRF-Token` on POST). **No** HTTP `fave_add` — add-fave is IRC (`006-requests-faves.md`).
+- Trait `ApiClient` is HTTP only (`get` / `post_csrf` / `post_form`). Search, news, schedule, staff, and theme-name parse are **RadioCore** methods on that client (`006-requests-faves.md`, `007-news.md`, `013-schedule-staff.md`). Cookie jar on the same blocking `reqwest` client (`_gorilla_csrf` + `X-CSRF-Token` on POST). **No** HTTP `fave_add` — add-fave is IRC (`006-requests-faves.md`).
 
 ## UniFFI on Android
 
@@ -51,3 +53,19 @@ Rust maps transport/parse failures to a small error type **`ApiError` { Network,
 Search/request/faves-list/news add methods on `ApiClient` so 0.1.0 does not have to be rewritten. CSRF cookie jar is specified in `006-requests-faves.md` (request POST only). Do not add those methods until 0.2.0.
 
 IRC fave is a **separate** Rust module (not `ApiClient`): blocking `std::net` + rustls, no Tokio, no IRC crate. Extra HTTP from UI runs on a worker — never the Android main thread, never the `/api` poller unless queued. After IRC `001`, sample the process-wide latest snapshot already in `RadioCore` (no extra GET) for the live-DJ fave machine.
+
+## 0.3.0
+
+Schedule/staff are RadioCore methods (same as news): GET via `ApiClient`, parse in `core/`. One HTML-page pipeline: GET → parse → show cache → write if `DiskPolicy.changed` → update screen. News, schedule, and staff share that pipeline, not one Composable or one SQL table. Theme name is parsed from HTML already in hand (`/assets/{name}/css/`).
+
+### Disk
+
+Show cache first. GET. **Write only if the new payload is actually different.** If it is different, update what is on screen. If it is the same, do not write and do not flash loading. One policy (`DiskPolicy.changed`) for:
+
+- News list pages / article body / comments
+- Schedule week
+- Staff list
+- Home-nick membership
+- Last-paint blob
+
+Coil stays URL-keyed (DJ + staff images). Skip Room upserts and Coil rewrites when equal. Search and faves listing stay uncached. Last-paint: skip write when chrome is unchanged (`current` and `listeners` tick every poll and must not force a rewrite).

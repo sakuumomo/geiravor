@@ -54,6 +54,23 @@ data class NewsCommentEntity(
     val role: String,
 )
 
+@Entity(tableName = "staff_member", primaryKeys = ["role", "sortIndex"])
+data class StaffMemberEntity(
+    val role: String,
+    val sortIndex: Int,
+    val name: String,
+    val image: String,
+)
+
+@Entity(tableName = "schedule_day", primaryKeys = ["weekday"])
+data class ScheduleDayEntity(
+    val weekday: String,
+    val body: String,
+    val ownerName: String,
+    val ownerImage: String,
+    val sortIndex: Int,
+)
+
 @Dao
 interface FaveMembershipDao {
     @Query("SELECT * FROM fave_membership WHERE nick = :nick")
@@ -120,6 +137,30 @@ interface NewsDao {
     suspend fun deleteCommentsNotIn(keep: List<Long>)
 }
 
+@Dao
+interface StaffDao {
+    @Query("SELECT * FROM staff_member ORDER BY sortIndex")
+    suspend fun all(): List<StaffMemberEntity>
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertAll(rows: List<StaffMemberEntity>)
+
+    @Query("DELETE FROM staff_member")
+    suspend fun deleteAll()
+}
+
+@Dao
+interface ScheduleDao {
+    @Query("SELECT * FROM schedule_day ORDER BY sortIndex")
+    suspend fun all(): List<ScheduleDayEntity>
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertAll(rows: List<ScheduleDayEntity>)
+
+    @Query("DELETE FROM schedule_day")
+    suspend fun deleteAll()
+}
+
 @Database(
     entities = [
         FaveMembershipEntity::class,
@@ -127,14 +168,18 @@ interface NewsDao {
         NewsPageEntity::class,
         NewsArticleEntity::class,
         NewsCommentEntity::class,
+        StaffMemberEntity::class,
+        ScheduleDayEntity::class,
     ],
-    version = 2,
+    version = 3,
     exportSchema = false,
 )
 abstract class GeiravorDb : RoomDatabase() {
     abstract fun faves(): FaveMembershipDao
     abstract fun paint(): LastPaintDao
     abstract fun news(): NewsDao
+    abstract fun staff(): StaffDao
+    abstract fun schedule(): ScheduleDao
 
     companion object {
         @Volatile
@@ -152,6 +197,11 @@ abstract class GeiravorDb : RoomDatabase() {
 }
 
 object MembershipStore {
+    fun changed(
+        existing: List<FaveMembershipEntity>,
+        incoming: List<FaveMembershipEntity>,
+    ): Boolean = DiskPolicy.changed(existing.toSet(), incoming.toSet())
+
     fun toRows(entities: List<FaveMembershipEntity>): List<FavoriteRow> =
         entities.map { entity ->
             val split = entity.meta.split(" - ", limit = 2)

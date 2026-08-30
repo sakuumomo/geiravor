@@ -16,6 +16,9 @@ class AutoBrowseTest {
         assertTrue(root.none { it.id == AutoBrowse.NOW_PLAYING })
         assertTrue(root.none { it.id == AutoBrowse.QUEUE })
         assertTrue(root.none { it.title.equals("News", ignoreCase = true) })
+        assertTrue(root.none { it.title.equals("Board", ignoreCase = true) })
+        assertTrue(root.none { it.title.equals("Schedule", ignoreCase = true) })
+        assertTrue(root.none { it.title.equals("Staff", ignoreCase = true) })
         assertTrue(root.none { it.id.contains("news", ignoreCase = true) })
     }
 

@@ -67,6 +67,21 @@ class SectionLayoutTest {
     }
 
     @Test
+    fun boardSectionsAreNewsScheduleStaff() {
+        assertEquals(
+            listOf(
+                SectionLayout.BoardSection.News,
+                SectionLayout.BoardSection.Schedule,
+                SectionLayout.BoardSection.Staff,
+            ),
+            SectionLayout.boardSections(),
+        )
+        assertEquals("News", SectionLayout.BoardSection.News.label)
+        assertEquals("Schedule", SectionLayout.BoardSection.Schedule.label)
+        assertEquals("Staff", SectionLayout.BoardSection.Staff.label)
+    }
+
+    @Test
     fun settingsSectionsAreGeneralAutoConnectionAlerts() {
         assertEquals(
             listOf(

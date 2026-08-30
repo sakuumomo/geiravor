@@ -4,6 +4,7 @@ import org.junit.Assert.assertEquals
 import org.junit.Test
 import uniffi.geiravor_core.NewsArticle
 import uniffi.geiravor_core.NewsAuthor
+import uniffi.geiravor_core.NewsComment
 
 class NewsStoreTest {
     @Test
@@ -24,6 +25,61 @@ class NewsStoreTest {
         val merged = NewsStore.mergeListRow(existing = null, incoming)
         assertEquals("", merged.text)
         assertEquals("flavor", merged.header)
+    }
+
+    @Test
+    fun pageWriteSkipsWhenMergedPayloadMatchesDisk() {
+        val stored = article(id = 81, header = "flavor", text = "<p>body</p>")
+        val existing = NewsStore.fromArticle(stored)
+        val page = NewsPageEntity(page = 1, lastPage = 4, ids = "81")
+        val incoming = article(id = 81, header = "flavor", text = "")
+        assertEquals(
+            null,
+            NewsStore.pageWrite(
+                existingPage = page,
+                existingById = mapOf(81L to existing),
+                page = 1,
+                lastPage = 4,
+                articles = listOf(incoming),
+            ),
+        )
+    }
+
+    @Test
+    fun pageWriteWhenHeaderChanges() {
+        val stored = article(id = 81, header = "old", text = "<p>body</p>")
+        val existing = NewsStore.fromArticle(stored)
+        val page = NewsPageEntity(page = 1, lastPage = 4, ids = "81")
+        val incoming = article(id = 81, header = "new", text = "")
+        val write = NewsStore.pageWrite(
+            existingPage = page,
+            existingById = mapOf(81L to existing),
+            page = 1,
+            lastPage = 4,
+            articles = listOf(incoming),
+        )
+        assertEquals("new", write!!.second.single().header)
+        assertEquals("<p>body</p>", write.second.single().text)
+    }
+
+    @Test
+    fun articleWriteSkipsWhenBodyAndCommentsMatch() {
+        val stored = article(id = 81, header = "flavor", text = "<p>body</p>")
+        val existing = NewsStore.fromArticle(stored)
+        val comments = listOf(
+            NewsComment(
+                id = 1,
+                author = "anon",
+                postedAt = "2026-01-01 00:00:00 UTC",
+                body = "hi",
+                role = "",
+            ),
+        )
+        val existingComments = NewsStore.fromComments(81, comments)
+        assertEquals(
+            null,
+            NewsStore.articleWrite(existing, existingComments, stored, comments),
+        )
     }
 
     private fun article(id: Long, header: String, text: String) = NewsArticle(
