@@ -7,7 +7,8 @@ use std::time::{Duration, SystemTime, UNIX_EPOCH};
 use crate::csrf::{CSRF_BOOTSTRAP_URL, extract_csrf_token, post_form_csrf, post_with_csrf};
 use crate::favorites::{
     FAVES_PER_PAGE, FavoriteRow, FavoritesPage, discover_last_page, faves_html_url, faves_url,
-    parse_faves, parse_faves_last_page, pick_requestable_id, row_is_song, PageSample,
+    leftover_last_page, parse_faves, parse_faves_last_page, pick_requestable_id, row_is_song,
+    PageSample,
 };
 use crate::http::{ApiError, blocking_client};
 use crate::news::{
@@ -247,6 +248,25 @@ impl RadioCore {
                 .map(|rows| PageSample::from_rows(&rows))
                 .unwrap_or_else(|_| PageSample::from_parts(0, ""))
         }))
+    }
+
+    fn trim_faves_last(
+        &self,
+        nick: &str,
+        page: i32,
+        last_page: i32,
+        data: Vec<FavoriteRow>,
+    ) -> Result<(i32, Vec<FavoriteRow>), ApiError> {
+        if page != last_page || last_page <= 1 || (data.len() as i32) < FAVES_PER_PAGE {
+            return Ok((last_page, data));
+        }
+        let previous = self.faves_rows(nick, last_page - 1)?;
+        let leftover = leftover_last_page(&previous, data);
+        if leftover.is_empty() {
+            Ok((last_page - 1, leftover))
+        } else {
+            Ok((last_page, leftover))
+        }
     }
 
     pub(crate) fn catalog_id_for(&self, nick: &str, tap: &TapSnapshot) -> Option<i64> {
@@ -631,6 +651,7 @@ impl RadioCore {
         let page = page.max(1);
         let data = self.faves_rows(nick, page)?;
         let last_page = self.resolve_faves_last(nick, page, &data)?;
+        let (last_page, data) = self.trim_faves_last(nick, page, last_page, data)?;
         Ok(FavoritesPage {
             current_page: page,
             last_page,

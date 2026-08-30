@@ -53,6 +53,8 @@ No site login. User types their public **Rizon** nick.
 
 Last page is **not** in that JSON. `GET https://r-a-d.io/faves?nick=` (HTML, no `dl`) has pagination links; take the max `/faves?…page=` (ignore `/v1/request?…page=`). Past-last JSON `page=` **clamps** to the last page instead of `[]`. Probe fingerprints only if the HTML parse is 1 and page 1 was full.
 
+The last JSON page is a full 100 when leftover is short: Valkyrie slides that window so it overlaps the previous page (same songs at the top, leftover mixed in). Drop any row already on the previous page; the last page is leftover only. If that leaves nothing, the last page was a clamp — `last_page` is the previous page.
+
 Search and faves **listing** are not cached (process or disk): GET the page you are looking at. Home-nick **membership** (`tracks_id` + `meta`) is Room + a small RAM set hydrated at start; revalidate on start and after a successful fave/unfave. Persist membership **only if the rows actually changed** (`DiskPolicy.changed`, `001-architecture.md`). Other nicks are never written. Peeking another nick in the Favorites field GETs that list only (heart / IRC list nick stay on home). IME Done — or the first nonempty nick — commits DataStore home and drops the previous membership. Request random GETs live on tap.
 
 Persist nick in DataStore. Empty nick → empty list, not a crash. **Settings → Connection nick**, if nonempty, is the IRC nick for fave/unfave (direct-Rizon `NICK`, SASL username default, favorites overlay). The Favorites tab nick is only the public list (`GET /faves?nick=`). Empty connection nick falls back to the Favorites tab nick. The IRC nick must match the nick Hanyuu will attribute (the bouncer’s existing Rizon nick when using a bouncer).

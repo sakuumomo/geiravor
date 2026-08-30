@@ -384,6 +384,93 @@ fn favorites_listing_hits_http_every_time() {
     assert_eq!(client.urls.lock().expect("urls").len(), 4);
 }
 
+fn faves_json_ids(ids: impl IntoIterator<Item = i64>) -> String {
+    let rows: Vec<String> = ids
+        .into_iter()
+        .map(|i| {
+            format!(
+                r#"{{"tracks_id":{i},"meta":"Artist - Title {i}","lastrequested":1,"lastplayed":1,"requestcount":1}}"#
+            )
+        })
+        .collect();
+    format!("[{}]", rows.join(","))
+}
+
+struct PagedFavesClient {
+    pages: std::collections::HashMap<i32, String>,
+    html: String,
+    urls: Mutex<Vec<String>>,
+}
+impl ApiClient for PagedFavesClient {
+    fn get(&self, url: &str) -> Result<String, ApiError> {
+        self.urls.lock().expect("urls").push(url.to_string());
+        if url.contains("dl=true") {
+            let page = url
+                .split("page=")
+                .nth(1)
+                .and_then(|rest| {
+                    rest.chars()
+                        .take_while(|c| c.is_ascii_digit())
+                        .collect::<String>()
+                        .parse()
+                        .ok()
+                })
+                .unwrap_or(1);
+            Ok(self
+                .pages
+                .get(&page)
+                .cloned()
+                .unwrap_or_else(|| "[]".into()))
+        } else {
+            Ok(self.html.clone())
+        }
+    }
+
+    fn post_csrf(&self, _url: &str, _token: &str) -> Result<String, ApiError> {
+        Err(ApiError::Network {
+            detail: "no post".into(),
+        })
+    }
+}
+
+#[test]
+fn favorites_last_page_is_leftover_not_padded_from_previous() {
+    let mut pages = std::collections::HashMap::new();
+    pages.insert(1, faves_json_ids(1..=100));
+    pages.insert(2, faves_json_ids(51..=150));
+    let client = Arc::new(PagedFavesClient {
+        pages,
+        html: r#"<a href="/faves?nick=Kethsar&amp;page=2">2</a>"#.into(),
+        urls: Mutex::new(Vec::new()),
+    });
+    let core = RadioCore::with_client(client.clone());
+    let last = core.favorites("Kethsar".into(), 2).unwrap();
+    assert_eq!(last.last_page, 2);
+    assert_eq!(last.data.len(), 50);
+    assert_eq!(last.data[0].tracks_id, Some(101));
+    assert_eq!(last.data[49].tracks_id, Some(150));
+    let first = core.favorites("Kethsar".into(), 1).unwrap();
+    assert_eq!(first.data.len(), 100);
+    assert_eq!(first.last_page, 2);
+    assert_eq!(first.data[0].tracks_id, Some(1));
+}
+
+#[test]
+fn favorites_clamped_last_page_is_not_a_duplicate() {
+    let mut pages = std::collections::HashMap::new();
+    pages.insert(1, faves_json_ids(1..=100));
+    pages.insert(2, faves_json_ids(1..=100));
+    let client = Arc::new(PagedFavesClient {
+        pages,
+        html: r#"<a href="/faves?nick=Kethsar&amp;page=2">2</a>"#.into(),
+        urls: Mutex::new(Vec::new()),
+    });
+    let core = RadioCore::with_client(client);
+    let last = core.favorites("Kethsar".into(), 2).unwrap();
+    assert_eq!(last.last_page, 1);
+    assert!(last.data.is_empty());
+}
+
 struct FaveRequestClient {
     faves: String,
     csrf: String,

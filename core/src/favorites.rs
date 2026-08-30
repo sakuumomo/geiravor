@@ -229,6 +229,17 @@ fn first_with_fingerprint(
     found
 }
 
+/// Last JSON page is a sliding 100; drop songs already on the previous page.
+pub fn leftover_last_page(previous: &[FavoriteRow], last: Vec<FavoriteRow>) -> Vec<FavoriteRow> {
+    last.into_iter()
+        .filter(|row| {
+            !previous
+                .iter()
+                .any(|prev| row_is_song(prev, row.tracks_id.unwrap_or(0), &row.meta))
+        })
+        .collect()
+}
+
 fn last_non_empty(lo: i32, empty_hi: i32, fetch: &impl Fn(i32) -> PageSample) -> i32 {
     let mut left = lo;
     let mut right = empty_hi - 1;
@@ -376,6 +387,43 @@ mod tests {
             64
         );
         assert_eq!(parse_faves_last_page("<p>no pager</p>"), 1);
+    }
+
+    fn numbered_row(id: i64) -> FavoriteRow {
+        FavoriteRow {
+            tracks_id: Some(id),
+            meta: format!("Artist - Title {id}"),
+            artist: "Artist".into(),
+            title: format!("Title {id}"),
+            last_requested: None,
+            last_played: None,
+            request_count: None,
+        }
+    }
+
+    #[test]
+    fn leftover_last_page_drops_overlap_keeps_new_order() {
+        let previous: Vec<_> = (1..=100).map(numbered_row).collect();
+        let last: Vec<_> = (51..=150).map(numbered_row).collect();
+        let leftover = leftover_last_page(&previous, last);
+        assert_eq!(
+            leftover.iter().map(|r| r.tracks_id).collect::<Vec<_>>(),
+            (101..=150).map(Some).collect::<Vec<_>>()
+        );
+    }
+
+    #[test]
+    fn leftover_last_page_is_empty_when_last_is_a_clone() {
+        let previous: Vec<_> = (1..=100).map(numbered_row).collect();
+        assert!(leftover_last_page(&previous, previous.clone()).is_empty());
+    }
+
+    #[test]
+    fn leftover_last_page_keeps_a_full_unique_last_page() {
+        let previous: Vec<_> = (1..=100).map(numbered_row).collect();
+        let last: Vec<_> = (101..=200).map(numbered_row).collect();
+        let leftover = leftover_last_page(&previous, last.clone());
+        assert_eq!(leftover, last);
     }
 
     fn empty_past(page: i32, counts: &[(i32, i32)]) -> PageSample {
