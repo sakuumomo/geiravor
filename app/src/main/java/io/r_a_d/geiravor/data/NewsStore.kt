@@ -10,6 +10,26 @@ import uniffi.geiravor_core.NewsAuthor
 import uniffi.geiravor_core.NewsComment
 
 object NewsStore {
+    data class ListPaint(
+        val uiPage: Int,
+        val visible: Int,
+        val lastPage: Int,
+        val articles: List<NewsArticle>,
+    )
+
+    @Volatile
+    var listPaint: ListPaint? = null
+
+    fun mergeListRow(existing: NewsArticleEntity?, incoming: NewsArticle): NewsArticleEntity {
+        val row = fromArticle(incoming)
+        val kept = existing?.text.orEmpty()
+        return if (row.text.isEmpty() && kept.isNotEmpty()) {
+            row.copy(text = kept)
+        } else {
+            row
+        }
+    }
+
     fun toArticle(entity: NewsArticleEntity): NewsArticle = NewsArticle(
         id = entity.id,
         title = entity.title,
@@ -73,7 +93,10 @@ object NewsStore {
                 ids = articles.joinToString(",") { it.id.toString() },
             ),
         )
-        articles.forEach { db.news().upsertArticle(fromArticle(it)) }
+        articles.forEach { article ->
+            val existing = db.news().article(article.id)
+            db.news().upsertArticle(mergeListRow(existing, article))
+        }
     }
 
     suspend fun loadArticle(db: GeiravorDb, id: Long): Pair<NewsArticle, List<NewsComment>>? {

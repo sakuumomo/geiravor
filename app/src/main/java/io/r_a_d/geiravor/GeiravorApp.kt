@@ -5,7 +5,10 @@ import android.app.UiModeManager
 import android.content.Intent
 import android.content.IntentFilter
 import androidx.core.content.ContextCompat
+import coil.ImageLoader
+import coil.ImageLoaderFactory
 import coil.annotation.ExperimentalCoilApi
+import coil.disk.DiskCache
 import coil.imageLoader
 import coil.memory.MemoryCache
 import io.r_a_d.geiravor.data.GeiravorDb
@@ -28,7 +31,7 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 
-class GeiravorApp : Application() {
+class GeiravorApp : Application(), ImageLoaderFactory {
     lateinit var radio: RadioCore
         private set
 
@@ -107,6 +110,16 @@ class GeiravorApp : Application() {
             db.faves().insertAll(MembershipStore.fromRows(home, radio.exportMembership(home)))
         }
     }
+
+    override fun newImageLoader(): ImageLoader =
+        ImageLoader.Builder(this)
+            .diskCache {
+                DiskCache.Builder()
+                    .directory(cacheDir.resolve("image_cache"))
+                    .maxSizeBytes(64L * 1024 * 1024)
+                    .build()
+            }
+            .build()
 
     @OptIn(ExperimentalCoilApi::class)
     private fun evictDjImage(image: String) {

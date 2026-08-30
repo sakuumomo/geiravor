@@ -111,6 +111,21 @@ object NewsPolicy {
         return (last - 1) * SERVER_PER_PAGE + count
     }
 
+    fun lastHtmlCount(
+        serverPage: Int,
+        htmlLast: Int,
+        currentCount: Int,
+        storedLastCount: Int?,
+    ): Int? {
+        if (htmlLast <= 0) {
+            return null
+        }
+        if (serverPage == htmlLast) {
+            return currentCount.coerceIn(0, SERVER_PER_PAGE)
+        }
+        return storedLastCount?.coerceIn(0, SERVER_PER_PAGE)
+    }
+
     fun nameColor(role: String, fallback: Color = RadioTheme.muted): Color =
         when (role) {
             "staff" -> RadioTheme.green

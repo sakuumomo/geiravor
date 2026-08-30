@@ -113,6 +113,17 @@ line two</p>
     }
 
     @Test
+    fun uiLastPageUsesStoredLastHtmlCountNotAFullPageGuess() {
+        assertEquals(12, NewsPolicy.lastHtmlCount(serverPage = 4, htmlLast = 4, currentCount = 12, storedLastCount = null))
+        assertEquals(12, NewsPolicy.lastHtmlCount(serverPage = 1, htmlLast = 4, currentCount = 20, storedLastCount = 12))
+        assertEquals(null, NewsPolicy.lastHtmlCount(serverPage = 1, htmlLast = 4, currentCount = 20, storedLastCount = null))
+        val assumed = NewsPolicy.listTotal(serverLast = 4, lastPageCount = 20)
+        val actual = NewsPolicy.listTotal(serverLast = 4, lastPageCount = 12)
+        assertEquals(7, NewsPolicy.listLastPage(assumed, visible = 12))
+        assertEquals(6, NewsPolicy.listLastPage(actual, visible = 12))
+    }
+
+    @Test
     fun staffDjDevUseSiteRoleColors() {
         assertEquals(RadioTheme.green, NewsPolicy.nameColor("staff"))
         assertEquals(RadioTheme.blue, NewsPolicy.nameColor("dj"))

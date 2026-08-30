@@ -65,16 +65,32 @@ fun NewsScreen(
     radio: RadioCore,
     modifier: Modifier = Modifier,
 ) {
-    var page by remember { mutableStateOf(SessionCache.newsCurrent()) }
-    var lastPage by remember { mutableStateOf(1) }
-    var visible by remember { mutableStateOf(1) }
-    var articles by remember { mutableStateOf(listOf<NewsArticle>()) }
+    val paint = NewsStore.listPaint
+    var page by remember { mutableStateOf(paint?.uiPage ?: SessionCache.newsCurrent()) }
+    var lastPage by remember { mutableStateOf(paint?.lastPage ?: 1) }
+    var visible by remember { mutableStateOf(paint?.visible ?: 0) }
+    var articles by remember { mutableStateOf(paint?.articles.orEmpty()) }
     var error by remember { mutableStateOf<String?>(null) }
-    var loading by remember { mutableStateOf(true) }
+    var loading by remember { mutableStateOf(articles.isEmpty()) }
     var selected by remember { mutableStateOf<NewsArticle?>(null) }
     val context = LocalContext.current
 
+    fun showList(rows: List<NewsArticle>, uiLast: Int, uiPage: Int, fit: Int) {
+        articles = rows
+        lastPage = uiLast
+        loading = false
+        NewsStore.listPaint = NewsStore.ListPaint(
+            uiPage = uiPage,
+            visible = fit,
+            lastPage = uiLast,
+            articles = rows,
+        )
+    }
+
     LaunchedEffect(radio, page, visible) {
+        if (visible <= 0) {
+            return@LaunchedEffect
+        }
         error = null
         val start = NewsPolicy.listStartIndex(page, visible)
         val serverPage = start / NewsPolicy.SERVER_PER_PAGE + 1
@@ -90,17 +106,36 @@ fun NewsScreen(
                     shown = shown + extra.second.take(visible - shown.size)
                 }
             }
-            val lastCount = if (serverPage == htmlLast) rows.size else NewsPolicy.SERVER_PER_PAGE
-            lastPage = NewsPolicy.listLastPage(NewsPolicy.listTotal(htmlLast, lastCount), visible)
-            articles = shown
-            loading = false
-        } else {
+            val storedLast = if (serverPage == htmlLast) {
+                rows.size
+            } else {
+                withContext(Dispatchers.IO) { NewsStore.loadPage(db, htmlLast)?.second?.size }
+            }
+            val lastCount = NewsPolicy.lastHtmlCount(
+                serverPage = serverPage,
+                htmlLast = htmlLast,
+                currentCount = rows.size,
+                storedLastCount = storedLast,
+            )
+            if (lastCount != null) {
+                showList(
+                    shown,
+                    NewsPolicy.listLastPage(NewsPolicy.listTotal(htmlLast, lastCount), visible),
+                    page,
+                    visible,
+                )
+            } else if (shown.isNotEmpty()) {
+                articles = shown
+                loading = false
+            }
+        } else if (articles.isEmpty()) {
             loading = true
         }
         try {
             val first = withContext(Dispatchers.IO) { radio.news(serverPage) }
             var shown = first.data.drop(offset).take(visible)
             val htmlLast = first.lastPage.toInt().coerceAtLeast(1)
+            var fetchedNextCount: Int? = null
             withContext(Dispatchers.IO) {
                 NewsStore.savePage(db, serverPage, htmlLast, first.data)
             }
@@ -108,14 +143,37 @@ fun NewsScreen(
                 val next = withContext(Dispatchers.IO) {
                     radio.news(first.currentPage.toInt() + 1)
                 }
+                fetchedNextCount = next.data.size
                 shown = shown + next.data.take(visible - shown.size)
                 withContext(Dispatchers.IO) {
                     NewsStore.savePage(db, first.currentPage.toInt() + 1, htmlLast, next.data)
                 }
             }
-            val lastHtml = withContext(Dispatchers.IO) { radio.news(htmlLast) }
+            if (shown.isNotEmpty()) {
+                articles = shown
+                loading = false
+            }
+            val storedLast = when {
+                serverPage == htmlLast -> first.data.size
+                first.currentPage.toInt() + 1 == htmlLast -> fetchedNextCount
+                else -> withContext(Dispatchers.IO) {
+                    NewsStore.loadPage(db, htmlLast)?.second?.size
+                }
+            }
+            var lastCount = NewsPolicy.lastHtmlCount(
+                serverPage = serverPage,
+                htmlLast = htmlLast,
+                currentCount = first.data.size,
+                storedLastCount = storedLast,
+            )
+            if (lastCount == null) {
+                val lastHtml = withContext(Dispatchers.IO) { radio.news(htmlLast) }
+                lastCount = lastHtml.data.size
+                withContext(Dispatchers.IO) {
+                    NewsStore.savePage(db, htmlLast, htmlLast, lastHtml.data)
+                }
+            }
             withContext(Dispatchers.IO) {
-                NewsStore.savePage(db, htmlLast, htmlLast, lastHtml.data)
                 NewsStore.prune(
                     context,
                     db,
@@ -123,15 +181,16 @@ fun NewsScreen(
                     keepArticleIds = selected?.id?.let { listOf(it) }.orEmpty(),
                 )
             }
-            val total = NewsPolicy.listTotal(htmlLast, lastHtml.data.size)
-            val uiLast = NewsPolicy.listLastPage(total, visible)
-            lastPage = uiLast
+            val uiLast = NewsPolicy.listLastPage(
+                NewsPolicy.listTotal(htmlLast, lastCount),
+                visible,
+            )
             val clamped = PagerPolicy.clampPage(page, uiLast)
             SessionCache.putNewsCurrent(clamped)
             if (clamped != page) {
                 page = clamped
             } else {
-                articles = shown
+                showList(shown, uiLast, clamped, visible)
             }
         } catch (err: CancellationException) {
             throw err
