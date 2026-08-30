@@ -122,7 +122,11 @@ class PlaybackService : MediaLibraryService() {
                 scope.launch { settings.clearSleep() }
             }
         }
-        player.applyStatus(radio.snapshot())
+        fun browseStatus() = AutoBrowse.statusForBrowse(
+            radio.snapshot(),
+            RadioStore.state.value.status,
+        )
+        player.applyStatus(browseStatus())
         player.addListener(
             object : Player.Listener {
                 override fun onMetadata(metadata: Metadata) {
@@ -189,7 +193,7 @@ class PlaybackService : MediaLibraryService() {
             versionName = BuildConfig.VERSION_NAME,
         )
         val callback = LibraryCallback(
-            status = { radio.snapshot() },
+            status = { browseStatus() },
             settings = { settingsSnapshot() },
             player = player,
             onNudgeVolume = { up ->

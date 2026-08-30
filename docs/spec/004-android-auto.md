@@ -47,7 +47,7 @@ Library root is browsable, **not** playable, and has no stream URI. Showing the 
 
 Root tabs (both `FLAG_BROWSABLE`, never playable):
 
-1. **Songs** — Last Played folder; Queue folder only if `isafkstream` (same hide as the phone Songs tab).
+1. **Songs** — Last Played folder; Queue folder only if `isafkstream` (same hide as the phone Songs tab). Cold Auto must use the hydrated last-paint snapshot until `/api` has run — do not hide Queue just because `RadioCore.snapshot()` is still empty.
 2. **Settings** — Auto-start in vehicle, Auto-start on plug (subtitle On/Off), About.
 
 Last Played / Queue **rows are reference only**: not playable, not browsable. Auto still shows **No items** if a row is tapped (the platform has no inert track). Do not play and do not open now-playing. Only the live stream ever plays. A tap must not return the live `MediaItem`.

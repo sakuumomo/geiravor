@@ -54,6 +54,8 @@ object AutoBrowse {
             .find { it.id == mediaId }
     }
 
+    fun statusForBrowse(live: Status?, hydrated: Status?): Status? = live ?: hydrated
+
     fun children(
         parentId: String,
         status: Status?,

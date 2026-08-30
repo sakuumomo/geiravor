@@ -32,6 +32,24 @@ class AutoBrowseTest {
     }
 
     @Test
+    fun coldStartUsesHydratedAfkWhenLiveSnapshotIsStillEmpty() {
+        assertEquals(null, AutoBrowse.statusForBrowse(live = null, hydrated = null))
+        val paint = sampleStatus(isAfkStream = true)
+        val used = AutoBrowse.statusForBrowse(live = null, hydrated = paint)
+        assertEquals(paint, used)
+        assertEquals(
+            listOf(AutoBrowse.LAST_PLAYED, AutoBrowse.QUEUE),
+            AutoBrowse.children(AutoBrowse.SONGS, used).map { it.id },
+        )
+        val live = sampleStatus(isAfkStream = false)
+        assertEquals(live, AutoBrowse.statusForBrowse(live = live, hydrated = paint))
+        assertEquals(
+            listOf(AutoBrowse.LAST_PLAYED),
+            AutoBrowse.children(AutoBrowse.SONGS, null).map { it.id },
+        )
+    }
+
+    @Test
     fun songRowsDoNotAllowPlayback() {
         assertFalse(AutoBrowse.allowsPlayback(mediaId = "lp:0", uri = null))
         assertFalse(AutoBrowse.allowsPlayback(mediaId = AutoBrowse.LAST_PLAYED, uri = null))
