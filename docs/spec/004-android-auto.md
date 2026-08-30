@@ -37,9 +37,9 @@ Tapping previous/next must not exist as a command.
 
 ## Default view
 
-The session now-playing card is the default (same as the phone Now Playing tab): play/pause, `np`, DJ. Do **not** put Now Playing in the browse tree. The Auto app icon (top left) returns to this default. Showing the default must **not** start playback; Play is explicit, or Settings auto-start.
+The session now-playing card is the default (same as the phone Now Playing tab): play/pause, `np`, DJ. Do **not** put Now Playing in the browse tree. Compact and focused Auto must show that card as soon as the car session connects — not only after a Settings tap or a Play. `getItem` for the live id returns the stream item so Auto can open it without browsing Settings. The Auto app icon (top left) returns to this default. Showing the default must **not** start playback; Play is explicit, or Settings auto-start. Swallow Auto’s connect/resume Play when auto-start in vehicle is off.
 
-Pause still **stops** Icecast. Keep the live `MediaItem`. After the user pauses, report that item as paused `STATE_READY` (not idle) so Auto keeps now-playing and the bottom-right control. Do **not** do this on Auto connect. Play `prepare`s a new GET. Settings taps must not be required to restore the card.
+Pause still **stops** Icecast. Keep the live `MediaItem`. Whenever that item is idle and the user does not want play (Auto connect **and** after pause), report it as paused `STATE_READY` (not idle) so Auto keeps now-playing and the bottom-right control. Do not `prepare` until Play. Settings taps must not be required to restore the card.
 
 ## Browse tree
 

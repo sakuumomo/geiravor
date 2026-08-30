@@ -177,6 +177,14 @@ class ThemePolicyTest {
     }
 
     @Test
+    fun nightModeIsOnlyAppliedWhenItChanges() {
+        assertTrue(ThemePolicy.nightModeChanged(applied = null, night = true))
+        assertTrue(ThemePolicy.nightModeChanged(applied = true, night = false))
+        assertFalse(ThemePolicy.nightModeChanged(applied = true, night = true))
+        assertFalse(ThemePolicy.nightModeChanged(applied = false, night = false))
+    }
+
+    @Test
     fun nextWindowAndDelay() {
         assertEquals(LocalDate.of(2026, 10, 29), ThemePolicy.nextWindowStart(LocalDate.of(2026, 6, 15)))
         assertEquals(LocalDate.of(2026, 12, 1), ThemePolicy.nextWindowStart(LocalDate.of(2026, 11, 2)))

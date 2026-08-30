@@ -47,6 +47,9 @@ class GeiravorApp : Application(), ImageLoaderFactory {
     lateinit var radio: RadioCore
         private set
 
+    @Volatile
+    private var nightApplied: Boolean? = null
+
     private val headset = HeadsetReceiver()
     private val carMode = CarModeReceiver()
     private val ioScope = CoroutineScope(Dispatchers.IO)
@@ -154,9 +157,13 @@ class GeiravorApp : Application(), ImageLoaderFactory {
         if (key != null && sniffed != null && sniffed in RadioPacks.HOLIDAYS) {
             settings.setThemeSeenOn(key)
         }
+        val night = ThemePolicy.isNight(phonePack)
         withContext(Dispatchers.Main) {
             RadioTheme.apply(pack)
-            setApplicationNight(this@GeiravorApp, ThemePolicy.isNight(phonePack))
+            if (ThemePolicy.nightModeChanged(nightApplied, night)) {
+                nightApplied = night
+                setApplicationNight(this@GeiravorApp, night)
+            }
         }
     }
 

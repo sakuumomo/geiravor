@@ -144,23 +144,42 @@ class LivePlaybackPolicyTest {
     }
 
     @Test
-    fun afterPauseIdleLiveItemHoldsAsPausedNotIdle() {
-        val held = LivePlaybackPolicy.sessionPlaybackState(
+    fun idleLiveItemHoldsAsPausedReadyBeforeFirstPlayAndAfterPause() {
+        val connect = LivePlaybackPolicy.sessionPlaybackState(
             playbackState = Player.STATE_IDLE,
             playWhenReady = false,
             wantsPlayback = false,
             hasLiveItem = true,
-            holdAsPaused = true,
         )
-        assertEquals(Player.STATE_READY, held.state)
-        assertFalse(held.playWhenReady)
-        val beforePlay = LivePlaybackPolicy.sessionPlaybackState(
+        assertEquals(Player.STATE_READY, connect.state)
+        assertFalse(connect.playWhenReady)
+        val afterPause = LivePlaybackPolicy.sessionPlaybackState(
             playbackState = Player.STATE_IDLE,
             playWhenReady = false,
             wantsPlayback = false,
             hasLiveItem = true,
-            holdAsPaused = false,
         )
-        assertEquals(Player.STATE_IDLE, beforePlay.state)
+        assertEquals(Player.STATE_READY, afterPause.state)
+        val noItem = LivePlaybackPolicy.sessionPlaybackState(
+            playbackState = Player.STATE_IDLE,
+            playWhenReady = false,
+            wantsPlayback = false,
+            hasLiveItem = false,
+        )
+        assertEquals(Player.STATE_IDLE, noItem.state)
+        val connecting = LivePlaybackPolicy.sessionPlaybackState(
+            playbackState = Player.STATE_IDLE,
+            playWhenReady = true,
+            wantsPlayback = true,
+            hasLiveItem = true,
+        )
+        assertEquals(Player.STATE_IDLE, connecting.state)
+    }
+
+    @Test
+    fun autoConnectDoesNotPlayUnlessVehicleAutoStart() {
+        assertTrue(LivePlaybackPolicy.suppressAutoConnectPlay(vehicleOn = false, wantsPlayback = false))
+        assertFalse(LivePlaybackPolicy.suppressAutoConnectPlay(vehicleOn = true, wantsPlayback = false))
+        assertFalse(LivePlaybackPolicy.suppressAutoConnectPlay(vehicleOn = false, wantsPlayback = true))
     }
 }

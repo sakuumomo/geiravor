@@ -32,6 +32,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalConfiguration
@@ -354,7 +355,8 @@ private fun GeiravorRoot() {
             }
         }
     }
-    var tab by remember { mutableStateOf(AppTab.NowPlaying) }
+    var tabName by rememberSaveable { mutableStateOf(AppTab.NowPlaying.name) }
+    val tab = AppLayout.tabFromName(tabName)
     val configuration = LocalConfiguration.current
     val twoPane = AppLayout.twoPane(configuration.screenWidthDp, configuration.smallestScreenWidthDp)
     val shown = AppLayout.clampTab(tab, twoPane)
@@ -389,7 +391,7 @@ private fun GeiravorRoot() {
                     AppLayout.tabs(twoPane).forEach { dest ->
                         NavigationBarItem(
                             selected = shown == dest,
-                            onClick = { tab = dest },
+                            onClick = { tabName = dest.name },
                             icon = { Text(dest.icon) },
                             label = { TabLabel(dest.label) },
                             colors = NavigationBarItemDefaults.colors(

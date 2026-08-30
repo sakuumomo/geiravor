@@ -4,6 +4,9 @@ import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.requiredSize
@@ -49,6 +52,29 @@ fun radioButtonColors() = ButtonDefaults.buttonColors(
     disabledContainerColor = RadioTheme.border,
     disabledContentColor = RadioTheme.muted,
 )
+
+@Composable
+fun RadioPane(
+    modifier: Modifier = Modifier,
+    content: @Composable ColumnScope.() -> Unit,
+) {
+    if (RadioTheme.wallpaper == null) {
+        Column(modifier, content = content)
+        return
+    }
+    Box(modifier.clip(cardShape)) {
+        if (RadioTheme.glass) {
+            FrostBackdrop(Modifier.matchParentSize())
+        } else {
+            Box(
+                Modifier
+                    .matchParentSize()
+                    .background(RadioTheme.surface.copy(alpha = 0.94f)),
+            )
+        }
+        Column(Modifier.fillMaxSize(), content = content)
+    }
+}
 
 @Composable
 fun RadioCard(

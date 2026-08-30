@@ -20,4 +20,7 @@ object AppLayout {
         }
         return AppTab.Songs
     }
+
+    fun tabFromName(name: String): AppTab =
+        AppTab.entries.firstOrNull { it.name == name } ?: AppTab.NowPlaying
 }

@@ -82,7 +82,7 @@ object RadioPacks {
     val christmas = RadioColors(
         background = holidayBg,
         surface = Color.White,
-        border = Color(0x33000000),
+        border = Color(0x59000000),
         text = Color.hsl(222f, 0.14f, 0.29f),
         muted = Color.hsl(222f, 0.14f, 0.20f),
         onBackground = Color.White,
@@ -97,12 +97,12 @@ object RadioPacks {
     /** Dark glass cards on wallpaper. Accent `#F4A246`. */
     val halloween = RadioColors(
         background = holidayBg,
-        surface = Color(0x80000000),
-        border = Color(0x80FFFFFF),
+        surface = Color(0xCC000000),
+        border = Color(0x99FFFFFF),
         text = Color.White,
-        muted = Color.hsl(0f, 0f, 0.75f),
+        muted = Color.hsl(0f, 0f, 0.82f),
         onBackground = Color.White,
-        onBackgroundMuted = Color.hsl(0f, 0f, 0.75f),
+        onBackgroundMuted = Color.hsl(0f, 0f, 0.82f),
         blue = Color(0xFFF4A246),
         red = holidayRed,
         green = holidayGreen,
@@ -114,12 +114,12 @@ object RadioPacks {
     /** Dark glass cards on wallpaper. Accent `#60709f`. */
     val newyears = RadioColors(
         background = holidayBg,
-        surface = Color(0x80000000),
-        border = Color(0x80FFFFFF),
+        surface = Color(0xCC000000),
+        border = Color(0x99FFFFFF),
         text = Color.White,
-        muted = Color.hsl(0f, 0f, 0.75f),
+        muted = Color.hsl(0f, 0f, 0.82f),
         onBackground = Color.White,
-        onBackgroundMuted = Color.hsl(0f, 0f, 0.75f),
+        onBackgroundMuted = Color.hsl(0f, 0f, 0.82f),
         blue = Color(0xFF60709F),
         red = holidayRed,
         green = holidayGreen,
@@ -148,12 +148,26 @@ object RadioPacks {
         }
         var lifted = colors.blue
         var t = 0f
-        while (channelLuma(lifted) < GLASS_HIGHLIGHT_LUMA && t < 0.7f) {
+        val toward = Color(
+            red = (colors.blue.red * 0.35f + 0.65f).coerceIn(0f, 1f),
+            green = (colors.blue.green * 0.35f + 0.65f).coerceIn(0f, 1f),
+            blue = (colors.blue.blue * 0.25f + 0.80f).coerceIn(0f, 1f),
+        )
+        while (channelLuma(lifted) < GLASS_HIGHLIGHT_LUMA && t < 1f) {
             t += 0.08f
-            lifted = lerp(colors.blue, Color.White, t)
+            lifted = lerp(colors.blue, toward, t)
         }
         return lifted
     }
+
+    fun selectionWash(colors: RadioColors): Float =
+        if (colors.glass) {
+            0.55f
+        } else if (channelLuma(colors.surface) > 0.7f) {
+            0.40f
+        } else {
+            0.28f
+        }
 
     fun onHighlight(colors: RadioColors): Color =
         if (channelLuma(highlight(colors)) > 0.45f) Color(0xDE1A1A1A) else Color.White
@@ -161,7 +175,7 @@ object RadioPacks {
     internal fun channelLuma(color: Color): Float =
         0.2126f * color.red + 0.7152f * color.green + 0.0722f * color.blue
 
-    private const val GLASS_HIGHLIGHT_LUMA = 0.58f
+    private const val GLASS_HIGHLIGHT_LUMA = 0.70f
 }
 
 object RadioTheme {
@@ -190,6 +204,7 @@ object RadioTheme {
     val glass get() = current.glass
     val highlight get() = RadioPacks.highlight(current)
     val onHighlight get() = RadioPacks.onHighlight(current)
+    val selectionFill get() = highlight.copy(alpha = RadioPacks.selectionWash(current))
     val onBlue get(): Color {
         val l = RadioPacks.channelLuma(current.blue)
         return if (l > 0.45f) Color(0xDE1A1A1A) else Color.White

@@ -47,7 +47,7 @@ Media3 media notification. Title is the current track (up to two lines). Second 
 
 `/api` metadata (`np`, DJ name, `djimage`, artwork URI, AFK duration / live `TIME_UNSET`) is applied **in place** on the current live item (same URI / mediaId). Do not rebuild the Icecast `MediaSource` or start a new GET on a snapshot. Pause still **stops**.
 
-After pause/stop: keep that notification as the play target (unprepared live item, no Icecast GET). Play on it reconnects. Shade dismiss follows the platform session; do not custom-handle swipe.
+After pause/stop: keep that notification as the play target (unprepared live item, no Icecast GET). The session reports paused `STATE_READY` for that item (including on Auto connect before the first Play) so compact/focused now-playing stay available. Play on it reconnects. Shade dismiss follows the platform session; do not custom-handle swipe.
 
 `setSessionActivity` → the single Activity.
 

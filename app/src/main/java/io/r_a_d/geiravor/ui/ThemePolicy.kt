@@ -46,6 +46,9 @@ object ThemePolicy {
     fun isNight(pack: String): Boolean =
         clampUserPick(pack) != RadioPacks.DEFAULT_LIGHT
 
+    /** Night mode recreates the activity; skip when it is already applied. */
+    fun nightModeChanged(applied: Boolean?, night: Boolean): Boolean = applied != night
+
     fun activePack(
         userPick: String,
         sniffed: String?,

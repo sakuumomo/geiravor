@@ -48,4 +48,12 @@ class AppLayoutTest {
         assertEquals(AppTab.Settings, AppLayout.clampTab(AppTab.Settings, twoPane = true))
         assertEquals(AppTab.Board, AppLayout.clampTab(AppTab.Board, twoPane = true))
     }
+
+    @Test
+    fun tabFromNameRestoresSettingsAfterThemeRecreate() {
+        assertEquals(AppTab.Settings, AppLayout.tabFromName(AppTab.Settings.name))
+        assertEquals(AppTab.Songs, AppLayout.tabFromName(AppTab.Songs.name))
+        assertEquals(AppTab.NowPlaying, AppLayout.tabFromName(""))
+        assertEquals(AppTab.NowPlaying, AppLayout.tabFromName("News"))
+    }
 }

@@ -424,12 +424,18 @@ class PlaybackService : MediaLibraryService() {
             controller: MediaSession.ControllerInfo,
         ) {
             session.setMediaButtonPreferences(controller, buttons())
-            if (
-                LivePlaybackPolicy.isAutoPackage(controller.packageName) &&
-                settings().vehicleOn &&
-                !player.wantsPlayback
-            ) {
+            if (!LivePlaybackPolicy.isAutoPackage(controller.packageName)) {
+                return
+            }
+            if (settings().vehicleOn && !player.wantsPlayback) {
                 player.play()
+            } else if (
+                LivePlaybackPolicy.suppressAutoConnectPlay(
+                    vehicleOn = settings().vehicleOn,
+                    wantsPlayback = player.wantsPlayback,
+                )
+            ) {
+                player.ignoreNextPlay()
             }
         }
 
@@ -466,6 +472,15 @@ class PlaybackService : MediaLibraryService() {
             session: MediaSession,
             controller: MediaSession.ControllerInfo,
         ): ListenableFuture<MediaSession.MediaItemsWithStartPosition> {
+            if (
+                LivePlaybackPolicy.isAutoPackage(controller.packageName) &&
+                LivePlaybackPolicy.suppressAutoConnectPlay(
+                    vehicleOn = settings().vehicleOn,
+                    wantsPlayback = player.wantsPlayback,
+                )
+            ) {
+                player.ignoreNextPlay()
+            }
             return Futures.immediateFuture(livePlaylist())
         }
 
@@ -531,18 +546,10 @@ class PlaybackService : MediaLibraryService() {
             if (mediaId == AutoBrowse.ROOT) {
                 return Futures.immediateFuture(LibraryResult.ofItem(libraryRoot(), null))
             }
-            val snapshot = settings()
-            val current = status()
-            val node = listOf(
-                AutoBrowse.ROOT,
-                AutoBrowse.SONGS,
-                AutoBrowse.LAST_PLAYED,
-                AutoBrowse.QUEUE,
-                AutoBrowse.SETTINGS,
-            ).asSequence()
-                .map { AutoBrowse.children(it, current, snapshot) }
-                .flatten()
-                .find { it.id == mediaId }
+            if (AutoBrowse.isLiveStream(mediaId)) {
+                return Futures.immediateFuture(LibraryResult.ofItem(livePlaylist().mediaItems[0], null))
+            }
+            val node = AutoBrowse.lookup(mediaId, status(), settings())
             if (node == null) {
                 return Futures.immediateFuture(LibraryResult.ofError(LibraryResult.RESULT_ERROR_BAD_VALUE))
             }

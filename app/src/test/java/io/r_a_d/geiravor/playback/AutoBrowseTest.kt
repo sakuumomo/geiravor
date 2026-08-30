@@ -222,6 +222,20 @@ class AutoBrowseTest {
         assertFalse(AutoBrowse.isLiveStream(AutoBrowse.LAST_PLAYED))
         assertFalse(AutoBrowse.isLiveStream("lp:0"))
     }
+
+    @Test
+    fun lookupFindsNowPlayingEvenThoughItIsNotInTheBrowseTree() {
+        val np = AutoBrowse.lookup(AutoBrowse.NOW_PLAYING, sampleStatus(isAfkStream = true))
+        assertEquals(AutoBrowse.NOW_PLAYING, np?.id)
+        assertTrue(np?.playable == true)
+        assertFalse(np?.browsable == true)
+        assertTrue(AutoBrowse.children(AutoBrowse.ROOT, sampleStatus(isAfkStream = true)).none { it.id == AutoBrowse.NOW_PLAYING })
+        assertEquals(
+            AutoBrowse.SETTING_VEHICLE,
+            AutoBrowse.lookup(AutoBrowse.SETTING_VEHICLE, null)?.id,
+        )
+        assertEquals(null, AutoBrowse.lookup("missing", null))
+    }
 }
 
 private fun entry(meta: String) = ListEntry(

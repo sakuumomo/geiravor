@@ -34,6 +34,26 @@ object AutoBrowse {
         BrowseNode(SETTINGS, "Settings", playable = false, browsable = true),
     )
 
+    fun lookup(
+        mediaId: String,
+        status: Status?,
+        settings: AutoSettingsSnapshot = AutoSettingsSnapshot(),
+    ): BrowseNode? {
+        if (isLiveStream(mediaId)) {
+            val title = status?.np?.trim().orEmpty().ifEmpty { "r/a/dio" }
+            return BrowseNode(
+                NOW_PLAYING,
+                title = title,
+                playable = true,
+                browsable = false,
+            )
+        }
+        return listOf(ROOT, SONGS, LAST_PLAYED, QUEUE, SETTINGS)
+            .asSequence()
+            .flatMap { children(it, status, settings).asSequence() }
+            .find { it.id == mediaId }
+    }
+
     fun children(
         parentId: String,
         status: Status?,

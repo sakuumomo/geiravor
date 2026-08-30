@@ -31,9 +31,9 @@ MediaStore `RELATIVE_PATH` for saving a thread image (API 29).
 
 ## 0.3.0
 
-Compose `Modifier.blur` / RenderEffect (API 31) for holiday glass. Below 31 the glass is the 50% black scrim only.
+Compose `Modifier.blur` / RenderEffect (API 31) for holiday glass. Below 31 the glass is the pack’s dark scrim only.
 
-`UiModeManager.setApplicationNightMode` (API 31) so Auto can follow Default vs Default light. Below 31 this is a no-op.
+`UiModeManager.setApplicationNightMode` (API 31) so Auto can follow Default vs Default light. Below 31 this is a no-op. Only call it when night vs day actually changes — a recreate must restore the current bottom tab.
 
 ## Not here
 

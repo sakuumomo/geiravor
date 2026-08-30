@@ -36,7 +36,6 @@ internal class LiveStationPlayer(
     private val mainHandler = Handler(exo.applicationLooper)
     private val clearIgnorePlay = Runnable { ignorePlay = false }
     private var ignorePlay = false
-    private var holdAsPaused = false
     private var tearingDown = false
     private val listeners = IdentityHashMap<Player.Listener, Player.Listener>()
     private val reconnect = Runnable {
@@ -153,7 +152,6 @@ internal class LiveStationPlayer(
         if (consumeIgnorePlay()) {
             return
         }
-        holdAsPaused = false
         setWantsPlayback(true)
         ensureLiveItem()
         super.play()
@@ -180,11 +178,17 @@ internal class LiveStationPlayer(
             if (consumeIgnorePlay()) {
                 return
             }
-            holdAsPaused = false
             setWantsPlayback(true)
             ensureLiveItem()
         }
         super.setPlayWhenReady(playWhenReady)
+    }
+
+    override fun prepare() {
+        if (!wantsPlayback) {
+            return
+        }
+        super.prepare()
     }
 
     override fun seekTo(positionMs: Long) {
@@ -356,7 +360,6 @@ internal class LiveStationPlayer(
             mainHandler.removeCallbacks(reconnect)
             ignorePlay = false
             mainHandler.removeCallbacks(clearIgnorePlay)
-            holdAsPaused = true
             exo.playWhenReady = false
             exo.stop()
             exo.setMediaItem(liveItem(), /* resetPosition = */ true)
@@ -371,7 +374,6 @@ internal class LiveStationPlayer(
             playWhenReady = super.getPlayWhenReady(),
             wantsPlayback = wantsPlayback,
             hasLiveItem = exo.currentMediaItem != null,
-            holdAsPaused = holdAsPaused,
         )
 
     private inner class HeldPausedListener(

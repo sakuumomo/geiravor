@@ -195,10 +195,13 @@ fun NewsScreen(
         return
     }
 
-    Column(
+    RadioPane(
         modifier = modifier
             .fillMaxSize()
             .padding(16.dp),
+    ) {
+    Column(
+        modifier = Modifier.fillMaxSize(),
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         error?.let { text ->
@@ -251,6 +254,7 @@ fun NewsScreen(
                 onPage = { page = it },
             )
         }
+    }
     }
 }
 
@@ -390,13 +394,15 @@ private fun NewsArticlePane(
         48.dp
     }
     Box(modifier = modifier.fillMaxSize()) {
+        RadioPane(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(start = 16.dp, end = 16.dp, bottom = 16.dp),
+        ) {
         LazyColumn(
             state = listState,
             modifier = Modifier.fillMaxSize(),
             contentPadding = PaddingValues(
-                start = 16.dp,
-                end = 16.dp,
-                bottom = 16.dp,
                 top = backPad,
             ),
             verticalArrangement = Arrangement.spacedBy(12.dp),
@@ -489,6 +495,7 @@ private fun NewsArticlePane(
                 },
                 onCommentLink = { jumpTo = it },
             )
+        }
         }
         }
         Text(

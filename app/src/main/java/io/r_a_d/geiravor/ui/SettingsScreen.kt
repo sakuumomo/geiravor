@@ -581,7 +581,7 @@ private fun SettingChoice(
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .background(if (selected) RadioTheme.highlight.copy(alpha = 0.28f) else Color.Transparent)
+            .background(if (selected) RadioTheme.selectionFill else Color.Transparent)
             .clickable(onClick = onClick)
             .padding(16.dp),
         verticalAlignment = Alignment.CenterVertically,

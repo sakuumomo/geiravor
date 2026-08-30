@@ -77,6 +77,9 @@ object LivePlaybackPolicy {
             packageName == "com.android.car.media" ||
             packageName == "com.android.car.carlauncher"
 
+    fun suppressAutoConnectPlay(vehicleOn: Boolean, wantsPlayback: Boolean): Boolean =
+        !wantsPlayback && !vehicleOn
+
     data class SessionPlaybackState(
         val state: Int,
         val playWhenReady: Boolean,
@@ -87,10 +90,8 @@ object LivePlaybackPolicy {
         playWhenReady: Boolean,
         wantsPlayback: Boolean,
         hasLiveItem: Boolean,
-        holdAsPaused: Boolean,
     ): SessionPlaybackState {
-        val hold = holdAsPaused &&
-            !wantsPlayback &&
+        val hold = !wantsPlayback &&
             hasLiveItem &&
             (playbackState == Player.STATE_IDLE || playbackState == Player.STATE_ENDED)
         if (!hold) {

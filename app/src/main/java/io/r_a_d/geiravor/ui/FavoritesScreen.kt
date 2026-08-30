@@ -143,10 +143,13 @@ fun FavoritesPane(
         }
     }
 
-    Column(
+    RadioPane(
         modifier = modifier
             .fillMaxSize()
             .padding(16.dp),
+    ) {
+    Column(
+        modifier = Modifier.fillMaxSize(),
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         OutlinedTextField(
@@ -291,6 +294,7 @@ fun FavoritesPane(
                 onPage = { listing = committed to it },
             )
         }
+    }
     }
 }
 
