@@ -862,6 +862,9 @@ impl RadioCore {
             let _ = conn.close_notify();
             if result.kind == FaveKind::Success {
                 self.remember_toggle(&list_nick, &tap, catalog_id, result.favorited);
+                if list_nick != nick {
+                    self.remember_toggle(&nick, &tap, catalog_id, result.favorited);
+                }
             }
             return result;
         }
@@ -1033,6 +1036,20 @@ mod tests {
         assert!(!should_unfave(true, Some(0)));
         assert!(!should_unfave(false, Some(42)));
         assert!(should_unfave(true, Some(42)));
+    }
+
+    #[test]
+    fn remember_toggle_applies_to_list_and_irc_nick() {
+        let core = core();
+        let tap = TapSnapshot {
+            is_afk: true,
+            track_id: 42,
+            np: np().into(),
+        };
+        core.remember_toggle("List", &tap, Some(42), true);
+        core.remember_toggle("Irc", &tap, Some(42), true);
+        assert!(core.is_favorite("List".into(), 42, np().into()));
+        assert!(core.is_favorite("Irc".into(), 42, np().into()));
     }
 
     #[test]

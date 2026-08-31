@@ -103,6 +103,10 @@ class FavePolicyTest {
         assertFalse(
             FavePolicy.bumpFavoritesList(FaveResult(FaveKind.NOOP, "", false)),
         )
+        assertTrue(FavePolicy.confirmFilled(faved, listedAfterFetch = false))
+        assertTrue(FavePolicy.confirmFilled(faved, listedAfterFetch = true))
+        assertFalse(FavePolicy.confirmFilled(unfaved, listedAfterFetch = false))
+        assertTrue(FavePolicy.heartUpdate(false, faved, listedAfterFetch = false).filled)
     }
 
     @Test

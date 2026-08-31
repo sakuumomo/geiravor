@@ -148,10 +148,29 @@ object FavePolicy {
     fun heartAfterResult(wasFilled: Boolean, result: FaveResult): Boolean =
         if (result.kind == FaveKind.SUCCESS) result.favorited else wasFilled
 
+    /**
+     * After IRC, GET /faves. A successful fave still fills if the GET has not caught up.
+     * Unfave follows membership (overlay minus should already have dropped it).
+     */
+    fun confirmFilled(result: FaveResult, listedAfterFetch: Boolean): Boolean =
+        when (result.kind) {
+            FaveKind.SUCCESS -> result.favorited
+            FaveKind.NOOP -> false
+            FaveKind.FAILED -> listedAfterFetch
+        }
+
     fun bumpFavoritesList(result: FaveResult): Boolean = result.kind == FaveKind.SUCCESS
 
-    fun heartUpdate(wasFilled: Boolean, result: FaveResult): HeartUpdate = HeartUpdate(
-        filled = heartAfterResult(wasFilled, result),
+    fun heartUpdate(
+        wasFilled: Boolean,
+        result: FaveResult,
+        listedAfterFetch: Boolean? = null,
+    ): HeartUpdate = HeartUpdate(
+        filled = if (listedAfterFetch == null) {
+            heartAfterResult(wasFilled, result)
+        } else {
+            confirmFilled(result, listedAfterFetch)
+        },
         notice = phoneMessage(result),
         bumpList = bumpFavoritesList(result),
     )

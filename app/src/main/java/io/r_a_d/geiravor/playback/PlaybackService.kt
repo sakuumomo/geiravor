@@ -229,8 +229,26 @@ class PlaybackService : MediaLibraryService() {
                             tlsFingerprint = tlsFingerprint,
                         ),
                     )
+                    val keep = FavePolicy.membershipNicks(faveNick, ircNick)
+                    if (FavePolicy.bumpFavoritesList(result)) {
+                        val irc = FavePolicy.ircNick(ircNick, faveNick)
+                        if (irc.isNotEmpty()) {
+                            runCatching { radio.prefetchFavorites(irc) }
+                        }
+                        keep.forEach { nick ->
+                            if (nick != irc) {
+                                runCatching { radio.prefetchFavorites(nick) }
+                            }
+                        }
+                        (application as GeiravorApp).persistMembership(keep)
+                    }
+                    val listed = FavePolicy.isMember(
+                        keep,
+                        radio.snapshot(),
+                        radio::isFavorite,
+                    )
                     withContext(Dispatchers.Main) {
-                        val heart = FavePolicy.heartUpdate(wasFilled, result)
+                        val heart = FavePolicy.heartUpdate(wasFilled, result, listed)
                         RadioStore.setHeart(
                             filled = heart.filled,
                             notice = heart.notice,
@@ -239,13 +257,6 @@ class PlaybackService : MediaLibraryService() {
                         )
                         faveFilled = RadioStore.state.value.heartFilled
                         publishButtons()
-                    }
-                    if (FavePolicy.heartUpdate(wasFilled, result).bumpList) {
-                        val keep = FavePolicy.membershipNicks(faveNick, ircNick)
-                        keep.forEach { nick ->
-                            runCatching { radio.prefetchFavorites(nick) }
-                        }
-                        (application as GeiravorApp).persistMembership(keep)
                     }
                 }
             },
