@@ -66,6 +66,7 @@ Show cache first. GET. **Write only if the new payload is actually different.** 
 - Schedule week
 - Staff list
 - Home-nick membership
+- Committed faves listing pages
 - Last-paint blob
 
-Coil stays URL-keyed (DJ + staff images). Skip Room upserts and Coil rewrites when equal. Search and faves listing stay off disk; they keep **process RAM** of fetched server pages so paging the same query/nick does not GET again (`006-requests-faves.md`). News list HTML pages and viewed article bodies stay on disk and are copied into RAM (`007-news.md`). Last-paint: skip write when chrome is unchanged (`current` and `listeners` tick every poll and must not force a rewrite).
+Coil stays URL-keyed (DJ + staff images). Skip Room upserts and Coil rewrites when equal. Search listing stays off disk (process RAM of fetched server pages). **Committed** favorites listing pages (Favorites nick and Connection nick — one row when they are the same) stay on disk: show cache first, GET, write if `DiskPolicy.changed`, prune when those nicks change. Peeks stay HTTP + RAM. News list HTML pages and viewed article bodies stay on disk and are copied into RAM (`007-news.md`). Last-paint: skip write when chrome is unchanged (`current` and `listeners` tick every poll and must not force a rewrite).

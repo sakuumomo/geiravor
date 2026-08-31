@@ -34,15 +34,72 @@ class FavoritesPolicyTest {
     }
 
     @Test
-    fun otherNickIsPeekUntilHomeIsEmptyOrCommitted() {
+    fun rememberLastSuccessfulNickNotFirst() {
         assertFalse(FavoritesPolicy.isPeek(home = "", listing = "Alice"))
         assertFalse(FavoritesPolicy.isPeek(home = "Alice", listing = "Alice"))
         assertFalse(FavoritesPolicy.isPeek(home = "Alice", listing = "  Alice  "))
         assertTrue(FavoritesPolicy.isPeek(home = "Alice", listing = "Bob"))
         assertFalse(FavoritesPolicy.isPeek(home = "Alice", listing = ""))
         assertTrue(FavoritesPolicy.shouldCommitHome(home = "", listing = "Alice"))
-        assertFalse(FavoritesPolicy.shouldCommitHome(home = "Alice", listing = "Bob"))
+        assertTrue(FavoritesPolicy.shouldCommitHome(home = "s", listing = "sakurai"))
+        assertTrue(FavoritesPolicy.shouldCommitHome(home = "Alice", listing = "Bob"))
         assertFalse(FavoritesPolicy.shouldCommitHome(home = "Alice", listing = "Alice"))
         assertFalse(FavoritesPolicy.shouldCommitHome(home = "", listing = "  "))
+        assertTrue(
+            FavoritesPolicy.shouldRememberAfterFetch(
+                home = "s",
+                typed = "sakurai",
+                fetched = "sakurai",
+            ),
+        )
+        assertFalse(
+            FavoritesPolicy.shouldRememberAfterFetch(
+                home = "s",
+                typed = "sakurai",
+                fetched = "s",
+            ),
+        )
+        assertFalse(
+            FavoritesPolicy.shouldRememberAfterFetch(
+                home = "Alice",
+                typed = "",
+                fetched = "IrcNick",
+            ),
+        )
+        assertFalse(
+            FavoritesPolicy.shouldRememberAfterFetch(
+                home = "Alice",
+                typed = "Alice",
+                fetched = "Alice",
+            ),
+        )
+        assertTrue(FavoritesPolicy.shouldPersistListing(listOf("Alice"), "Alice"))
+        assertTrue(FavoritesPolicy.shouldPersistListing(listOf("Same"), "Same"))
+        assertFalse(FavoritesPolicy.shouldPersistListing(listOf("Alice"), "Bob"))
+        assertFalse(FavoritesPolicy.shouldPersistListing(listOf("Alice"), ""))
+        assertTrue(
+            FavoritesPolicy.shouldWriteListing(
+                keep = listOf("Alice"),
+                home = "s",
+                typed = "Alice",
+                fetched = "Alice",
+            ),
+        )
+        assertTrue(
+            FavoritesPolicy.shouldWriteListing(
+                keep = listOf("Alice"),
+                home = "Alice",
+                typed = "Bob",
+                fetched = "Bob",
+            ),
+        )
+        assertFalse(
+            FavoritesPolicy.shouldWriteListing(
+                keep = listOf("Alice"),
+                home = "Alice",
+                typed = "Bob",
+                fetched = "Al",
+            ),
+        )
     }
 }

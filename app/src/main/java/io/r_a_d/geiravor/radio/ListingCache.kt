@@ -11,6 +11,7 @@ object ListingCache {
     private val lock = Any()
     private val search = HashMap<Pair<String, Int>, SearchPage>()
     private val faves = HashMap<Pair<String, Int>, FavoritesPage>()
+    private val favesLast = HashMap<String, Int>()
     private var searchVisible = 0
     private var favesVisible = 0
 
@@ -50,7 +51,19 @@ object ListingCache {
         if (key.isEmpty()) {
             return
         }
-        synchronized(lock) { faves[key to page.currentPage] = page }
+        synchronized(lock) {
+            if (page.currentPage <= page.lastPage) {
+                faves[key to page.currentPage] = page
+            }
+            faves.keys.filter { it.first == key && it.second > page.lastPage }.forEach { faves.remove(it) }
+            val stored = favesLast[key]
+            favesLast[key] = when {
+                stored == null -> page.lastPage
+                page.currentPage >= page.lastPage -> page.lastPage
+                page.currentPage == 1 -> page.lastPage
+                else -> stored
+            }
+        }
     }
 
     fun favesRows(nick: String): Map<Int, List<FavoriteRow>> = synchronized(lock) {
@@ -59,25 +72,20 @@ object ListingCache {
     }
 
     fun favesServerLast(nick: String): Int? = synchronized(lock) {
-        val key = nick.trim()
-        faves.entries.filter { it.key.first == key }.maxOfOrNull { it.value.lastPage }
+        favesLast[nick.trim()]
     }
 
     fun favesTotal(nick: String): Int? {
         val last = favesServerLast(nick) ?: return null
-        val lastRows = faves(nick, last)?.data?.size
-        return if (last == 1) {
-            lastRows ?: faves(nick, 1)?.data?.size
-        } else {
-            val leftover = lastRows ?: PanePolicy.FAVES_PER_PAGE
-            (last - 1) * PanePolicy.FAVES_PER_PAGE + leftover
-        }
+        val lastRows = faves(nick, last)?.data ?: return null
+        return PanePolicy.favesCatalogSize(last, lastRows.size)
     }
 
     fun dropFaves(nick: String) {
         val key = nick.trim()
         synchronized(lock) {
             faves.keys.filter { it.first == key }.forEach { faves.remove(it) }
+            favesLast.remove(key)
         }
     }
 
@@ -99,6 +107,7 @@ object ListingCache {
         synchronized(lock) {
             search.clear()
             faves.clear()
+            favesLast.clear()
             searchVisible = 0
             favesVisible = 0
         }

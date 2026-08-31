@@ -12,6 +12,7 @@ import coil.annotation.ExperimentalCoilApi
 import coil.disk.DiskCache
 import coil.imageLoader
 import coil.memory.MemoryCache
+import io.r_a_d.geiravor.data.FaveListStore
 import io.r_a_d.geiravor.data.GeiravorDb
 import io.r_a_d.geiravor.data.LastPaintEntity
 import io.r_a_d.geiravor.data.MembershipStore
@@ -76,6 +77,7 @@ class GeiravorApp : Application(), ImageLoaderFactory {
             db.faves().nicks().forEach { nick ->
                 radio.importMembership(nick, MembershipStore.toRows(db.faves().forNick(nick)))
             }
+            FaveListStore.hydrate(db, keepNicks)
         }
         var lastDjImage = paint?.djImage
         radio.start(
@@ -178,6 +180,7 @@ class GeiravorApp : Application(), ImageLoaderFactory {
         val keep = nicks.map { it.trim() }.filter { it.isNotEmpty() }.distinct()
         ioScope.launch {
             radio.keepMemberships(keep)
+            FaveListStore.keepNicks(db, keep)
             if (keep.isEmpty()) {
                 db.faves().deleteAll()
                 return@launch

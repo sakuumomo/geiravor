@@ -26,12 +26,16 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import io.r_a_d.geiravor.data.FaveListStore
+import io.r_a_d.geiravor.data.GeiravorDb
+import io.r_a_d.geiravor.playback.FavePolicy
 import io.r_a_d.geiravor.radio.ListingCache
 import io.r_a_d.geiravor.radio.RadioStore
 import io.r_a_d.geiravor.radio.SessionCache
@@ -62,6 +66,8 @@ fun FavoritesPane(
 ) {
     val scope = rememberCoroutineScope()
     val focus = LocalFocusManager.current
+    val context = LocalContext.current
+    val db = remember { GeiravorDb.get(context) }
     var listing by remember {
         val fetch = nick.trim().ifEmpty { listFallback.trim() }
         mutableStateOf(
@@ -129,12 +135,8 @@ fun FavoritesPane(
         if (listing.first == fetch) {
             return@LaunchedEffect
         }
-        val typed = nick.trim()
         if (listing.first.isNotEmpty()) {
             delay(350)
-        }
-        if (FavoritesPolicy.shouldCommitHome(homeNick, typed)) {
-            onNickPersist(typed)
         }
         listing = fetch to SessionCache.favesCurrent(fetch)
     }
@@ -172,9 +174,11 @@ fun FavoritesPane(
         lastRevision = listRevision
         if (bumped) {
             ListingCache.dropFaves(committed)
-        } else {
-            showFaves(page, fit)
+            withContext(Dispatchers.IO) { FaveListStore.hydrateNick(db, committed) }
+        } else if (ListingCache.faves(committed, 1) == null) {
+            withContext(Dispatchers.IO) { FaveListStore.hydrateNick(db, committed) }
         }
+        showFaves(page, fit)
         if (rows.isNotEmpty()) {
             loading = false
         }
@@ -186,16 +190,33 @@ fun FavoritesPane(
         }
         val per = PanePolicy.FAVES_PER_PAGE
         val start = PanePolicy.startIndex(page, visible)
+        val keep = FavePolicy.membershipNicks(homeNick, listFallback)
         suspend fun pull(server: Int) {
             val fetched = withContext(Dispatchers.IO) { radio.favorites(committed, server) }
             ListingCache.putFaves(committed, fetched)
+            if (FavoritesPolicy.shouldWriteListing(keep, homeNick, nick, committed)) {
+                withContext(Dispatchers.IO) { FaveListStore.savePage(db, committed, fetched) }
+            }
+        }
+        suspend fun pullLast(refresh: Boolean) {
+            var last = ListingCache.favesServerLast(committed) ?: 1
+            if (last <= 1) {
+                return
+            }
+            if (refresh || ListingCache.faves(committed, last) == null) {
+                pull(last)
+            }
+            last = ListingCache.favesServerLast(committed) ?: last
+            if (last > 1 && ListingCache.faves(committed, last) == null) {
+                pull(last)
+            }
         }
         try {
-            val cachedLast = ListingCache.favesServerLast(committed) ?: 1
             val refresh = page == 1 || bumped
             if (refresh || ListingCache.faves(committed, 1) == null) {
                 pull(1)
             }
+            pullLast(refresh)
             val last = ListingCache.favesServerLast(committed) ?: 1
             val need = PanePolicy.serverPages(start, visible, per, last)
             for (server in need) {
@@ -211,6 +232,9 @@ fun FavoritesPane(
             val total = ListingCache.favesTotal(committed) ?: 0
             val uiLast = PanePolicy.lastPage(total, visible)
             val clamped = PagerPolicy.clampPage(page, uiLast)
+            if (FavoritesPolicy.shouldRememberAfterFetch(homeNick, nick, committed)) {
+                onNickPersist(committed)
+            }
             if (clamped != page) {
                 listing = committed to clamped
             } else {

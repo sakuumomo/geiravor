@@ -54,4 +54,14 @@ class PanePolicyTest {
         assertEquals(1..2, PanePolicy.serverPages(start = 18, count = 6, perServer = 20, serverLast = 4))
         assertEquals(1..1, PanePolicy.serverPages(start = 0, count = 6, perServer = 20, serverLast = 4))
     }
+
+    @Test
+    fun favesCatalogSizeUsesLeftoverNotAFullLastPage() {
+        assertEquals(100, PanePolicy.favesCatalogSize(serverLast = 1, lastPageCount = 100))
+        assertEquals(37, PanePolicy.favesCatalogSize(serverLast = 1, lastPageCount = 37))
+        assertEquals(7 * 100 + 30, PanePolicy.favesCatalogSize(serverLast = 8, lastPageCount = 30))
+        assertEquals(8 * 100, PanePolicy.favesCatalogSize(serverLast = 8, lastPageCount = 100))
+        assertEquals(67, PanePolicy.lastPage(8 * 100, 12))
+        assertEquals(61, PanePolicy.lastPage(PanePolicy.favesCatalogSize(8, 30), 12))
+    }
 }

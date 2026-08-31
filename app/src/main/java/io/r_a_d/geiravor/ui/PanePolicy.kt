@@ -63,6 +63,13 @@ object PanePolicy {
         return (n + vis - 1) / vis
     }
 
+    /** Catalog size once the leftover last server page is loaded. Do not pad that page to 100. */
+    fun favesCatalogSize(serverLast: Int, lastPageCount: Int): Int {
+        val last = serverLast.coerceAtLeast(1)
+        val leftover = lastPageCount.coerceAtLeast(0)
+        return if (last == 1) leftover else (last - 1) * FAVES_PER_PAGE + leftover
+    }
+
     fun startIndex(page: Int, visible: Int): Int =
         (page.coerceAtLeast(1) - 1) * visible.coerceAtLeast(1)
 

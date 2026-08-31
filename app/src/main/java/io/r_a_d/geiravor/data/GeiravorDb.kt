@@ -19,6 +19,27 @@ data class FaveMembershipEntity(
     val tracksId: Long?,
 )
 
+@Entity(tableName = "fave_list_meta")
+data class FaveListMetaEntity(
+    @PrimaryKey val nick: String,
+    val lastPage: Int,
+)
+
+@Entity(tableName = "fave_list_row", primaryKeys = ["nick", "page", "sortIndex"])
+data class FaveListRowEntity(
+    val nick: String,
+    val page: Int,
+    val sortIndex: Int,
+    val lastPage: Int,
+    val tracksId: Long?,
+    val meta: String,
+    val artist: String,
+    val title: String,
+    val lastRequested: Long?,
+    val lastPlayed: Long?,
+    val requestCount: Long?,
+)
+
 @Entity(tableName = "last_paint")
 data class LastPaintEntity(
     @PrimaryKey val id: Int = 1,
@@ -96,6 +117,42 @@ interface FaveMembershipDao {
 }
 
 @Dao
+interface FaveListDao {
+    @Query("SELECT * FROM fave_list_row WHERE nick = :nick ORDER BY page, sortIndex")
+    suspend fun forNick(nick: String): List<FaveListRowEntity>
+
+    @Query("SELECT * FROM fave_list_row WHERE nick = :nick AND page = :page ORDER BY sortIndex")
+    suspend fun forPage(nick: String, page: Int): List<FaveListRowEntity>
+
+    @Query("SELECT * FROM fave_list_meta WHERE nick = :nick")
+    suspend fun meta(nick: String): FaveListMetaEntity?
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun upsertMeta(row: FaveListMetaEntity)
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertRows(rows: List<FaveListRowEntity>)
+
+    @Query("DELETE FROM fave_list_row WHERE nick = :nick AND page = :page")
+    suspend fun deletePage(nick: String, page: Int)
+
+    @Query("DELETE FROM fave_list_row WHERE nick = :nick AND page > :last")
+    suspend fun deletePagesAbove(nick: String, last: Int)
+
+    @Query("DELETE FROM fave_list_row WHERE nick NOT IN (:keep)")
+    suspend fun deleteRowsNicksNotIn(keep: List<String>)
+
+    @Query("DELETE FROM fave_list_meta WHERE nick NOT IN (:keep)")
+    suspend fun deleteMetaNicksNotIn(keep: List<String>)
+
+    @Query("DELETE FROM fave_list_row")
+    suspend fun deleteAllRows()
+
+    @Query("DELETE FROM fave_list_meta")
+    suspend fun deleteAllMeta()
+}
+
+@Dao
 interface LastPaintDao {
     @Query("SELECT * FROM last_paint WHERE id = 1")
     suspend fun get(): LastPaintEntity?
@@ -170,6 +227,8 @@ interface ScheduleDao {
 @Database(
     entities = [
         FaveMembershipEntity::class,
+        FaveListMetaEntity::class,
+        FaveListRowEntity::class,
         LastPaintEntity::class,
         NewsPageEntity::class,
         NewsArticleEntity::class,
@@ -177,11 +236,12 @@ interface ScheduleDao {
         StaffMemberEntity::class,
         ScheduleDayEntity::class,
     ],
-    version = 3,
+    version = 4,
     exportSchema = false,
 )
 abstract class GeiravorDb : RoomDatabase() {
     abstract fun faves(): FaveMembershipDao
+    abstract fun faveList(): FaveListDao
     abstract fun paint(): LastPaintDao
     abstract fun news(): NewsDao
     abstract fun staff(): StaffDao
