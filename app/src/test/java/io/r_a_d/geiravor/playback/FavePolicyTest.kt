@@ -21,6 +21,11 @@ class FavePolicyTest {
         assertEquals("IrcNick", FavePolicy.listNick("", "IrcNick"))
         assertEquals("IrcNick", FavePolicy.listNick("  ", "IrcNick"))
         assertEquals("ListNick", FavePolicy.listNick("ListNick", "IrcNick"))
+        assertEquals(listOf("ListNick"), FavePolicy.membershipNicks("ListNick", ""))
+        assertEquals(listOf("IrcNick"), FavePolicy.membershipNicks("", "IrcNick"))
+        assertEquals(listOf("ListNick", "IrcNick"), FavePolicy.membershipNicks("ListNick", "IrcNick"))
+        assertEquals(listOf("Same"), FavePolicy.membershipNicks("Same", "Same"))
+        assertEquals(emptyList<String>(), FavePolicy.membershipNicks("  ", ""))
     }
 
     @Test

@@ -72,6 +72,7 @@ import io.r_a_d.geiravor.ui.SettingsScreen
 import io.r_a_d.geiravor.ui.SongsScreen
 import io.r_a_d.geiravor.ui.TabLabel
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -220,11 +221,21 @@ private fun GeiravorRoot() {
     }
     LaunchedEffect(homeNick, ircNick, radioState.status?.trackId, radioState.status?.np) {
         val status = radioState.status
-        val home = FavePolicy.listNick(homeNick, ircNick)
+        val nicks = FavePolicy.membershipNicks(homeNick, ircNick)
         val filled = withContext(Dispatchers.IO) {
-            FavePolicy.isListed(home, status, app.radio::isFavorite)
+            FavePolicy.isMember(nicks, status, app.radio::isFavorite)
         }
         RadioStore.setHeart(filled)
+    }
+    LaunchedEffect(homeNick, ircNick) {
+        delay(350)
+        val keep = FavePolicy.membershipNicks(homeNick, ircNick)
+        withContext(Dispatchers.IO) {
+            keep.forEach { nick ->
+                runCatching { app.radio.prefetchFavorites(nick) }
+            }
+        }
+        app.persistMembership(keep)
     }
 
     LifecycleResumeEffect(app) {
@@ -313,8 +324,8 @@ private fun GeiravorRoot() {
             scope.launch {
                 val (result, wasFilled) = withContext(Dispatchers.IO) {
                     val home = FavePolicy.listNick(homeNick, ircNick)
-                    val listed = FavePolicy.isListed(
-                        home,
+                    val listed = FavePolicy.isMember(
+                        FavePolicy.membershipNicks(homeNick, ircNick),
                         app.radio.snapshot(),
                         app.radio::isFavorite,
                     )
@@ -346,11 +357,13 @@ private fun GeiravorRoot() {
                     bumpList = heart.bumpList,
                 )
                 if (heart.bumpList) {
-                    val home = FavePolicy.listNick(homeNick, ircNick)
+                    val keep = FavePolicy.membershipNicks(homeNick, ircNick)
                     withContext(Dispatchers.IO) {
-                        runCatching { app.radio.prefetchFavorites(home) }
+                        keep.forEach { nick ->
+                            runCatching { app.radio.prefetchFavorites(nick) }
+                        }
                     }
-                    app.persistHomeFaves(home)
+                    app.persistMembership(keep)
                 }
             }
         }
@@ -441,14 +454,14 @@ private fun GeiravorRoot() {
                     onFavesNickPersist = { nick ->
                         scope.launch {
                             settings.setFavesNick(nick)
-                            val home = FavePolicy.listNick(nick, ircNick)
+                            val keep = FavePolicy.membershipNicks(nick, ircNick)
                             withContext(Dispatchers.IO) {
-                                app.radio.keepMembership(home)
-                                if (home.isNotEmpty()) {
-                                    runCatching { app.radio.prefetchFavorites(home) }
+                                app.radio.keepMemberships(keep)
+                                keep.forEach { stored ->
+                                    runCatching { app.radio.prefetchFavorites(stored) }
                                 }
                             }
-                            app.persistHomeFaves(home)
+                            app.persistMembership(keep)
                         }
                     },
                     modifier = modifier,

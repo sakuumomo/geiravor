@@ -84,14 +84,14 @@ object ListingCache {
     fun searchVisible(): Int = synchronized(lock) { searchVisible }
 
     fun freezeSearchVisible(measured: Int): Int = synchronized(lock) {
-        searchVisible = PanePolicy.freezeVisible(searchVisible, measured)
+        searchVisible = measured.coerceAtLeast(1)
         searchVisible
     }
 
     fun favesVisible(): Int = synchronized(lock) { favesVisible }
 
     fun freezeFavesVisible(measured: Int): Int = synchronized(lock) {
-        favesVisible = PanePolicy.freezeVisible(favesVisible, measured)
+        favesVisible = measured.coerceAtLeast(1)
         favesVisible
     }
 

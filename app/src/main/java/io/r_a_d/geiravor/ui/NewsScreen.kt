@@ -38,7 +38,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.onSizeChanged
-import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.style.TextAlign
@@ -66,8 +65,6 @@ fun NewsScreen(
     radio: RadioCore,
     modifier: Modifier = Modifier,
 ) {
-    val configuration = LocalConfiguration.current
-    val twoPane = AppLayout.twoPane(configuration.screenWidthDp, configuration.smallestScreenWidthDp)
     val start = remember { NewsStore.snapshot() }
     val startPage = start.uiPage.takeIf { it > 0 } ?: SessionCache.newsCurrent()
     val startFit = start.visible.coerceAtLeast(1)
@@ -206,19 +203,12 @@ fun NewsScreen(
                 .weight(1f)
                 .fillMaxWidth(),
         ) {
-            val available = PanePolicy.normalListDp(
-                boxMaxHeightDp = maxHeight.value,
-                screenWidthDp = configuration.screenWidthDp,
-                screenHeightDp = configuration.screenHeightDp,
-                twoPane = twoPane,
-            )
             val slot = slotDp.takeIf { it > 0f }
                 ?: (PanePolicy.NEWS_CARD_DP + PanePolicy.NEWS_GAP_DP).toFloat()
-            val measured = PanePolicy.thatFitSlot(available, slot)
+            val measured = PanePolicy.thatFitSlot(maxHeight.value, slot)
             LaunchedEffect(measured) {
-                val fit = NewsStore.freezeVisible(measured)
-                if (visible != fit) {
-                    visible = fit
+                if (visible != measured) {
+                    visible = measured
                 }
             }
             when {

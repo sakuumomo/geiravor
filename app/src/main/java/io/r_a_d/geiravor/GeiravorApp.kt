@@ -69,12 +69,13 @@ class GeiravorApp : Application(), ImageLoaderFactory {
         }
         paint?.let { RadioStore.hydrateStatus(SnapshotPolicy.toStatus(it)) }
         var lastPaint = paint
-        val home = runBlocking(Dispatchers.IO) {
-            FavePolicy.listNick(settings.favesNick.first(), settings.ircNick.first())
+        val keepNicks = runBlocking(Dispatchers.IO) {
+            FavePolicy.membershipNicks(settings.favesNick.first(), settings.ircNick.first())
         }
-        if (home.isNotEmpty()) {
-            val rows = runBlocking(Dispatchers.IO) { db.faves().forNick(home) }
-            radio.importMembership(home, MembershipStore.toRows(rows))
+        runBlocking(Dispatchers.IO) {
+            db.faves().nicks().forEach { nick ->
+                radio.importMembership(nick, MembershipStore.toRows(db.faves().forNick(nick)))
+            }
         }
         var lastDjImage = paint?.djImage
         radio.start(
@@ -108,10 +109,10 @@ class GeiravorApp : Application(), ImageLoaderFactory {
             if (djOn) {
                 DjNotifier.ensureChannel(this@GeiravorApp)
             }
-            if (home.isNotEmpty()) {
-                runCatching { radio.prefetchFavorites(home) }
+            keepNicks.forEach { nick ->
+                runCatching { radio.prefetchFavorites(nick) }
             }
-            persistHomeFaves(home)
+            persistMembership(keepNicks)
             var start = true
             while (coroutineContext.isActive) {
                 applyTheme(processStart = start)
@@ -170,21 +171,27 @@ class GeiravorApp : Application(), ImageLoaderFactory {
     }
 
     fun persistHomeFaves(nick: String) {
-        val home = FavePolicy.listNick(nick)
+        persistMembership(listOf(nick))
+    }
+
+    fun persistMembership(nicks: List<String>) {
+        val keep = nicks.map { it.trim() }.filter { it.isNotEmpty() }.distinct()
         ioScope.launch {
-            radio.keepMembership(home)
-            if (home.isEmpty()) {
+            radio.keepMemberships(keep)
+            if (keep.isEmpty()) {
                 db.faves().deleteAll()
                 return@launch
             }
-            db.faves().deleteOtherNicks(home)
-            val incoming = MembershipStore.fromRows(home, radio.exportMembership(home))
-            val existing = db.faves().forNick(home)
-            if (!MembershipStore.changed(existing, incoming)) {
-                return@launch
+            db.faves().deleteNicksNotIn(keep)
+            for (nick in keep) {
+                val incoming = MembershipStore.fromRows(nick, radio.exportMembership(nick))
+                val existing = db.faves().forNick(nick)
+                if (!MembershipStore.changed(existing, incoming)) {
+                    continue
+                }
+                db.faves().deleteNick(nick)
+                db.faves().insertAll(incoming)
             }
-            db.faves().deleteNick(home)
-            db.faves().insertAll(incoming)
         }
     }
 

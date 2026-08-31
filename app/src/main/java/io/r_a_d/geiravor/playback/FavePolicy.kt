@@ -31,6 +31,26 @@ object FavePolicy {
         return list.ifEmpty { connectionNick.trim() }
     }
 
+    /** Nicks the user actually typed in Favorites and Connection — not peeks. */
+    fun membershipNicks(favesNick: String, connectionNick: String): List<String> {
+        val faves = favesNick.trim()
+        val connection = connectionNick.trim()
+        val out = ArrayList<String>(2)
+        if (faves.isNotEmpty()) {
+            out.add(faves)
+        }
+        if (connection.isNotEmpty() && connection != faves) {
+            out.add(connection)
+        }
+        return out
+    }
+
+    fun isMember(
+        nicks: List<String>,
+        status: Status?,
+        query: (String, Long, String) -> Boolean,
+    ): Boolean = nicks.any { isListed(it, status, query) }
+
     fun sanitizePort(port: Int): Int =
         if (port in PORT_MIN..PORT_MAX) port else DEFAULT_BOUNCER_PORT
 

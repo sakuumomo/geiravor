@@ -82,6 +82,12 @@ interface FaveMembershipDao {
     @Query("DELETE FROM fave_membership WHERE nick != :nick")
     suspend fun deleteOtherNicks(nick: String)
 
+    @Query("SELECT DISTINCT nick FROM fave_membership")
+    suspend fun nicks(): List<String>
+
+    @Query("DELETE FROM fave_membership WHERE nick NOT IN (:keep)")
+    suspend fun deleteNicksNotIn(keep: List<String>)
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertAll(rows: List<FaveMembershipEntity>)
 

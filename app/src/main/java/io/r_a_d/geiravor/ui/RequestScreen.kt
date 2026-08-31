@@ -21,7 +21,6 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -46,8 +45,6 @@ fun RequestPane(
     modifier: Modifier = Modifier,
 ) {
     val scope = rememberCoroutineScope()
-    val configuration = LocalConfiguration.current
-    val twoPane = AppLayout.twoPane(configuration.screenWidthDp, configuration.smallestScreenWidthDp)
     var query by remember { mutableStateOf(SessionCache.searchQuery()) }
     var listing by remember {
         mutableStateOf(SessionCache.searchQuery() to SessionCache.searchCurrent())
@@ -244,14 +241,7 @@ fun RequestPane(
                 .weight(1f)
                 .fillMaxWidth(),
         ) {
-            val measured = PanePolicy.songThatFit(
-                PanePolicy.normalListDp(
-                    boxMaxHeightDp = maxHeight.value,
-                    screenWidthDp = configuration.screenWidthDp,
-                    screenHeightDp = configuration.screenHeightDp,
-                    twoPane = twoPane,
-                ),
-            )
+            val measured = PanePolicy.songThatFit(maxHeight.value)
             LaunchedEffect(measured) {
                 val fit = ListingCache.freezeSearchVisible(measured)
                 if (visible != fit) {

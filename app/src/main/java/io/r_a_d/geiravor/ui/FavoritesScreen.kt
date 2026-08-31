@@ -26,7 +26,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
-import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextAlign
@@ -63,8 +62,6 @@ fun FavoritesPane(
 ) {
     val scope = rememberCoroutineScope()
     val focus = LocalFocusManager.current
-    val configuration = LocalConfiguration.current
-    val twoPane = AppLayout.twoPane(configuration.screenWidthDp, configuration.smallestScreenWidthDp)
     var listing by remember {
         val fetch = nick.trim().ifEmpty { listFallback.trim() }
         mutableStateOf(
@@ -316,14 +313,7 @@ fun FavoritesPane(
                 .weight(1f)
                 .fillMaxWidth(),
         ) {
-            val measured = PanePolicy.songThatFit(
-                PanePolicy.normalListDp(
-                    boxMaxHeightDp = maxHeight.value,
-                    screenWidthDp = configuration.screenWidthDp,
-                    screenHeightDp = configuration.screenHeightDp,
-                    twoPane = twoPane,
-                ),
-            )
+            val measured = PanePolicy.songThatFit(maxHeight.value)
             LaunchedEffect(measured) {
                 val fit = ListingCache.freezeFavesVisible(measured)
                 if (visible != fit) {

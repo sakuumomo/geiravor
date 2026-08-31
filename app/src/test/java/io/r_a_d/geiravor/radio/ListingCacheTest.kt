@@ -34,9 +34,9 @@ class ListingCacheTest {
     }
 
     @Test
-    fun freezeSearchVisibleDoesNotShrinkOnRotate() {
+    fun visibleTracksTheCurrentPane() {
         assertEquals(6, ListingCache.freezeSearchVisible(6))
-        assertEquals(6, ListingCache.freezeSearchVisible(3))
+        assertEquals(3, ListingCache.freezeSearchVisible(3))
     }
 
     private fun page(current: Int, total: Int, last: Int, from: Int) = SearchPage(

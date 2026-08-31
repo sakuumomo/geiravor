@@ -4,7 +4,7 @@
 
 ## List (paginated)
 
-HTML only: `GET https://r-a-d.io/news` (page 1) and `GET https://r-a-d.io/news?page=` (2…). The site’s HTML page size is **20**; the app **does not show 20**. UI pages slice a **flat catalog** of every HTML page: as many cards as fit **without scrolling** in **normal viewing** (phone portrait, or the tablet two-pane). Rotation must not change that count. Only the true last leftover of the whole catalog may be short — stitch across HTML pages to fill the pane. Last HTML page is the max `/news?page=` in that HTML, or the current page when the page is short. An **empty** HTML page is past-last: do not take it as last even if the pager marks it current (Valkyrie still renders `?page=` past the last full page).
+HTML only: `GET https://r-a-d.io/news` (page 1) and `GET https://r-a-d.io/news?page=` (2…). The site’s HTML page size is **20**; the app **does not show 20**. UI pages slice a **flat catalog** of every HTML page: as many cards as fit **without scrolling** in the current list pane (same rule as Request / Favorites — measure the pane, fill it, do not guess a frozen portrait count). Only the true last leftover of the whole catalog may be short — stitch across HTML pages to fill the pane. Last HTML page is the max `/news?page=` in that HTML, or the current page when the page is short. An **empty** HTML page is past-last: do not take it as last even if the pager marks it current (Valkyrie still renders `?page=` past the last full page).
 
 Each card: `href="/news/{id}"`, `news-title`, author, date (`<time>` inner `on YYYY-MM-DD`), `header` flavor in `message-body`. Do **not** repeat `header` in the article.
 

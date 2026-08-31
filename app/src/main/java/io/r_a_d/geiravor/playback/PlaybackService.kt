@@ -176,9 +176,8 @@ class PlaybackService : MediaLibraryService() {
         }
         fun refreshFaveIcon(status: Status?) {
             scope.launch(Dispatchers.IO) {
-                val home = FavePolicy.listNick(faveNick, ircNick)
-                val filled = FavePolicy.isListed(
-                    home,
+                val filled = FavePolicy.isMember(
+                    FavePolicy.membershipNicks(faveNick, ircNick),
                     status,
                     radio::isFavorite,
                 )
@@ -208,8 +207,8 @@ class PlaybackService : MediaLibraryService() {
             onFave = {
                 scope.launch(Dispatchers.IO) {
                     val home = FavePolicy.listNick(faveNick, ircNick)
-                    val wasFilled = FavePolicy.isListed(
-                        home,
+                    val wasFilled = FavePolicy.isMember(
+                        FavePolicy.membershipNicks(faveNick, ircNick),
                         radio.snapshot(),
                         radio::isFavorite,
                     )
@@ -242,8 +241,11 @@ class PlaybackService : MediaLibraryService() {
                         publishButtons()
                     }
                     if (FavePolicy.heartUpdate(wasFilled, result).bumpList) {
-                        runCatching { radio.prefetchFavorites(home) }
-                        (application as GeiravorApp).persistHomeFaves(home)
+                        val keep = FavePolicy.membershipNicks(faveNick, ircNick)
+                        keep.forEach { nick ->
+                            runCatching { radio.prefetchFavorites(nick) }
+                        }
+                        (application as GeiravorApp).persistMembership(keep)
                     }
                 }
             },

@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::sync::atomic::{AtomicBool, AtomicU32, Ordering};
 use std::sync::{Arc, Mutex};
 use std::thread::{self, JoinHandle};
@@ -735,17 +735,25 @@ impl RadioCore {
     }
 
     pub fn keep_membership(&self, nick: String) {
-        let nick = nick.trim().to_string();
+        self.keep_memberships(vec![nick]);
+    }
+
+    pub fn keep_memberships(&self, nicks: Vec<String>) {
+        let keep: HashSet<String> = nicks
+            .into_iter()
+            .map(|n| n.trim().to_string())
+            .filter(|n| !n.is_empty())
+            .collect();
         let mut cache = self.http_cache.lock().expect("cache");
-        if nick.is_empty() {
+        if keep.is_empty() {
             cache.membership.clear();
             cache.fave_plus.clear();
             cache.fave_minus.clear();
             return;
         }
-        cache.membership.retain(|k, _| k == &nick);
-        cache.fave_plus.retain(|k, _| k == &nick);
-        cache.fave_minus.retain(|k, _| k == &nick);
+        cache.membership.retain(|k, _| keep.contains(k));
+        cache.fave_plus.retain(|k, _| keep.contains(k));
+        cache.fave_minus.retain(|k, _| keep.contains(k));
     }
 
     fn fetch_all_fave_rows(&self, nick: &str) -> Result<Vec<FavoriteRow>, ApiError> {
@@ -996,6 +1004,27 @@ mod tests {
         assert!(core.is_favorite("Bob".into(), 2, "B - Two".into()));
         core.keep_membership("  ".into());
         assert!(!core.is_favorite("Bob".into(), 2, "B - Two".into()));
+    }
+
+    #[test]
+    fn keep_memberships_keeps_both_typed_nicks() {
+        let core = core();
+        core.import_membership(
+            "Alice".into(),
+            vec![membership_row(1, "A - One")],
+        );
+        core.import_membership(
+            "Bob".into(),
+            vec![membership_row(2, "B - Two")],
+        );
+        core.import_membership(
+            "Peek".into(),
+            vec![membership_row(3, "C - Three")],
+        );
+        core.keep_memberships(vec!["Alice".into(), "Bob".into()]);
+        assert!(core.is_favorite("Alice".into(), 1, "A - One".into()));
+        assert!(core.is_favorite("Bob".into(), 2, "B - Two".into()));
+        assert!(!core.is_favorite("Peek".into(), 3, "C - Three".into()));
     }
 
     #[test]
