@@ -20,10 +20,10 @@ data class NewsBlock(
 object NewsPolicy {
     const val IMAGE_HOST = "static.r-a-d.io"
     const val COMMENT_MAX = 500
-    const val SERVER_PER_PAGE = 20
-    const val LIST_GAP_DP = 12
+    const val SERVER_PER_PAGE = PanePolicy.NEWS_PER_PAGE
+    const val LIST_GAP_DP = PanePolicy.NEWS_GAP_DP
     /** Title + author + two-line blurb + padding + gap; sized so a page does not scroll. */
-    const val LIST_CARD_DP = 120
+    const val LIST_CARD_DP = PanePolicy.NEWS_CARD_DP
 
     private val dateOnly = Regex("""^\d{4}-\d{2}-\d{2}$""")
     private val timeTag = Regex("""(?is)<time\b([^>]*)>(.*?)</time>""")
@@ -85,74 +85,7 @@ object NewsPolicy {
         return trimmed.isNotEmpty() && trimmed.length <= COMMENT_MAX
     }
 
-    fun cardsThatFit(availableDp: Float): Int {
-        val slot = (LIST_CARD_DP + LIST_GAP_DP).toFloat()
-        if (!availableDp.isFinite() || availableDp <= 0f) {
-            return 1
-        }
-        return kotlin.math.floor(availableDp / slot).toInt().coerceAtLeast(1)
-    }
-
-    /** Drop a 1–2 card leftover of a full HTML page; still no more cards than fit. */
-    fun paneCards(fit: Int): Int {
-        val vis = fit.coerceAtLeast(1)
-        val rem = SERVER_PER_PAGE % vis
-        if (rem == 0 || rem * 2 >= vis) {
-            return vis
-        }
-        return (vis downTo 1).first { SERVER_PER_PAGE % it == 0 }
-    }
-
-    fun uiPagesForCount(count: Int, visible: Int): Int {
-        val vis = visible.coerceAtLeast(1)
-        val n = count.coerceAtLeast(0)
-        if (n <= 0) {
-            return 0
-        }
-        return (n + vis - 1) / vis
-    }
-
-    /** UI pages stay inside one HTML page; leftover is short, not filled from the next/previous. */
-    fun listLastPage(serverLast: Int, lastPageCount: Int, visible: Int): Int {
-        val last = serverLast.coerceAtLeast(1)
-        val vis = visible.coerceAtLeast(1)
-        val perFull = uiPagesForCount(SERVER_PER_PAGE, vis).coerceAtLeast(1)
-        val lastUi = uiPagesForCount(lastPageCount.coerceIn(0, SERVER_PER_PAGE), vis)
-        return ((last - 1) * perFull + lastUi).coerceAtLeast(1)
-    }
-
-    fun serverPage(uiPage: Int, visible: Int): Int {
-        val vis = visible.coerceAtLeast(1)
-        val perFull = uiPagesForCount(SERVER_PER_PAGE, vis).coerceAtLeast(1)
-        return ((uiPage.coerceAtLeast(1) - 1) / perFull) + 1
-    }
-
-    fun serverOffset(uiPage: Int, visible: Int): Int {
-        val vis = visible.coerceAtLeast(1)
-        val perFull = uiPagesForCount(SERVER_PER_PAGE, vis).coerceAtLeast(1)
-        return ((uiPage.coerceAtLeast(1) - 1) % perFull) * vis
-    }
-
-    fun listTotal(serverLast: Int, lastPageCount: Int): Int {
-        val last = serverLast.coerceAtLeast(1)
-        val count = lastPageCount.coerceIn(0, SERVER_PER_PAGE)
-        return (last - 1) * SERVER_PER_PAGE + count
-    }
-
-    fun lastHtmlCount(
-        serverPage: Int,
-        htmlLast: Int,
-        currentCount: Int,
-        storedLastCount: Int?,
-    ): Int? {
-        if (htmlLast <= 0) {
-            return null
-        }
-        if (serverPage == htmlLast) {
-            return currentCount.coerceIn(0, SERVER_PER_PAGE)
-        }
-        return storedLastCount?.coerceIn(0, SERVER_PER_PAGE)
-    }
+    fun cardsThatFit(availableDp: Float): Int = PanePolicy.newsThatFit(availableDp)
 
     fun nameColor(role: String, fallback: Color = RadioTheme.muted): Color =
         when (role) {

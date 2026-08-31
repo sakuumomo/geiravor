@@ -5,11 +5,31 @@ import coil.annotation.ExperimentalCoilApi
 import coil.imageLoader
 import coil.memory.MemoryCache
 import io.r_a_d.geiravor.ui.NewsPolicy
+import io.r_a_d.geiravor.ui.PanePolicy
 import uniffi.geiravor_core.NewsArticle
 import uniffi.geiravor_core.NewsAuthor
 import uniffi.geiravor_core.NewsComment
 
 object NewsStore {
+    data class Ram(
+        val htmlLast: Int = 1,
+        val pages: Map<Int, List<NewsArticle>> = emptyMap(),
+        val visible: Int = 0,
+        val uiPage: Int = 1,
+        val opened: Map<Long, Pair<NewsArticle, List<NewsComment>>> = emptyMap(),
+    ) {
+        fun rows(): List<NewsArticle> {
+            val out = ArrayList<NewsArticle>()
+            for (i in 1..htmlLast) {
+                val page = pages[i] ?: break
+                out.addAll(page)
+            }
+            return out
+        }
+
+        fun ids(): Set<Long> = rows().map { it.id }.toSet()
+    }
+
     data class ListPaint(
         val uiPage: Int,
         val visible: Int,
@@ -17,8 +37,74 @@ object NewsStore {
         val articles: List<NewsArticle>,
     )
 
+    private val lock = Any()
+
+    @Volatile
+    private var ram: Ram = Ram()
+
     @Volatile
     var listPaint: ListPaint? = null
+
+    fun snapshot(): Ram = synchronized(lock) { ram }
+
+    fun freezeVisible(measured: Int): Int = synchronized(lock) {
+        ram = ram.copy(visible = PanePolicy.freezeVisible(ram.visible, measured))
+        ram.visible
+    }
+
+    fun setUiPage(page: Int) {
+        synchronized(lock) { ram = ram.copy(uiPage = page.coerceAtLeast(1)) }
+    }
+
+    fun putHtmlPage(htmlPage: Int, htmlLast: Int, articles: List<NewsArticle>, dropLater: Boolean) {
+        synchronized(lock) {
+            val last = htmlLast.coerceAtLeast(1)
+            val pages = ram.pages.toMutableMap()
+            pages[htmlPage] = articles
+            if (dropLater) {
+                pages.keys.filter { it > 1 }.forEach { key ->
+                    if (key != htmlPage) {
+                        pages.remove(key)
+                    }
+                }
+            }
+            pages.keys.filter { it > last }.forEach { pages.remove(it) }
+            ram = ram.copy(htmlLast = last, pages = pages)
+        }
+    }
+
+    fun rememberOpened(article: NewsArticle, comments: List<NewsComment>) {
+        if (article.id <= 0) {
+            return
+        }
+        synchronized(lock) {
+            ram = ram.copy(opened = ram.opened + (article.id to (article to comments)))
+        }
+    }
+
+    fun opened(id: Long): Pair<NewsArticle, List<NewsComment>>? = synchronized(lock) {
+        ram.opened[id]
+    }
+
+    /** List chrome plus any stored body/comments, for the first paint before GET. */
+    fun seedArticle(list: NewsArticle): Pair<NewsArticle, List<NewsComment>> {
+        val hit = opened(list.id)
+        if (hit == null) {
+            return list to emptyList()
+        }
+        val stored = hit.first
+        return list.copy(
+            title = list.title.ifEmpty { stored.title },
+            header = list.header.ifEmpty { stored.header },
+            text = stored.text.ifEmpty { list.text },
+            updatedAt = list.updatedAt.ifEmpty { stored.updatedAt },
+        ) to hit.second
+    }
+
+    fun clearForTests() {
+        synchronized(lock) { ram = Ram() }
+        listPaint = null
+    }
 
     fun mergeListRow(existing: NewsArticleEntity?, incoming: NewsArticle): NewsArticleEntity {
         val row = fromArticle(incoming)
@@ -74,6 +160,28 @@ object NewsStore {
             )
         }
 
+    suspend fun hydrate(db: GeiravorDb): Ram {
+        val stored = db.news().allPages()
+        if (stored.isEmpty()) {
+            return snapshot()
+        }
+        val htmlLast = stored.maxOf { maxOf(it.lastPage, it.page) }.coerceAtLeast(1)
+        val pages = HashMap<Int, List<NewsArticle>>()
+        for (row in stored) {
+            val ids = parseIds(row.ids)
+            if (ids.isEmpty()) {
+                pages[row.page] = emptyList()
+                continue
+            }
+            val found = db.news().articles(ids).associateBy { it.id }
+            pages[row.page] = ids.mapNotNull { id -> found[id]?.let(::toArticle) }
+        }
+        synchronized(lock) {
+            ram = ram.copy(htmlLast = htmlLast, pages = ram.pages + pages)
+        }
+        return snapshot()
+    }
+
     suspend fun loadPage(db: GeiravorDb, page: Int): Pair<Int, List<NewsArticle>>? {
         val row = db.news().page(page) ?: return null
         val ids = parseIds(row.ids)
@@ -127,9 +235,14 @@ object NewsStore {
     }
 
     suspend fun loadArticle(db: GeiravorDb, id: Long): Pair<NewsArticle, List<NewsComment>>? {
+        opened(id)?.let { return it }
         val article = db.news().article(id) ?: return null
         val comments = db.news().comments(id).map(::toComment)
-        return toArticle(article) to comments
+        val pair = toArticle(article) to comments
+        if (pair.first.text.isNotEmpty() || comments.isNotEmpty()) {
+            rememberOpened(pair.first, pair.second)
+        }
+        return pair
     }
 
     fun articleWrite(
@@ -153,15 +266,33 @@ object NewsStore {
     ): Boolean {
         val existing = db.news().article(article.id)
         val existingComments = db.news().comments(article.id)
-        val write = articleWrite(existing, existingComments, article, comments) ?: return false
-        db.news().upsertArticle(write.first)
-        if (DiskPolicy.changed(existingComments, write.second)) {
-            db.news().deleteComments(article.id)
-            if (write.second.isNotEmpty()) {
-                db.news().upsertComments(write.second)
+        val write = articleWrite(existing, existingComments, article, comments)
+        if (write != null) {
+            db.news().upsertArticle(write.first)
+            if (DiskPolicy.changed(existingComments, write.second)) {
+                db.news().deleteComments(article.id)
+                if (write.second.isNotEmpty()) {
+                    db.news().upsertComments(write.second)
+                }
             }
         }
-        return true
+        val stored = if (article.text.isNotEmpty()) {
+            article
+        } else {
+            existing?.let(::toArticle) ?: article
+        }
+        rememberOpened(stored, comments)
+        return write != null
+    }
+
+    suspend fun pruneCatalog(
+        context: Context,
+        db: GeiravorDb,
+        extraIds: Collection<Long> = emptyList(),
+    ) {
+        val snap = snapshot()
+        val keepPages = snap.pages.keys.toList().ifEmpty { listOf(1) }
+        prune(context, db, keepPages, snap.ids() + snap.opened.keys + extraIds)
     }
 
     suspend fun prune(

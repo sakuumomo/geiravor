@@ -1,12 +1,41 @@
 package io.r_a_d.geiravor.data
 
 import org.junit.Assert.assertEquals
+import org.junit.Before
 import org.junit.Test
 import uniffi.geiravor_core.NewsArticle
 import uniffi.geiravor_core.NewsAuthor
 import uniffi.geiravor_core.NewsComment
 
 class NewsStoreTest {
+    @Before
+    fun resetRam() {
+        NewsStore.clearForTests()
+    }
+
+    @Test
+    fun catalogRowsStopAtTheFirstMissingHtmlPage() {
+        val one = article(id = 1, header = "a", text = "")
+        val two = article(id = 2, header = "b", text = "")
+        NewsStore.putHtmlPage(1, 4, listOf(one, two), dropLater = false)
+        assertEquals(listOf(1L, 2L), NewsStore.snapshot().rows().map { it.id })
+    }
+
+    @Test
+    fun catalogRowsFlattenHtmlPages() {
+        val one = article(id = 1, header = "a", text = "")
+        val two = article(id = 2, header = "b", text = "")
+        val three = article(id = 3, header = "c", text = "<p>body</p>")
+        NewsStore.putHtmlPage(1, 2, listOf(one, two), dropLater = false)
+        NewsStore.putHtmlPage(2, 2, listOf(three), dropLater = false)
+        assertEquals(listOf(1L, 2L, 3L), NewsStore.snapshot().rows().map { it.id })
+        NewsStore.rememberOpened(three, emptyList())
+        assertEquals("<p>body</p>", NewsStore.opened(3)!!.first.text)
+        NewsStore.putHtmlPage(1, 2, listOf(one, two), dropLater = true)
+        assertEquals(listOf(1L, 2L), NewsStore.snapshot().rows().map { it.id })
+        assertEquals("<p>body</p>", NewsStore.opened(3)!!.first.text)
+    }
+
     @Test
     fun listSaveKeepsExistingArticleBody() {
         val existing = NewsStore.fromArticle(

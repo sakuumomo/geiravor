@@ -38,6 +38,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.style.TextAlign
@@ -65,26 +66,48 @@ fun NewsScreen(
     radio: RadioCore,
     modifier: Modifier = Modifier,
 ) {
-    val paint = NewsStore.listPaint
-    var page by remember { mutableStateOf(paint?.uiPage ?: SessionCache.newsCurrent()) }
-    var lastPage by remember { mutableStateOf(paint?.lastPage ?: 1) }
-    var visible by remember { mutableStateOf(paint?.visible ?: 0) }
-    var articles by remember { mutableStateOf(paint?.articles.orEmpty()) }
+    val configuration = LocalConfiguration.current
+    val twoPane = AppLayout.twoPane(configuration.screenWidthDp, configuration.smallestScreenWidthDp)
+    val start = remember { NewsStore.snapshot() }
+    val startPage = start.uiPage.takeIf { it > 0 } ?: SessionCache.newsCurrent()
+    val startFit = start.visible.coerceAtLeast(1)
+    var page by remember { mutableStateOf(startPage) }
+    var lastPage by remember { mutableStateOf(PanePolicy.lastPage(start.rows().size, startFit)) }
+    var visible by remember { mutableStateOf(start.visible) }
+    var articles by remember {
+        mutableStateOf(PanePolicy.slice(start.rows(), startPage, startFit))
+    }
     var error by remember { mutableStateOf<String?>(null) }
-    var loading by remember { mutableStateOf(articles.isEmpty()) }
+    var loading by remember { mutableStateOf(articles.isEmpty() && start.rows().isEmpty()) }
     var selected by remember { mutableStateOf<NewsArticle?>(null) }
+    var slotDp by remember { mutableStateOf(0f) }
     val context = LocalContext.current
 
-    fun showList(rows: List<NewsArticle>, uiLast: Int, uiPage: Int, fit: Int) {
-        articles = rows
-        lastPage = uiLast
-        loading = false
+    fun showRam(uiPage: Int, fit: Int) {
+        val vis = fit.coerceAtLeast(1)
+        val rows = NewsStore.snapshot().rows()
+        val last = PanePolicy.lastPage(rows.size, vis)
+        val clamped = PagerPolicy.clampPage(uiPage, last)
+        val shown = PanePolicy.slice(rows, clamped, vis)
+        articles = shown
+        lastPage = last
+        if (shown.isNotEmpty() || rows.isNotEmpty()) {
+            loading = false
+        }
+        NewsStore.setUiPage(clamped)
+        SessionCache.putNewsCurrent(clamped)
         NewsStore.listPaint = NewsStore.ListPaint(
-            uiPage = uiPage,
-            visible = fit,
-            lastPage = uiLast,
-            articles = rows,
+            uiPage = clamped,
+            visible = vis,
+            lastPage = last,
+            articles = shown,
         )
+    }
+
+    LaunchedEffect(Unit) {
+        val db = GeiravorDb.get(context)
+        withContext(Dispatchers.IO) { NewsStore.hydrate(db) }
+        showRam(page, visible.takeIf { it > 0 } ?: startFit)
     }
 
     LaunchedEffect(radio, page, visible) {
@@ -92,95 +115,60 @@ fun NewsScreen(
             return@LaunchedEffect
         }
         error = null
-        val serverPage = NewsPolicy.serverPage(page, visible)
-        val offset = NewsPolicy.serverOffset(page, visible)
+        showRam(page, visible)
         val db = GeiravorDb.get(context)
-        val cached = withContext(Dispatchers.IO) { NewsStore.loadPage(db, serverPage) }
-        if (cached != null) {
-            val (htmlLast, rows) = cached
-            val shown = rows.drop(offset).take(visible)
-            val storedLast = if (serverPage == htmlLast) {
-                rows.size
-            } else {
-                withContext(Dispatchers.IO) { NewsStore.loadPage(db, htmlLast)?.second?.size }
+        suspend fun pull(htmlPage: Int) {
+            val previous = NewsStore.snapshot().pages[htmlPage]?.map { it.id }
+            val fetched = withContext(Dispatchers.IO) { radio.news(htmlPage) }
+            val htmlLast = fetched.lastPage.toInt().coerceAtLeast(1)
+            withContext(Dispatchers.IO) {
+                NewsStore.savePage(db, htmlPage, htmlLast, fetched.data)
             }
-            val lastCount = NewsPolicy.lastHtmlCount(
-                serverPage = serverPage,
-                htmlLast = htmlLast,
-                currentCount = rows.size,
-                storedLastCount = storedLast,
-            )
-            if (lastCount != null) {
-                showList(
-                    shown,
-                    NewsPolicy.listLastPage(htmlLast, lastCount, visible),
-                    page,
-                    visible,
-                )
-            } else if (shown.isNotEmpty()) {
-                articles = shown
-                loading = false
-            }
-        } else if (articles.isEmpty()) {
-            loading = true
+            val dropLater = htmlPage == 1 &&
+                previous != null &&
+                previous != fetched.data.map { it.id }
+            NewsStore.putHtmlPage(htmlPage, htmlLast, fetched.data, dropLater)
+            (context.applicationContext as? GeiravorApp)?.refreshTheme(processStart = false)
         }
         try {
-            val first = withContext(Dispatchers.IO) { radio.news(serverPage) }
-            val shown = first.data.drop(offset).take(visible)
-            val htmlLast = first.lastPage.toInt().coerceAtLeast(1)
-            withContext(Dispatchers.IO) {
-                NewsStore.savePage(db, serverPage, htmlLast, first.data)
+            if (page == 1 || NewsStore.snapshot().pages[1] == null) {
+                pull(1)
+                showRam(page, visible)
             }
-            if (shown.isNotEmpty()) {
-                articles = shown
-                loading = false
-            }
-            val storedLast = if (serverPage == htmlLast) {
-                first.data.size
-            } else {
-                withContext(Dispatchers.IO) {
-                    NewsStore.loadPage(db, htmlLast)?.second?.size
-                }
-            }
-            var lastCount = NewsPolicy.lastHtmlCount(
-                serverPage = serverPage,
-                htmlLast = htmlLast,
-                currentCount = first.data.size,
-                storedLastCount = storedLast,
-            )
-            if (lastCount == null) {
-                val lastHtml = withContext(Dispatchers.IO) { radio.news(htmlLast) }
-                lastCount = lastHtml.data.size
-                withContext(Dispatchers.IO) {
-                    NewsStore.savePage(db, htmlLast, htmlLast, lastHtml.data)
+            val htmlLast = NewsStore.snapshot().htmlLast.coerceAtLeast(1)
+            for (htmlPage in 2..htmlLast) {
+                if (NewsStore.snapshot().pages[htmlPage] == null) {
+                    pull(htmlPage)
+                    showRam(page, visible)
                 }
             }
             withContext(Dispatchers.IO) {
-                NewsStore.prune(
+                NewsStore.pruneCatalog(
                     context,
                     db,
-                    keepPages = listOf(serverPage, htmlLast),
-                    keepArticleIds = selected?.id?.let { listOf(it) }.orEmpty(),
+                    extraIds = selected?.id?.let { listOf(it) }.orEmpty(),
                 )
             }
-            val uiLast = NewsPolicy.listLastPage(htmlLast, lastCount, visible)
-            val clamped = PagerPolicy.clampPage(page, uiLast)
-            SessionCache.putNewsCurrent(clamped)
-            (context.applicationContext as? GeiravorApp)?.refreshTheme(processStart = false)
+            val last = PanePolicy.lastPage(NewsStore.snapshot().rows().size, visible)
+            val clamped = PagerPolicy.clampPage(page, last)
             if (clamped != page) {
                 page = clamped
             } else {
-                showList(shown, uiLast, clamped, visible)
+                showRam(clamped, visible)
             }
         } catch (err: CancellationException) {
             throw err
         } catch (err: Exception) {
-            if (articles.isEmpty()) {
+            if (NewsStore.snapshot().rows().isEmpty() && articles.isEmpty()) {
                 lastPage = 1
                 error = err.message?.takeIf { it.isNotBlank() } ?: "Couldn't load news"
+            } else {
+                showRam(page, visible)
             }
         }
-        loading = false
+        if (articles.isNotEmpty() || NewsStore.snapshot().rows().isNotEmpty()) {
+            loading = false
+        }
     }
 
     val article = selected
@@ -218,8 +206,17 @@ fun NewsScreen(
                 .weight(1f)
                 .fillMaxWidth(),
         ) {
-            val fit = NewsPolicy.paneCards(NewsPolicy.cardsThatFit(maxHeight.value))
-            LaunchedEffect(fit) {
+            val available = PanePolicy.normalListDp(
+                boxMaxHeightDp = maxHeight.value,
+                screenWidthDp = configuration.screenWidthDp,
+                screenHeightDp = configuration.screenHeightDp,
+                twoPane = twoPane,
+            )
+            val slot = slotDp.takeIf { it > 0f }
+                ?: (PanePolicy.NEWS_CARD_DP + PanePolicy.NEWS_GAP_DP).toFloat()
+            val measured = PanePolicy.thatFitSlot(available, slot)
+            LaunchedEffect(measured) {
+                val fit = NewsStore.freezeVisible(measured)
                 if (visible != fit) {
                     visible = fit
                 }
@@ -241,7 +238,16 @@ fun NewsScreen(
                         verticalArrangement = Arrangement.spacedBy(NewsPolicy.LIST_GAP_DP.dp),
                     ) {
                         articles.forEach { item ->
-                            NewsListCard(article = item, onOpen = { selected = item })
+                            NewsListCard(
+                                article = item,
+                                onOpen = { selected = item },
+                                onSlotDp = { height ->
+                                    val next = height + NewsPolicy.LIST_GAP_DP
+                                    if (next > slotDp) {
+                                        slotDp = next
+                                    }
+                                },
+                            )
                         }
                     }
                 }
@@ -285,11 +291,16 @@ private fun NewsByline(
 private fun NewsListCard(
     article: NewsArticle,
     onOpen: () -> Unit,
+    onSlotDp: (Float) -> Unit = {},
 ) {
+    val density = LocalDensity.current
     val blurb = NewsPolicy.plainText(article.header)
     RadioCard(
         modifier = Modifier
             .fillMaxWidth()
+            .onSizeChanged { size ->
+                onSlotDp(with(density) { size.height.toDp().value })
+            }
             .clickable(onClick = onOpen),
     ) {
         Column(
@@ -330,8 +341,9 @@ private fun NewsArticlePane(
 ) {
     val scope = rememberCoroutineScope()
     val listState = rememberLazyListState()
-    var displayed by remember { mutableStateOf(article) }
-    var comments by remember { mutableStateOf(listOf<NewsComment>()) }
+    val seeded = remember(article.id) { NewsStore.seedArticle(article) }
+    var displayed by remember(article.id) { mutableStateOf(seeded.first) }
+    var comments by remember(article.id) { mutableStateOf(seeded.second) }
     var commentError by remember { mutableStateOf<String?>(null) }
     var draft by remember { mutableStateOf("") }
     var busy by remember { mutableStateOf(false) }
@@ -350,9 +362,14 @@ private fun NewsArticlePane(
         if (cached != null) {
             val (stored, storedComments) = cached
             if (stored.text.isNotEmpty()) {
-                displayed = displayed.copy(text = stored.text)
+                displayed = displayed.copy(
+                    text = stored.text,
+                    title = displayed.title.ifEmpty { stored.title },
+                )
             }
-            comments = storedComments
+            if (storedComments.isNotEmpty()) {
+                comments = storedComments
+            }
         }
         try {
             val full = withContext(Dispatchers.IO) { radio.newsArticle(article.id) }

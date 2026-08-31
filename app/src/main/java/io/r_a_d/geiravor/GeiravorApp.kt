@@ -15,6 +15,7 @@ import coil.memory.MemoryCache
 import io.r_a_d.geiravor.data.GeiravorDb
 import io.r_a_d.geiravor.data.LastPaintEntity
 import io.r_a_d.geiravor.data.MembershipStore
+import io.r_a_d.geiravor.data.NewsStore
 import io.r_a_d.geiravor.playback.AlarmBootReceiver
 import io.r_a_d.geiravor.playback.DjNotifier
 import io.r_a_d.geiravor.playback.CarModeReceiver
@@ -62,6 +63,7 @@ class GeiravorApp : Application(), ImageLoaderFactory {
         db = GeiravorDb.get(this)
         val settings = SettingsStore(this)
         val paint = runBlocking(Dispatchers.IO) {
+            NewsStore.hydrate(db)
             val fromRoom = db.paint().get()?.blob?.let { SnapshotPolicy.decode(it) }
             fromRoom ?: settings.lastPaint()
         }

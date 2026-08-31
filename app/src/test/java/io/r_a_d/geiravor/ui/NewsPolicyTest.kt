@@ -106,39 +106,6 @@ line two</p>
         assertEquals(1, NewsPolicy.cardsThatFit(50f))
         assertEquals(3, NewsPolicy.cardsThatFit((NewsPolicy.LIST_CARD_DP + NewsPolicy.LIST_GAP_DP) * 3.4f))
         assertEquals(1, NewsPolicy.cardsThatFit(Float.POSITIVE_INFINITY))
-        assertEquals(5, NewsPolicy.paneCards(6))
-        assertEquals(5, NewsPolicy.paneCards(9))
-        assertEquals(4, NewsPolicy.paneCards(4))
-        assertEquals(7, NewsPolicy.paneCards(7))
-        assertEquals(3, NewsPolicy.paneCards(3))
-        assertEquals(20, NewsPolicy.listTotal(serverLast = 1, lastPageCount = 20))
-        assertEquals(65, NewsPolicy.listTotal(serverLast = 4, lastPageCount = 5))
-        assertEquals(17, NewsPolicy.listLastPage(serverLast = 4, lastPageCount = 5, visible = 4))
-        assertEquals(2, NewsPolicy.serverPage(uiPage = 6, visible = 4))
-        assertEquals(4, NewsPolicy.serverOffset(uiPage = 2, visible = 4))
-    }
-
-    @Test
-    fun lastUiPageIsHtmlLeftoverNotAFullSetFromThePreviousHtmlPage() {
-        assertEquals(13, NewsPolicy.listLastPage(serverLast = 4, lastPageCount = 5, visible = 6))
-        assertEquals(4, NewsPolicy.serverPage(uiPage = 13, visible = 6))
-        assertEquals(0, NewsPolicy.serverOffset(uiPage = 13, visible = 6))
-        assertEquals(3, NewsPolicy.serverPage(uiPage = 12, visible = 6))
-        assertEquals(18, NewsPolicy.serverOffset(uiPage = 12, visible = 6))
-        assertEquals(7, NewsPolicy.listLastPage(serverLast = 4, lastPageCount = 5, visible = 11))
-        assertEquals(4, NewsPolicy.serverPage(uiPage = 7, visible = 11))
-        assertEquals(0, NewsPolicy.serverOffset(uiPage = 7, visible = 11))
-        assertEquals(3, NewsPolicy.serverPage(uiPage = 6, visible = 11))
-        assertEquals(11, NewsPolicy.serverOffset(uiPage = 6, visible = 11))
-    }
-
-    @Test
-    fun uiLastPageUsesStoredLastHtmlCountNotAFullPageGuess() {
-        assertEquals(12, NewsPolicy.lastHtmlCount(serverPage = 4, htmlLast = 4, currentCount = 12, storedLastCount = null))
-        assertEquals(12, NewsPolicy.lastHtmlCount(serverPage = 1, htmlLast = 4, currentCount = 20, storedLastCount = 12))
-        assertEquals(null, NewsPolicy.lastHtmlCount(serverPage = 1, htmlLast = 4, currentCount = 20, storedLastCount = null))
-        assertEquals(8, NewsPolicy.listLastPage(serverLast = 4, lastPageCount = 20, visible = 12))
-        assertEquals(7, NewsPolicy.listLastPage(serverLast = 4, lastPageCount = 12, visible = 12))
     }
 
     @Test

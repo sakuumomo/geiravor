@@ -68,4 +68,4 @@ Show cache first. GET. **Write only if the new payload is actually different.** 
 - Home-nick membership
 - Last-paint blob
 
-Coil stays URL-keyed (DJ + staff images). Skip Room upserts and Coil rewrites when equal. Search and faves listing stay uncached. Last-paint: skip write when chrome is unchanged (`current` and `listeners` tick every poll and must not force a rewrite).
+Coil stays URL-keyed (DJ + staff images). Skip Room upserts and Coil rewrites when equal. Search and faves listing stay off disk; they keep **process RAM** of fetched server pages so paging the same query/nick does not GET again (`006-requests-faves.md`). News list HTML pages and viewed article bodies stay on disk and are copied into RAM (`007-news.md`). Last-paint: skip write when chrome is unchanged (`current` and `listeners` tick every poll and must not force a rewrite).

@@ -1,14 +1,12 @@
 package io.r_a_d.geiravor.ui
 
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.OutlinedTextField
@@ -23,10 +21,12 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import io.r_a_d.geiravor.radio.ListingCache
 import io.r_a_d.geiravor.radio.SessionCache
 import kotlin.coroutines.cancellation.CancellationException
 import kotlinx.coroutines.Dispatchers
@@ -46,16 +46,42 @@ fun RequestPane(
     modifier: Modifier = Modifier,
 ) {
     val scope = rememberCoroutineScope()
+    val configuration = LocalConfiguration.current
+    val twoPane = AppLayout.twoPane(configuration.screenWidthDp, configuration.smallestScreenWidthDp)
     var query by remember { mutableStateOf(SessionCache.searchQuery()) }
     var listing by remember {
         mutableStateOf(SessionCache.searchQuery() to SessionCache.searchCurrent())
     }
-    var lastPage by remember { mutableStateOf(1) }
-    var hits by remember { mutableStateOf(listOf<SearchHit>()) }
+    var lastPage by remember {
+        mutableStateOf(
+            PanePolicy.lastPage(
+                ListingCache.searchTotal(SessionCache.searchQuery()) ?: 0,
+                ListingCache.searchVisible().coerceAtLeast(1),
+            ),
+        )
+    }
+    var hits by remember {
+        val q = SessionCache.searchQuery()
+        val p = SessionCache.searchCurrent()
+        val vis = ListingCache.searchVisible().coerceAtLeast(1)
+        mutableStateOf(
+            PanePolicy.window(
+                ListingCache.searchRows(q),
+                PanePolicy.startIndex(p, vis),
+                vis,
+                PanePolicy.SEARCH_PER_PAGE,
+            ).orEmpty(),
+        )
+    }
     var message by remember { mutableStateOf<Pair<Boolean, String>?>(null) }
     var busyId by remember { mutableStateOf<Long?>(null) }
-    var searching by remember { mutableStateOf(SessionCache.searchQuery().isNotEmpty()) }
-    val listState = rememberLazyListState()
+    var searching by remember {
+        mutableStateOf(
+            SessionCache.searchQuery().isNotEmpty() &&
+                ListingCache.search(SessionCache.searchQuery(), 1) == null,
+        )
+    }
+    var visible by remember { mutableStateOf(ListingCache.searchVisible()) }
     val allowed = RequestPolicy.requestsAllowed(
         isAfkStream = status?.isAfkStream == true,
         requesting = status?.requesting == true,
@@ -89,7 +115,26 @@ fun RequestPane(
         SessionCache.putSearchQuery(trimmed, 1)
     }
 
-    LaunchedEffect(listing) {
+    fun showSearch(uiPage: Int, fit: Int) {
+        val total = ListingCache.searchTotal(committed) ?: 0
+        val last = PanePolicy.lastPage(total, fit)
+        val clamped = PagerPolicy.clampPage(uiPage, last)
+        val start = PanePolicy.startIndex(clamped, fit)
+        val window = PanePolicy.window(
+            ListingCache.searchRows(committed),
+            start,
+            fit,
+            PanePolicy.SEARCH_PER_PAGE,
+        )
+        hits = window.orEmpty()
+        lastPage = last
+        SessionCache.putSearchQuery(committed, clamped)
+        if (clamped != uiPage && committed.isNotEmpty()) {
+            listing = committed to clamped
+        }
+    }
+
+    LaunchedEffect(listing, visible) {
         if (committed.isEmpty()) {
             hits = emptyList()
             lastPage = 1
@@ -98,24 +143,55 @@ fun RequestPane(
             }
             return@LaunchedEffect
         }
-        searching = true
+        val fit = visible.takeIf { it > 0 } ?: ListingCache.searchVisible().coerceAtLeast(1)
+        showSearch(page, fit)
+        if (hits.isNotEmpty()) {
+            searching = false
+        }
+        if (visible <= 0) {
+            return@LaunchedEffect
+        }
+        if (hits.isEmpty()) {
+            searching = true
+        }
+        val per = PanePolicy.SEARCH_PER_PAGE
+        val start = PanePolicy.startIndex(page, visible)
+        suspend fun pull(server: Int) {
+            val result = withContext(Dispatchers.IO) { radio.search(committed, server) }
+            ListingCache.putSearch(committed, result)
+        }
         try {
-            val result = withContext(Dispatchers.IO) { radio.search(committed, page) }
-            hits = result.data
-            lastPage = result.lastPage.toInt().coerceAtLeast(1)
-            SessionCache.putSearchQuery(committed, page)
-            if (page > lastPage) {
-                listing = committed to lastPage
+            val refresh = page == 1
+            if (refresh || ListingCache.search(committed, 1) == null) {
+                pull(1)
             }
+            val last = ListingCache.searchServerLast(committed) ?: 1
+            val need = PanePolicy.serverPages(start, visible, per, last)
+            for (server in need) {
+                if (server == 1 && refresh) {
+                    continue
+                }
+                if (ListingCache.search(committed, server) == null) {
+                    pull(server)
+                }
+            }
+            val total = ListingCache.searchTotal(committed) ?: 0
+            val uiLast = PanePolicy.lastPage(total, visible)
+            val clamped = PagerPolicy.clampPage(page, uiLast)
             message = null
             searching = false
-            listState.scrollToItem(0)
+            if (clamped != page) {
+                listing = committed to clamped
+            } else {
+                showSearch(clamped, visible)
+            }
         } catch (err: CancellationException) {
             throw err
         } catch (err: Exception) {
-            hits = emptyList()
-            lastPage = 1
-            message = false to (RequestPolicy.userFacingError(err) ?: "Search failed")
+            if (hits.isEmpty()) {
+                lastPage = 1
+                message = false to (RequestPolicy.userFacingError(err) ?: "Search failed")
+            }
             searching = false
         }
     }
@@ -163,48 +239,61 @@ fun RequestPane(
                 modifier = Modifier.fillMaxWidth(),
             )
         }
-        LazyColumn(
-            state = listState,
+        BoxWithConstraints(
             modifier = Modifier
                 .weight(1f)
                 .fillMaxWidth(),
         ) {
-            items(hits, key = { it.id }) { hit ->
-                SearchRow(
-                    hit = hit,
-                    enabled = RequestPolicy.rowCanRequest(allowed, hit.requestable) && busyId == null,
-                    onRequest = {
-                        busyId = hit.id
-                        scope.launch {
-                            val result = withContext(Dispatchers.IO) {
-                                runCatching { radio.request(hit.id) }
-                            }
-                            busyId = null
-                            result.onSuccess { done ->
-                                message = done.ok to done.message
-                                onCanRequest(
-                                    RequestPolicy.canRequestAfterRequest(done.ok, canRequest),
-                                )
-                            }.onFailure { err ->
-                                if (err is CancellationException) {
-                                    throw err
-                                }
-                                RequestPolicy.userFacingError(err)?.let { text ->
-                                    message = false to text
-                                }
-                            }
-                        }
-                    },
-                )
+            val measured = PanePolicy.songThatFit(
+                PanePolicy.normalListDp(
+                    boxMaxHeightDp = maxHeight.value,
+                    screenWidthDp = configuration.screenWidthDp,
+                    screenHeightDp = configuration.screenHeightDp,
+                    twoPane = twoPane,
+                ),
+            )
+            LaunchedEffect(measured) {
+                val fit = ListingCache.freezeSearchVisible(measured)
+                if (visible != fit) {
+                    visible = fit
+                }
             }
-            if (
-                committed == query.trim() &&
-                committed.isNotEmpty() &&
-                hits.isEmpty() &&
-                message == null &&
-                !searching
-            ) {
-                item {
+            Column(modifier = Modifier.fillMaxSize()) {
+                hits.forEach { hit ->
+                    SearchRow(
+                        hit = hit,
+                        enabled = RequestPolicy.rowCanRequest(allowed, hit.requestable) && busyId == null,
+                        onRequest = {
+                            busyId = hit.id
+                            scope.launch {
+                                val result = withContext(Dispatchers.IO) {
+                                    runCatching { radio.request(hit.id) }
+                                }
+                                busyId = null
+                                result.onSuccess { done ->
+                                    message = done.ok to done.message
+                                    onCanRequest(
+                                        RequestPolicy.canRequestAfterRequest(done.ok, canRequest),
+                                    )
+                                }.onFailure { err ->
+                                    if (err is CancellationException) {
+                                        throw err
+                                    }
+                                    RequestPolicy.userFacingError(err)?.let { text ->
+                                        message = false to text
+                                    }
+                                }
+                            }
+                        },
+                    )
+                }
+                if (
+                    committed == query.trim() &&
+                    committed.isNotEmpty() &&
+                    hits.isEmpty() &&
+                    message == null &&
+                    !searching
+                ) {
                     Text(
                         "No results",
                         color = RadioTheme.muted,
