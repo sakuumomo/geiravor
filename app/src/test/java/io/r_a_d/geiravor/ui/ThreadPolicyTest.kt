@@ -35,6 +35,14 @@ class ThreadPolicyTest {
             "https://r-a-d.io/api/dj-image/7-abc.png",
             ThreadPolicy.imageUrl("https://r-a-d.io/api/dj-image/7-abc.png"),
         )
+        assertEquals(
+            "https://example.com/clip.webm",
+            ThreadPolicy.imageUrl("https://example.com/clip.webm"),
+        )
+        assertEquals(
+            "https://example.com/clip.mp4",
+            ThreadPolicy.imageUrl("image:https://example.com/clip.mp4"),
+        )
     }
 
     @Test

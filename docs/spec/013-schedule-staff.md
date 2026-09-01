@@ -47,7 +47,7 @@ Use the row weekday as the ET calendar day (today if missing). Keep 12h vs 24h a
 
 `GET https://r-a-d.io/staff`. Active users only (server already filters). Groups in order **staff | dev | dj** from `#staff`, `#dev`, `#dj`. Display labels **Staff**, **Developers**, **DJs**. Show a heading even if that group has no cards.
 
-Each card: `img.dj-image` `src` + `.dj-card-name` text. Coil, same loader as DJ image (`002-api.md`). Name colors: staff green, dj blue, dev red (`NewsPolicy.nameColor`). **No bio** — that text belongs on the schedule.
+Each card: `img.dj-image` `src` + `.dj-card-name` text. Same loader as DJ image (`002-api.md`), including GIF autoplay and muted looping mp4/webm. Name colors: staff green, dj blue, dev red (`NewsPolicy.nameColor`). **No bio** — that text belongs on the schedule.
 
 Layout follows the live staff page, sized for a phone/tablet:
 

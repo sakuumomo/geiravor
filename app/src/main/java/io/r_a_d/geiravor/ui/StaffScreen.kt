@@ -32,8 +32,6 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import coil.compose.AsyncImage
-import coil.request.ImageRequest
 import io.r_a_d.geiravor.GeiravorApp
 import io.r_a_d.geiravor.data.GeiravorDb
 import io.r_a_d.geiravor.data.StaffStore
@@ -221,11 +219,8 @@ private fun StaffCard(member: StaffMember, modifier: Modifier = Modifier) {
         verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
         if (member.image.isNotEmpty()) {
-            AsyncImage(
-                model = ImageRequest.Builder(LocalContext.current)
-                    .data(djImageUrl(member.image))
-                    .crossfade(true)
-                    .build(),
+            StationMedia(
+                url = djImageUrl(member.image),
                 contentDescription = member.name,
                 modifier = Modifier
                     .fillMaxWidth()

@@ -32,7 +32,9 @@ object ThreadPolicy {
             path.endsWith(".jpg") ||
             path.endsWith(".jpeg") ||
             path.endsWith(".gif") ||
-            path.endsWith(".webp")
+            path.endsWith(".webp") ||
+            path.endsWith(".mp4") ||
+            path.endsWith(".webm")
         return if (image) raw else null
     }
 

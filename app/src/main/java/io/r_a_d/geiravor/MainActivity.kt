@@ -326,16 +326,13 @@ private fun GeiravorRoot() {
     val onFave: () -> Unit = {
         if (!faveBusy) {
             faveBusy = true
+            val wasFilled = radioState.heartFilled
+            RadioStore.setHeart(filled = FavePolicy.optimisticFilled(wasFilled))
             scope.launch {
                 try {
-                val (result, wasFilled, listed) = withContext(Dispatchers.IO) {
+                val result = withContext(Dispatchers.IO) {
                     val home = FavePolicy.listNick(homeNick, ircNick)
                     val keep = FavePolicy.membershipNicks(homeNick, ircNick)
-                    val before = FavePolicy.isMember(
-                        keep,
-                        app.radio.snapshot(),
-                        app.radio::isFavorite,
-                    )
                     val done = app.radio.addFave(
                         FavePolicy.config(
                             nick = FavePolicy.ircNick(ircNick, homeNick),
@@ -364,14 +361,9 @@ private fun GeiravorRoot() {
                             }
                         }
                     }
-                    val after = FavePolicy.isMember(
-                        keep,
-                        app.radio.snapshot(),
-                        app.radio::isFavorite,
-                    )
-                    Triple(done, before, after)
+                    done
                 }
-                val heart = FavePolicy.heartUpdate(wasFilled, result, listed)
+                val heart = FavePolicy.heartUpdate(wasFilled, result)
                 RadioStore.setHeart(
                     filled = heart.filled,
                     notice = heart.notice,

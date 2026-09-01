@@ -63,7 +63,7 @@ class DjNotifierPolicyTest {
                 streamDown = false,
             ),
         )
-        assertFalse(
+        assertTrue(
             DjNotifierPolicy.shouldNotify(
                 enabled = true,
                 previous = live,
@@ -71,7 +71,7 @@ class DjNotifierPolicyTest {
                 streamDown = false,
             ),
         )
-        assertFalse(
+        assertTrue(
             DjNotifierPolicy.shouldNotify(
                 enabled = true,
                 previous = live,
@@ -98,16 +98,21 @@ class DjNotifierPolicyTest {
     }
 
     @Test
-    fun liveToAfkDoesNotNotify() {
+    fun liveToAfkNotifiesHanyuuBack() {
         val live = seen(isAfk = false, id = 7, name = "exci")
         val afk = seen(isAfk = true, id = 1, name = "Hanyuu-sama")
-        assertFalse(
+        assertTrue(
             DjNotifierPolicy.shouldNotify(
                 enabled = true,
                 previous = live,
                 next = afk,
                 streamDown = false,
             ),
+        )
+        assertEquals("Hanyuu-sama is back", DjNotifierPolicy.body(afk))
+        assertEquals(
+            "Hanyuu is back",
+            DjNotifierPolicy.body(seen(isAfk = false, id = 18, name = "Hanyuu")),
         )
     }
 
@@ -156,8 +161,16 @@ class DjNotifierPolicyTest {
             DjNotifierPolicy.Seen(isAfk = false, djId = 7, djName = "exci"),
             DjNotifierPolicy.fromStatus(status),
         )
-        assertEquals("exci is online", DjNotifierPolicy.body("exci"))
-        assertEquals("A DJ is online", DjNotifierPolicy.body("  "))
+        assertEquals("r/a/dio", DjNotifierPolicy.TITLE)
+        assertEquals("exci is LIVE", DjNotifierPolicy.body(DjNotifierPolicy.fromStatus(status)))
+        assertEquals(
+            "A DJ is LIVE",
+            DjNotifierPolicy.body(seen(isAfk = false, id = 7, name = "  ")),
+        )
+        assertEquals(
+            "Hanyuu-sama is back",
+            DjNotifierPolicy.body(seen(isAfk = true, id = 1, name = "")),
+        )
         assertFalse(DjNotifierPolicy.isHanyuu("exci"))
     }
 

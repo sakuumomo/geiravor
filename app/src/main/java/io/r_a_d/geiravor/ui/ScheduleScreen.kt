@@ -25,8 +25,6 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import coil.compose.AsyncImage
-import coil.request.ImageRequest
 import io.r_a_d.geiravor.GeiravorApp
 import io.r_a_d.geiravor.data.GeiravorDb
 import io.r_a_d.geiravor.data.ScheduleStore
@@ -159,11 +157,8 @@ private fun ScheduleRow(
             verticalAlignment = Alignment.CenterVertically,
         ) {
             if (day.ownerImage.isNotEmpty()) {
-                AsyncImage(
-                    model = ImageRequest.Builder(LocalContext.current)
-                        .data(djImageUrl(day.ownerImage))
-                        .crossfade(true)
-                        .build(),
+                StationMedia(
+                    url = djImageUrl(day.ownerImage),
                     contentDescription = day.ownerName,
                     modifier = Modifier.size(72.dp),
                     contentScale = ContentScale.Crop,

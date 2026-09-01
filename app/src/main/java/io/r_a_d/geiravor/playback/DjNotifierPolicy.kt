@@ -46,18 +46,24 @@ object DjNotifierPolicy {
         if (previous == null) {
             return false
         }
-        if (isAfkDj(next)) {
+        val prevAfk = isAfkDj(previous)
+        val nextAfk = isAfkDj(next)
+        if (prevAfk && nextAfk) {
             return false
         }
-        if (isAfkDj(previous)) {
+        if (prevAfk != nextAfk) {
             return true
         }
         return previous.djId != next.djId || previous.djName != next.djName
     }
 
-    fun body(djName: String): String {
-        val name = djName.trim()
-        return if (name.isEmpty()) "A DJ is online" else "$name is online"
+    fun body(next: Seen): String {
+        val name = next.djName.trim()
+        return if (isAfkDj(next)) {
+            "${name.ifEmpty { "Hanyuu-sama" }} is back"
+        } else {
+            "${name.ifEmpty { "A DJ" }} is LIVE"
+        }
     }
 
     fun shouldExplainDenied(needsGrant: Boolean, granted: Boolean): Boolean =

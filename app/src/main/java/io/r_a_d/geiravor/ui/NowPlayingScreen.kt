@@ -46,9 +46,8 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import coil.compose.AsyncImage
-import coil.request.ImageRequest
 import coil.imageLoader
+import coil.request.ImageRequest
 import coil.request.SuccessResult
 import io.r_a_d.geiravor.R
 import io.r_a_d.geiravor.compat.SaveImage
@@ -251,38 +250,30 @@ fun NowPlayingScreen(
             }
         }
         val clock = if (showProgress) formatProgressClock(elapsed, duration) else null
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-        ) {
+        Box(modifier = Modifier.fillMaxWidth()) {
             Text(
                 text = "Listeners: ${status?.listeners ?: "—"}",
                 color = RadioTheme.onBackgroundMuted,
+                textAlign = TextAlign.Center,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .align(Alignment.Center),
             )
             if (clock != null) {
-                Text(text = clock, color = RadioTheme.onBackground)
+                Text(
+                    text = clock,
+                    color = RadioTheme.onBackground,
+                    modifier = Modifier.align(Alignment.CenterEnd),
+                )
             }
         }
-        val context = LocalContext.current
-        if (showThread) {
-            ThreadBlock(
-                isAfkStream = status?.isAfkStream == true,
-                thread = status?.thread,
-            )
-        }
         val djUrl = status?.let { djImageUrl(it.dj.image) }
-        AsyncImage(
-            model = ImageRequest.Builder(context)
-                .data(djUrl)
-                .crossfade(false)
-                .memoryCacheKey(djUrl)
-                .diskCacheKey(djUrl)
-                .placeholderMemoryCacheKey(djUrl)
-                .error(R.drawable.mystery_dj)
-                .fallback(R.drawable.mystery_dj)
-                .build(),
+        StationMedia(
+            url = djUrl,
             contentDescription = status?.dj?.name,
             contentScale = ContentScale.Crop,
+            error = R.drawable.mystery_dj,
+            fallback = R.drawable.mystery_dj,
             modifier = Modifier.size(160.dp),
         )
         Text(
@@ -322,6 +313,12 @@ fun NowPlayingScreen(
             overflow = TextOverflow.Ellipsis,
             modifier = Modifier.fillMaxWidth(),
         )
+        if (showThread) {
+            ThreadBlock(
+                isAfkStream = status?.isAfkStream == true,
+                thread = status?.thread,
+            )
+        }
         Spacer(Modifier.height(8.dp))
     }
 }
@@ -352,19 +349,13 @@ private fun ThreadBlock(
         ThreadPolicy.Kind.Image -> {
             val url = ThreadPolicy.imageUrl(thread.orEmpty()) ?: return
             Box {
-                AsyncImage(
-                    model = ImageRequest.Builder(context)
-                        .data(url)
-                        .crossfade(false)
-                        .build(),
+                StationMedia(
+                    url = url,
                     contentDescription = "Thread",
                     contentScale = ContentScale.Fit,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .combinedClickable(
-                            onClick = { open(url) },
-                            onLongClick = { menu = true },
-                        ),
+                    onClick = { open(url) },
+                    onLongClick = { menu = true },
+                    modifier = Modifier.fillMaxWidth(),
                 )
                 DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
                     DropdownMenuItem(

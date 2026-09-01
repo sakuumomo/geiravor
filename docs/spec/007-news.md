@@ -18,7 +18,7 @@ The article is the `message-body` HTML (paragraphs, `<br>`, `<em>`, `<strong>`, 
 
 `<time datetime="{unix}" data-type="local" data-dur="{ms}">` is converted to the device local timezone the same way the site’s JS does (`data-dur` is a range when non-zero). Do not leave the inner UTC `+0000` string, and do not substitute the raw unix value.
 
-Images may be on `https://static.r-a-d.io/` — that host is allowed in network security config. Load with Coil, **fit the article column width** (not the full display width). Other image hosts are dropped.
+Images may be on `https://static.r-a-d.io/` — that host is allowed in network security config. Load with Coil, **fit the article column width** (not the full display width). Other image hosts are dropped. Do **not** autoplay GIF/mp4/webm in news.
 
 Do not render untrusted HTML in a full-site WebView. Prefer Compose / `HtmlCompat` (inline markup only) + Coil for images.
 

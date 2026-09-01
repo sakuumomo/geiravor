@@ -72,7 +72,7 @@ The station records a favorite when an identified Rizon nick `PRIVMSG`s `Hanyuu-
 
 Replies **name** the song, e.g. `Added 'Artist - Title' to your favorites.` / already-favorited / unknown ID / removed. Strip IRC color codes before matching. The named title is for accuracy (match the tap snapshot), not a phone banner. Heart fill/outline is the success feedback on phone, shade, and Auto. A failed or no-op attempt must not change the heart: no fill on a failed fave, no outline on a failed unfave. Show failures and empty-nick on the phone as red text; fade that out when now-playing `np` changes. Auto must not rewrite now-playing metadata.
 
-The heart is a **toggle** shared by phone, the shade, and Auto. If the current song is already a favorite and a catalog `trackid` is known (AFK snapshot id, or a matching `/faves` row id — never leftover live-DJ `trackid`), send `.unfave {id}`. Fill/outline every surface together. Without a catalog id, unfave is not offered.
+The heart is a **toggle** shared by phone, the shade, and Auto. Toggle fill **on tap** (optimistic) so a slow mobile round-trip does not look like a miss; revert on failure or no-op. One in-flight fave — ignore further taps until it finishes. If the current song is already a favorite and a catalog `trackid` is known (AFK snapshot id, or a matching `/faves` row id — never leftover live-DJ `trackid`), send `.unfave {id}`. Fill/outline every surface together. Without a catalog id, unfave is not offered.
 
 This is **not** an IRC client: no channel UI, no JOIN, no chat log, no native Quassel. 0.2.0 SASL is only for this short-lived fave session (`PLAIN` password and/or `EXTERNAL` with a TLS client certificate).
 

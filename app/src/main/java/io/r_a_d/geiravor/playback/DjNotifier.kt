@@ -29,7 +29,7 @@ object DjNotifier {
         }
         val previous = settings.djSeen()
         if (DjNotifierPolicy.shouldNotify(enabled, previous, next, streamDown)) {
-            notify(context, next.djName)
+            notify(context, next)
         }
         if (!streamDown) {
             settings.setDjSeen(next)
@@ -59,7 +59,7 @@ object DjNotifier {
         )
     }
 
-    fun notify(context: Context, djName: String) {
+    fun notify(context: Context, next: DjNotifierPolicy.Seen) {
         if (!Notifications.granted(context)) {
             return
         }
@@ -73,7 +73,7 @@ object DjNotifier {
         val notification = NotificationCompat.Builder(context, DjNotifierPolicy.CHANNEL_ID)
             .setSmallIcon(R.drawable.ic_fave)
             .setContentTitle(DjNotifierPolicy.TITLE)
-            .setContentText(DjNotifierPolicy.body(djName))
+            .setContentText(DjNotifierPolicy.body(next))
             .setCategory(NotificationCompat.CATEGORY_EVENT)
             .setPriority(NotificationCompat.PRIORITY_DEFAULT)
             .setAutoCancel(true)

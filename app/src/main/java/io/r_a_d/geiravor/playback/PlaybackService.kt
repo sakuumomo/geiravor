@@ -162,6 +162,7 @@ class PlaybackService : MediaLibraryService() {
         var saslUsername = ""
         var tlsFingerprint = ""
         var faveFilled = false
+        var faveBusy = false
         var lastUnmuted = LivePlaybackPolicy.DEFAULT_GAIN
         fun publishButtons() {
             session?.setMediaButtonPreferences(nowPlayingButtons(player.volume, faveFilled))
@@ -175,6 +176,9 @@ class PlaybackService : MediaLibraryService() {
             session?.setMediaButtonPreferences(nowPlayingButtons(next, faveFilled))
         }
         fun refreshFaveIcon(status: Status?) {
+            if (faveBusy) {
+                return
+            }
             scope.launch(Dispatchers.IO) {
                 val filled = FavePolicy.isMember(
                     FavePolicy.membershipNicks(faveNick, ircNick),
@@ -205,13 +209,17 @@ class PlaybackService : MediaLibraryService() {
             },
             buttons = { nowPlayingButtons(player.volume, faveFilled) },
             onFave = {
+                if (faveBusy) {
+                    return@LibraryCallback
+                }
+                faveBusy = true
+                val wasFilled = RadioStore.state.value.heartFilled
+                RadioStore.setHeart(filled = FavePolicy.optimisticFilled(wasFilled))
+                faveFilled = RadioStore.state.value.heartFilled
+                publishButtons()
                 scope.launch(Dispatchers.IO) {
+                    try {
                     val home = FavePolicy.listNick(faveNick, ircNick)
-                    val wasFilled = FavePolicy.isMember(
-                        FavePolicy.membershipNicks(faveNick, ircNick),
-                        radio.snapshot(),
-                        radio::isFavorite,
-                    )
                     val result = radio.addFave(
                         FavePolicy.config(
                             nick = FavePolicy.ircNick(ircNick, faveNick),
@@ -242,13 +250,8 @@ class PlaybackService : MediaLibraryService() {
                         }
                         (application as GeiravorApp).persistMembership(keep)
                     }
-                    val listed = FavePolicy.isMember(
-                        keep,
-                        radio.snapshot(),
-                        radio::isFavorite,
-                    )
                     withContext(Dispatchers.Main) {
-                        val heart = FavePolicy.heartUpdate(wasFilled, result, listed)
+                        val heart = FavePolicy.heartUpdate(wasFilled, result)
                         RadioStore.setHeart(
                             filled = heart.filled,
                             notice = heart.notice,
@@ -257,6 +260,17 @@ class PlaybackService : MediaLibraryService() {
                         )
                         faveFilled = RadioStore.state.value.heartFilled
                         publishButtons()
+                    }
+                    } catch (_: Exception) {
+                        withContext(Dispatchers.Main) {
+                            RadioStore.setHeart(filled = wasFilled)
+                            faveFilled = wasFilled
+                            publishButtons()
+                        }
+                    } finally {
+                        withContext(Dispatchers.Main) {
+                            faveBusy = false
+                        }
                     }
                 }
             },

@@ -47,6 +47,7 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.text.HtmlCompat
 import coil.compose.AsyncImage
+import coil.decode.BitmapFactoryDecoder
 import coil.request.ImageRequest
 import io.r_a_d.geiravor.GeiravorApp
 import io.r_a_d.geiravor.data.GeiravorDb
@@ -562,6 +563,7 @@ private fun NewsImage(url: String) {
             .crossfade(false)
             .memoryCacheKey(url)
             .diskCacheKey(url)
+            .decoderFactory(BitmapFactoryDecoder.Factory())
             .build(),
         contentDescription = null,
         contentScale = ContentScale.FillWidth,

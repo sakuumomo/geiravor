@@ -25,6 +25,7 @@ import io.r_a_d.geiravor.playback.HeadsetReceiver
 import io.r_a_d.geiravor.radio.RadioStore
 import io.r_a_d.geiravor.radio.SnapshotPolicy
 import io.r_a_d.geiravor.settings.SettingsStore
+import io.r_a_d.geiravor.compat.GifDecoders
 import io.r_a_d.geiravor.compat.setApplicationNight
 import io.r_a_d.geiravor.ui.RadioPacks
 import io.r_a_d.geiravor.ui.RadioTheme
@@ -199,14 +200,15 @@ class GeiravorApp : Application(), ImageLoaderFactory {
     }
 
     override fun newImageLoader(): ImageLoader =
-        ImageLoader.Builder(this)
-            .diskCache {
-                DiskCache.Builder()
-                    .directory(cacheDir.resolve("image_cache"))
-                    .maxSizeBytes(64L * 1024 * 1024)
-                    .build()
-            }
-            .build()
+        GifDecoders.install(
+            ImageLoader.Builder(this)
+                .diskCache {
+                    DiskCache.Builder()
+                        .directory(cacheDir.resolve("image_cache"))
+                        .maxSizeBytes(64L * 1024 * 1024)
+                        .build()
+                },
+        ).build()
 
     @OptIn(ExperimentalCoilApi::class)
     private fun evictDjImage(image: String) {
