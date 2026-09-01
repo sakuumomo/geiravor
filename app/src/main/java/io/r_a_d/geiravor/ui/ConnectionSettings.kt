@@ -251,7 +251,7 @@ private fun PemField(
                     Text("Cancel", color = RadioTheme.muted)
                 }
             },
-            containerColor = RadioTheme.surface,
+            containerColor = RadioTheme.dialogSurface,
             titleContentColor = RadioTheme.text,
             textContentColor = RadioTheme.text,
         )

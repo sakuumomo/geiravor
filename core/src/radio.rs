@@ -491,6 +491,10 @@ impl RadioCore {
         self.playing.store(playing, Ordering::Relaxed);
     }
 
+    pub fn is_playing(&self) -> bool {
+        self.playing.load(Ordering::Relaxed)
+    }
+
     pub fn on_icy_title(&self, title: String) {
         self.state
             .lock()
@@ -975,6 +979,16 @@ mod tests {
 
     fn np() -> &'static str {
         "Mori Yuuya - Seitokai Yakuindomo no March"
+    }
+
+    #[test]
+    fn is_playing_follows_set_playing() {
+        let core = core();
+        assert!(!core.is_playing());
+        core.set_playing(true);
+        assert!(core.is_playing());
+        core.set_playing(false);
+        assert!(!core.is_playing());
     }
 
     fn membership_row(id: i64, meta: &str) -> FavoriteRow {

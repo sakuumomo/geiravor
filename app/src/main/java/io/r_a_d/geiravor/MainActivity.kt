@@ -25,6 +25,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.VerticalDivider
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -35,6 +36,8 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.layout.positionInRoot
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.compose.LifecycleResumeEffect
@@ -52,6 +55,8 @@ import io.r_a_d.geiravor.playback.LivePlaybackPolicy
 import io.r_a_d.geiravor.playback.PlaybackService
 import io.r_a_d.geiravor.playback.DjNotifier
 import io.r_a_d.geiravor.playback.DjNotifierPolicy
+import io.r_a_d.geiravor.playback.FaveNotifier
+import io.r_a_d.geiravor.playback.FaveNotifierPolicy
 import io.r_a_d.geiravor.playback.SleepPolicy
 import io.r_a_d.geiravor.radio.RadioStore
 import io.r_a_d.geiravor.settings.SecretsStore
@@ -64,6 +69,8 @@ import io.r_a_d.geiravor.ui.BoardScreen
 import io.r_a_d.geiravor.ui.FavoritesPolicy
 import io.r_a_d.geiravor.ui.FrostBackdrop
 import io.r_a_d.geiravor.ui.GeiravorTheme
+import io.r_a_d.geiravor.ui.LocalWallpaperLayout
+import io.r_a_d.geiravor.ui.WallpaperLayout
 import io.r_a_d.geiravor.ui.NowPlayingScreen
 import io.r_a_d.geiravor.ui.RadioTheme
 import io.r_a_d.geiravor.ui.SchedulePolicy
@@ -127,6 +134,7 @@ private fun GeiravorRoot() {
     var sleepEnabled by remember { mutableStateOf(SleepPolicy.ENABLED_DEFAULT) }
     var sleepMinutes by remember { mutableStateOf(SleepPolicy.DEFAULT_MINUTES) }
     var djNotifierEnabled by remember { mutableStateOf(DjNotifierPolicy.ENABLED_DEFAULT) }
+    var faveNotifierEnabled by remember { mutableStateOf(FaveNotifierPolicy.ENABLED_DEFAULT) }
     var exactAlarmOk by remember { mutableStateOf(ExactAlarms.canSchedule(context)) }
     var notifyOk by remember { mutableStateOf(Notifications.granted(context)) }
 
@@ -218,6 +226,9 @@ private fun GeiravorRoot() {
     }
     LaunchedEffect(Unit) {
         settings.djNotifierEnabled.collect { djNotifierEnabled = it }
+    }
+    LaunchedEffect(Unit) {
+        settings.faveNotifierEnabled.collect { faveNotifierEnabled = it }
     }
     LaunchedEffect(homeNick, ircNick, radioState.status?.trackId, radioState.status?.np) {
         if (faveBusy) {
@@ -389,14 +400,20 @@ private fun GeiravorRoot() {
     val page = if (wallpaper != null) Color.Transparent else RadioTheme.background
     GeiravorTheme {
     Box(modifier = Modifier.fillMaxSize()) {
+        var wallpaperLayout by remember { mutableStateOf(WallpaperLayout()) }
         if (wallpaper != null) {
             Image(
                 painter = painterResource(wallpaper),
                 contentDescription = null,
-                modifier = Modifier.fillMaxSize(),
+                modifier = Modifier
+                    .fillMaxSize()
+                    .onGloballyPositioned {
+                        wallpaperLayout = WallpaperLayout(it.size, it.positionInRoot())
+                    },
                 contentScale = ContentScale.Crop,
             )
         }
+    CompositionLocalProvider(LocalWallpaperLayout provides wallpaperLayout) {
     Surface(modifier = Modifier.fillMaxSize(), color = page) {
         Scaffold(
             modifier = Modifier.systemBarsPadding(),
@@ -671,9 +688,31 @@ private fun GeiravorRoot() {
                         djNotifierEnabled = enabled
                         scope.launch {
                             settings.setDjNotifierEnabled(enabled)
-                            DjNotifier.enqueue(context, enabled)
+                            val faveOn = settings.faveNotifierEnabled.first()
+                            DjNotifier.enqueue(context, enabled, faveOn)
                             if (enabled) {
                                 DjNotifier.ensureChannel(context)
+                                if (
+                                    Notifications.shouldRequest(
+                                        Notifications.needed,
+                                        Notifications.granted(context),
+                                    )
+                                ) {
+                                    permission.launch(Notifications.permission())
+                                }
+                            }
+                            notifyOk = Notifications.granted(context)
+                        }
+                    },
+                    faveNotifierEnabled = faveNotifierEnabled,
+                    onFaveNotifierEnabled = { enabled ->
+                        faveNotifierEnabled = enabled
+                        scope.launch {
+                            settings.setFaveNotifierEnabled(enabled)
+                            val djOn = settings.djNotifierEnabled.first()
+                            DjNotifier.enqueue(context, djOn, enabled)
+                            if (enabled) {
+                                FaveNotifier.ensureChannel(context)
                                 if (
                                     Notifications.shouldRequest(
                                         Notifications.needed,
@@ -712,6 +751,7 @@ private fun GeiravorRoot() {
                 }
             }
         }
+    }
     }
     }
     }

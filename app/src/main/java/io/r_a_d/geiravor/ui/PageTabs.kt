@@ -140,7 +140,7 @@ private fun PagerChip(
         modifier = Modifier
             .then(if (minWidth != null) Modifier.widthIn(min = minWidth) else Modifier)
             .clip(RoundedCornerShape(4.dp))
-            .background(if (selected) RadioTheme.highlight else RadioTheme.surface)
+            .background(if (selected) RadioTheme.highlight else RadioTheme.chipIdle)
             .clickable(enabled = item.enabled && !selected, onClick = onClick)
             .padding(horizontal = 8.dp, vertical = 8.dp),
     )
@@ -198,7 +198,7 @@ private fun JumpPageDialog(
                 Text("Cancel", color = RadioTheme.muted)
             }
         },
-        containerColor = RadioTheme.surface,
+        containerColor = RadioTheme.dialogSurface,
         titleContentColor = RadioTheme.text,
         textContentColor = RadioTheme.text,
     )

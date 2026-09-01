@@ -36,6 +36,7 @@ import io.r_a_d.geiravor.playback.AlarmPolicy
 import io.r_a_d.geiravor.playback.DurationPolicy
 import io.r_a_d.geiravor.compat.Notifications
 import io.r_a_d.geiravor.playback.DjNotifierPolicy
+import io.r_a_d.geiravor.playback.FaveNotifierPolicy
 import io.r_a_d.geiravor.playback.SleepPolicy
 import io.r_a_d.geiravor.settings.SettingsPolicy
 import uniffi.geiravor_core.IrcProfile
@@ -95,6 +96,8 @@ fun SettingsScreen(
     onSleepMinutes: (Int) -> Unit,
     djNotifierEnabled: Boolean,
     onDjNotifierEnabled: (Boolean) -> Unit,
+    faveNotifierEnabled: Boolean,
+    onFaveNotifierEnabled: (Boolean) -> Unit,
     notifyOk: Boolean,
     exactAlarmOk: Boolean,
     modifier: Modifier = Modifier,
@@ -179,6 +182,8 @@ fun SettingsScreen(
                     onSleepMinutes = onSleepMinutes,
                     djNotifierEnabled = djNotifierEnabled,
                     onDjNotifierEnabled = onDjNotifierEnabled,
+                    faveNotifierEnabled = faveNotifierEnabled,
+                    onFaveNotifierEnabled = onFaveNotifierEnabled,
                     notifyOk = notifyOk,
                     exactAlarmOk = exactAlarmOk,
                 )
@@ -278,6 +283,8 @@ private fun AlertSettings(
     onSleepMinutes: (Int) -> Unit,
     djNotifierEnabled: Boolean,
     onDjNotifierEnabled: (Boolean) -> Unit,
+    faveNotifierEnabled: Boolean,
+    onFaveNotifierEnabled: (Boolean) -> Unit,
     notifyOk: Boolean,
     exactAlarmOk: Boolean,
 ) {
@@ -349,8 +356,23 @@ private fun AlertSettings(
                 )
             }
         }
+        SettingsCard {
+            Column {
+                SettingToggle(
+                    label = "Fave currently playing",
+                    checked = faveNotifierEnabled,
+                    onCheckedChange = onFaveNotifierEnabled,
+                )
+                Text(
+                    FaveNotifierPolicy.BATTERY,
+                    color = RadioTheme.muted,
+                    fontSize = 13.sp,
+                    modifier = Modifier.padding(start = 16.dp, end = 16.dp, bottom = 16.dp),
+                )
+            }
+        }
         if (
-            djNotifierEnabled &&
+            (djNotifierEnabled || faveNotifierEnabled) &&
             DjNotifierPolicy.shouldExplainDenied(
                 needsGrant = Notifications.needed,
                 granted = notifyOk,
@@ -363,7 +385,15 @@ private fun AlertSettings(
                         .padding(16.dp),
                     verticalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
-                    Text(DjNotifierPolicy.NOTIFICATIONS_DENIED, color = RadioTheme.red, fontSize = 14.sp)
+                    Text(
+                        if (faveNotifierEnabled && !djNotifierEnabled) {
+                            FaveNotifierPolicy.NOTIFICATIONS_DENIED
+                        } else {
+                            DjNotifierPolicy.NOTIFICATIONS_DENIED
+                        },
+                        color = RadioTheme.red,
+                        fontSize = 14.sp,
+                    )
                 }
             }
         }
@@ -468,7 +498,7 @@ private fun DurationDialog(
                 )
             }
         },
-        containerColor = RadioTheme.surface,
+        containerColor = RadioTheme.dialogSurface,
     )
 }
 
@@ -517,7 +547,7 @@ private fun AlarmTimeDialog(
                 )
             }
         },
-        containerColor = RadioTheme.surface,
+        containerColor = RadioTheme.dialogSurface,
     )
 }
 

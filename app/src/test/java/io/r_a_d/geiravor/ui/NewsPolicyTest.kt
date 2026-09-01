@@ -2,6 +2,7 @@ package io.r_a_d.geiravor.ui
 
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.time.ZoneOffset
@@ -110,9 +111,14 @@ line two</p>
 
     @Test
     fun staffDjDevUseSiteRoleColors() {
+        RadioTheme.apply(RadioPacks.DEFAULT_DARK)
         assertEquals(RadioTheme.green, NewsPolicy.nameColor("staff"))
         assertEquals(RadioTheme.blue, NewsPolicy.nameColor("dj"))
         assertEquals(RadioTheme.red, NewsPolicy.nameColor("dev"))
         assertEquals(RadioTheme.muted, NewsPolicy.nameColor(""))
+        RadioTheme.apply(RadioPacks.HALLOWEEN)
+        assertEquals(RadioTheme.link, NewsPolicy.nameColor("dj"))
+        assertNotEquals(RadioTheme.blue, NewsPolicy.nameColor("dj"))
+        RadioTheme.apply(RadioPacks.DEFAULT_DARK)
     }
 }

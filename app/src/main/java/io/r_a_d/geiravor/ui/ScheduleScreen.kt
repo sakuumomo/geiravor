@@ -88,13 +88,8 @@ fun ScheduleScreen(
         loading = false
     }
 
-    RadioPane(
-        modifier = modifier
-            .fillMaxSize()
-            .padding(16.dp),
-    ) {
     Column(
-        modifier = Modifier.fillMaxSize(),
+        modifier = modifier.fillMaxSize(),
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         error?.let { text ->
@@ -120,21 +115,27 @@ fun ScheduleScreen(
             else -> {
                 Column(
                     modifier = Modifier
-                        .fillMaxSize()
+                        .weight(1f)
+                        .fillMaxWidth()
                         .verticalScroll(rememberScrollState()),
-                    verticalArrangement = Arrangement.spacedBy(12.dp),
                 ) {
-                    days.forEach { day ->
-                        ScheduleRow(
-                            day = day,
-                            convertTimes = convertTimes,
-                            today = today,
-                        )
+                    RadioPane(
+                        modifier = Modifier.fillMaxWidth(),
+                        fill = false,
+                    ) {
+                        Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                            days.forEach { day ->
+                                ScheduleRow(
+                                    day = day,
+                                    convertTimes = convertTimes,
+                                    today = today,
+                                )
+                            }
+                        }
                     }
                 }
             }
         }
-    }
     }
 }
 

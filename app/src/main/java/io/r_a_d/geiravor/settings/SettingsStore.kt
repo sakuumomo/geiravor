@@ -10,6 +10,7 @@ import androidx.datastore.preferences.core.stringPreferencesKey
 import io.r_a_d.geiravor.playback.AlarmPolicy
 import io.r_a_d.geiravor.playback.FavePolicy
 import io.r_a_d.geiravor.playback.DjNotifierPolicy
+import io.r_a_d.geiravor.playback.FaveNotifierPolicy
 import io.r_a_d.geiravor.playback.SleepPolicy
 import uniffi.geiravor_core.IrcProfile
 import androidx.datastore.preferences.preferencesDataStore
@@ -43,6 +44,7 @@ private val SLEEP_ENABLED = booleanPreferencesKey("sleep_enabled")
 private val SLEEP_MINUTES = intPreferencesKey("sleep_minutes")
 private val SLEEP_ENDS_AT = longPreferencesKey("sleep_ends_at")
 private val DJ_NOTIFIER = booleanPreferencesKey("dj_notifier")
+private val FAVE_NOTIFIER = booleanPreferencesKey("fave_notifier")
 private val CONVERT_SCHEDULE_TIMES = booleanPreferencesKey("convert_schedule_times")
 private val THEME_PACK = stringPreferencesKey("theme_pack")
 private val HOLIDAY_OPT_OUT = booleanPreferencesKey("holiday_opt_out")
@@ -52,6 +54,9 @@ private val DJ_SEEN_SET = booleanPreferencesKey("dj_seen_set")
 private val DJ_SEEN_AFK = booleanPreferencesKey("dj_seen_afk")
 private val DJ_SEEN_ID = longPreferencesKey("dj_seen_id")
 private val DJ_SEEN_NAME = stringPreferencesKey("dj_seen_name")
+private val FAVE_SEEN_SET = booleanPreferencesKey("fave_seen_set")
+private val FAVE_SEEN_TRACK = longPreferencesKey("fave_seen_track")
+private val FAVE_SEEN_NP = stringPreferencesKey("fave_seen_np")
 private val LAST_PAINT = stringPreferencesKey("last_paint")
 
 class SettingsStore(private val context: Context) {
@@ -135,6 +140,10 @@ class SettingsStore(private val context: Context) {
         prefs[DJ_NOTIFIER] ?: DjNotifierPolicy.ENABLED_DEFAULT
     }
 
+    val faveNotifierEnabled: Flow<Boolean> = context.dataStore.data.map { prefs ->
+        prefs[FAVE_NOTIFIER] ?: FaveNotifierPolicy.ENABLED_DEFAULT
+    }
+
     val convertScheduleTimes: Flow<Boolean> = context.dataStore.data.map { prefs ->
         prefs[CONVERT_SCHEDULE_TIMES] ?: SchedulePolicy.CONVERT_DEFAULT
     }
@@ -169,6 +178,29 @@ class SettingsStore(private val context: Context) {
 
     suspend fun setDjNotifierEnabled(enabled: Boolean) {
         context.dataStore.edit { it[DJ_NOTIFIER] = enabled }
+    }
+
+    suspend fun setFaveNotifierEnabled(enabled: Boolean) {
+        context.dataStore.edit { it[FAVE_NOTIFIER] = enabled }
+    }
+
+    suspend fun faveSeen(): FaveNotifierPolicy.Seen? {
+        val prefs = context.dataStore.data.first()
+        if (prefs[FAVE_SEEN_SET] != true) {
+            return null
+        }
+        return FaveNotifierPolicy.Seen(
+            trackId = prefs[FAVE_SEEN_TRACK] ?: 0L,
+            np = prefs[FAVE_SEEN_NP].orEmpty(),
+        )
+    }
+
+    suspend fun setFaveSeen(seen: FaveNotifierPolicy.Seen) {
+        context.dataStore.edit { prefs ->
+            prefs[FAVE_SEEN_SET] = true
+            prefs[FAVE_SEEN_TRACK] = seen.trackId
+            prefs[FAVE_SEEN_NP] = seen.np
+        }
     }
 
     suspend fun setDjSeen(seen: DjNotifierPolicy.Seen) {

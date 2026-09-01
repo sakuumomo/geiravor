@@ -84,7 +84,7 @@ object RadioPacks {
         surface = Color.White,
         border = Color(0x59000000),
         text = Color.hsl(222f, 0.14f, 0.29f),
-        muted = Color.hsl(222f, 0.14f, 0.20f),
+        muted = Color.hsl(222f, 0.14f, 0.48f),
         onBackground = Color.White,
         onBackgroundMuted = Color.hsl(0f, 0f, 0.75f),
         blue = Color(0xFF38A8E4),
@@ -94,10 +94,10 @@ object RadioPacks {
         wallpaper = R.drawable.wallpaper_christmas,
     )
 
-    /** Dark glass cards on wallpaper. Accent `#F4A246`. */
+    /** Dark glass cards on wallpaper. Accent `#F4A246`. Official `rgba(0,0,0,0.5)`. */
     val halloween = RadioColors(
         background = holidayBg,
-        surface = Color(0xCC000000),
+        surface = Color.Black.copy(alpha = 0.5f),
         border = Color(0x99FFFFFF),
         text = Color.White,
         muted = Color.hsl(0f, 0f, 0.82f),
@@ -111,10 +111,10 @@ object RadioPacks {
         glass = true,
     )
 
-    /** Dark glass cards on wallpaper. Accent `#60709f`. */
+    /** Dark glass cards on wallpaper. Accent `#60709f`. Official `rgba(0,0,0,0.5)`. */
     val newyears = RadioColors(
         background = holidayBg,
-        surface = Color(0xCC000000),
+        surface = Color.Black.copy(alpha = 0.5f),
         border = Color(0x99FFFFFF),
         text = Color.White,
         muted = Color.hsl(0f, 0f, 0.82f),
@@ -140,7 +140,7 @@ object RadioPacks {
     /**
      * Selection chrome (theme radios, pager current, tab indicator).
      * Glass packs sit on wallpaper; official `--edenlight-color` can vanish, so lift that
-     * same hue until it reads. Play/progress keep [RadioColors.blue].
+     * same hue toward white until it reads. Play/progress keep [RadioColors.blue].
      */
     fun highlight(colors: RadioColors): Color {
         if (!colors.glass) {
@@ -148,26 +148,65 @@ object RadioPacks {
         }
         var lifted = colors.blue
         var t = 0f
-        val toward = Color(
-            red = (colors.blue.red * 0.35f + 0.65f).coerceIn(0f, 1f),
-            green = (colors.blue.green * 0.35f + 0.65f).coerceIn(0f, 1f),
-            blue = (colors.blue.blue * 0.25f + 0.80f).coerceIn(0f, 1f),
-        )
         while (channelLuma(lifted) < GLASS_HIGHLIGHT_LUMA && t < 1f) {
             t += 0.08f
-            lifted = lerp(colors.blue, toward, t)
+            lifted = lerp(colors.blue, Color.White, t)
         }
         return lifted
     }
 
     fun selectionWash(colors: RadioColors): Float =
         if (colors.glass) {
-            0.55f
+            0.82f
         } else if (channelLuma(colors.surface) > 0.7f) {
             0.40f
         } else {
             0.28f
         }
+
+    /** Mouse-over / focus layer on clickable rows. Material default 0.08 vanishes on glass. */
+    fun hoverAlpha(colors: RadioColors): Float =
+        if (colors.glass) 0.36f else 0.08f
+
+    fun pressAlpha(colors: RadioColors): Float =
+        if (colors.glass) 0.44f else 0.12f
+
+    /** Unselected pager chips; must not match the pane or they vanish on glass. */
+    fun chipIdle(colors: RadioColors): Color =
+        if (colors.glass) {
+            Color.White.copy(alpha = 0.16f)
+        } else if (channelLuma(colors.surface) > 0.7f) {
+            Color.Black.copy(alpha = 0.08f)
+        } else {
+            colors.border
+        }
+
+    /** Alert dialogs have no frost; glass needs an opaque sheet. */
+    fun dialogSurface(colors: RadioColors): Color =
+        if (colors.glass) Color(0xF2141414) else colors.surface
+
+    fun paneGutterDp(colors: RadioColors): Int =
+        if (colors.wallpaper != null) PANE_INSET_DP else 0
+
+    fun panePadDp(colors: RadioColors): Int = PANE_INSET_DP
+
+    /** Nested cards skip a second scrim; frost already painted by the pane. */
+    fun cardFill(colors: RadioColors, nested: Boolean): Color =
+        if (nested || colors.glass) Color.Transparent else colors.surface
+
+    fun frost(nested: Boolean): Boolean = !nested
+
+    /** Chip under `← News` (and similar overlays) so hover/type read on wallpaper. */
+    fun film(colors: RadioColors): Color =
+        if (colors.glass) {
+            colors.surface
+        } else if (colors.wallpaper != null) {
+            colors.surface.copy(alpha = 0.94f)
+        } else {
+            colors.surface
+        }
+
+    private const val PANE_INSET_DP = 16
 
     fun onHighlight(colors: RadioColors): Color =
         if (channelLuma(highlight(colors)) > 0.45f) Color(0xDE1A1A1A) else Color.White
@@ -175,7 +214,7 @@ object RadioPacks {
     internal fun channelLuma(color: Color): Float =
         0.2126f * color.red + 0.7152f * color.green + 0.0722f * color.blue
 
-    private const val GLASS_HIGHLIGHT_LUMA = 0.70f
+    private const val GLASS_HIGHLIGHT_LUMA = 0.85f
 }
 
 object RadioTheme {
@@ -205,6 +244,11 @@ object RadioTheme {
     val highlight get() = RadioPacks.highlight(current)
     val onHighlight get() = RadioPacks.onHighlight(current)
     val selectionFill get() = highlight.copy(alpha = RadioPacks.selectionWash(current))
+    val chipIdle get() = RadioPacks.chipIdle(current)
+    val dialogSurface get() = RadioPacks.dialogSurface(current)
+    val film get() = RadioPacks.film(current)
+    val paneGutterDp get() = RadioPacks.paneGutterDp(current)
+    val panePadDp get() = RadioPacks.panePadDp(current)
     val onBlue get(): Color {
         val l = RadioPacks.channelLuma(current.blue)
         return if (l > 0.45f) Color(0xDE1A1A1A) else Color.White

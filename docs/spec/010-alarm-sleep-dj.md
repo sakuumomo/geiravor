@@ -17,3 +17,11 @@ One-shot timer to stop playback through the same play/stop path (`003-playback.m
 Opt-in, default **off**. **WorkManager** periodic (15 minutes, network required) plus the process `/api` poller watching snapshot `dj` / `isafkstream`. Do **not** use a `specialUse` foreground service to poll. Notify on AFK → live DJ, live DJ identity change, and live DJ → Hanyuu / AFK. Hanyuu (`isafkstream` or `dj.djname` Hanyuu / Hanyuu-sama) is the AFK stream even if `isafkstream` lags a takeover — AFK → Hanyuu is not a notify. Do not notify on the first sample after opt-in, or while stream-down (no snapshot / neither connected; the next good sample can fire). Song / `np` changes are not a notify. Tap opens the app. Title is **`r/a/dio`**. Body for a live DJ is **`{dj.djname} is LIVE`** (`LIVE` in capitals; empty name → `A DJ is LIVE`). Body returning to AFK is **`{dj.djname} is back`** (empty → `Hanyuu-sama is back`).
 
 No push channel exists from the station. Settings → Alerts documents battery cost. If notification permission is denied, fail visible with Settings copy — not a silent skip. Do not GET Icecast.
+
+## Fave currently playing
+
+Opt-in, default **off**. Same WorkManager (15 minutes, network required) plus the process `/api` poller as the DJ notifier — one worker if either toggle is on; both off cancels it. Do **not** use a `specialUse` foreground service to poll.
+
+Notify when the on-air song becomes a **favorite** of a committed nick (`FavePolicy.isMember`: Favorites nick and Connection nick). AFK uses catalog `trackid`; live DJ matches `np` (never leftover AFK `trackid`). Empty nick is a no-op. Do not notify on the first sample after opt-in, while stream-down, or on the same track again. **Suppress while this app is playing the stream** (the media notification already shows the song); still record the sample so pause later on that same track does not fire. Title is **`r/a/dio`**. Body is the on-air `np` (empty → `A favorite is playing`). Tap opens the app. Not on Auto.
+
+Settings → Alerts documents that this shares the DJ check and does not notify while playing. Permission denied is visible — not a silent skip. Do not GET Icecast.

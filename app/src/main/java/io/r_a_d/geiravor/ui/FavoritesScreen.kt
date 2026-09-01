@@ -254,9 +254,7 @@ fun FavoritesPane(
     }
 
     RadioPane(
-        modifier = modifier
-            .fillMaxSize()
-            .padding(16.dp),
+        modifier = modifier.fillMaxSize(),
     ) {
     Column(
         modifier = Modifier.fillMaxSize(),

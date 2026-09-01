@@ -16,7 +16,9 @@ class DjNotifierWorker(
     override suspend fun doWork(): Result {
         val app = applicationContext as GeiravorApp
         val settings = SettingsStore(app)
-        if (!settings.djNotifierEnabled.first()) {
+        val djOn = settings.djNotifierEnabled.first()
+        val faveOn = settings.faveNotifierEnabled.first()
+        if (!FaveNotifierPolicy.workerNeeded(djOn, faveOn)) {
             return Result.success()
         }
         val ok = withContext(Dispatchers.IO) {
@@ -27,6 +29,14 @@ class DjNotifierWorker(
         }
         val status = app.radio.snapshot() ?: return Result.retry()
         DjNotifier.consider(app, settings, status, streamDown = false)
+        FaveNotifier.consider(
+            app,
+            settings,
+            app.radio,
+            status,
+            streamDown = false,
+            playing = app.radio.isPlaying(),
+        )
         return Result.success()
     }
 }

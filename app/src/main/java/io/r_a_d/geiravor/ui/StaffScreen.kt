@@ -80,13 +80,8 @@ fun StaffScreen(
         loading = false
     }
 
-    RadioPane(
-        modifier = modifier
-            .fillMaxSize()
-            .padding(16.dp),
-    ) {
     Column(
-        modifier = Modifier.fillMaxSize(),
+        modifier = modifier.fillMaxSize(),
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         error?.let { text ->
@@ -110,66 +105,72 @@ fun StaffScreen(
                 }
             }
             else -> {
-                BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
-                    val widthDp = maxWidth.value.toInt()
-                    val groups = StaffPolicy.groups(members)
-                    val staff = groups.first { it.first == "staff" }
-                    val dev = groups.first { it.first == "dev" }
-                    val djs = groups.first { it.first == "dj" }
-                    Column(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .verticalScroll(rememberScrollState()),
-                        verticalArrangement = Arrangement.spacedBy(20.dp),
+                Column(
+                    modifier = Modifier
+                        .weight(1f)
+                        .fillMaxWidth()
+                        .verticalScroll(rememberScrollState()),
+                ) {
+                    RadioPane(
+                        modifier = Modifier.fillMaxWidth(),
+                        fill = false,
                     ) {
-                        if (StaffPolicy.pairStaffAndDev(widthDp)) {
-                            Row(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .height(IntrinsicSize.Max),
-                                horizontalArrangement = Arrangement.spacedBy(12.dp),
-                            ) {
+                        BoxWithConstraints(Modifier.fillMaxWidth()) {
+                            val widthDp = maxWidth.value.toInt()
+                            val groups = StaffPolicy.groups(members)
+                            val staff = groups.first { it.first == "staff" }
+                            val dev = groups.first { it.first == "dev" }
+                            val djs = groups.first { it.first == "dj" }
+                            Column(verticalArrangement = Arrangement.spacedBy(20.dp)) {
+                                if (StaffPolicy.pairStaffAndDev(widthDp)) {
+                                    Row(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .height(IntrinsicSize.Max),
+                                        horizontalArrangement = Arrangement.spacedBy(12.dp),
+                                    ) {
+                                        StaffGroup(
+                                            role = staff.first,
+                                            members = staff.second,
+                                            columns = StaffPolicy.PHONE_COLUMNS,
+                                            modifier = Modifier.weight(1f),
+                                        )
+                                        Box(
+                                            modifier = Modifier
+                                                .width(2.dp)
+                                                .fillMaxHeight()
+                                                .background(RadioTheme.border),
+                                        )
+                                        StaffGroup(
+                                            role = dev.first,
+                                            members = dev.second,
+                                            columns = StaffPolicy.PHONE_COLUMNS,
+                                            modifier = Modifier.weight(1f),
+                                        )
+                                    }
+                                } else {
+                                    StaffGroup(
+                                        role = staff.first,
+                                        members = staff.second,
+                                        columns = StaffPolicy.columns(widthDp, staff.first),
+                                    )
+                                    StaffGroup(
+                                        role = dev.first,
+                                        members = dev.second,
+                                        columns = StaffPolicy.columns(widthDp, dev.first),
+                                    )
+                                }
                                 StaffGroup(
-                                    role = staff.first,
-                                    members = staff.second,
-                                    columns = StaffPolicy.PHONE_COLUMNS,
-                                    modifier = Modifier.weight(1f),
-                                )
-                                Box(
-                                    modifier = Modifier
-                                        .width(2.dp)
-                                        .fillMaxHeight()
-                                        .background(RadioTheme.border),
-                                )
-                                StaffGroup(
-                                    role = dev.first,
-                                    members = dev.second,
-                                    columns = StaffPolicy.PHONE_COLUMNS,
-                                    modifier = Modifier.weight(1f),
+                                    role = djs.first,
+                                    members = djs.second,
+                                    columns = StaffPolicy.columns(widthDp, djs.first),
                                 )
                             }
-                        } else {
-                            StaffGroup(
-                                role = staff.first,
-                                members = staff.second,
-                                columns = StaffPolicy.columns(widthDp, staff.first),
-                            )
-                            StaffGroup(
-                                role = dev.first,
-                                members = dev.second,
-                                columns = StaffPolicy.columns(widthDp, dev.first),
-                            )
                         }
-                        StaffGroup(
-                            role = djs.first,
-                            members = djs.second,
-                            columns = StaffPolicy.columns(widthDp, djs.first),
-                        )
                     }
                 }
             }
         }
-    }
     }
 }
 
@@ -188,6 +189,8 @@ private fun StaffGroup(
             StaffPolicy.label(role),
             color = NewsPolicy.nameColor(role, RadioTheme.text),
             fontSize = 18.sp,
+            textAlign = TextAlign.Center,
+            modifier = Modifier.fillMaxWidth(),
         )
         Box(
             modifier = Modifier

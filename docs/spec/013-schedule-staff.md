@@ -47,13 +47,13 @@ Use the row weekday as the ET calendar day (today if missing). Keep 12h vs 24h a
 
 `GET https://r-a-d.io/staff`. Active users only (server already filters). Groups in order **staff | dev | dj** from `#staff`, `#dev`, `#dj`. Display labels **Staff**, **Developers**, **DJs**. Show a heading even if that group has no cards.
 
-Each card: `img.dj-image` `src` + `.dj-card-name` text. Same loader as DJ image (`002-api.md`), including GIF autoplay and muted looping mp4/webm. Name colors: staff green, dj blue, dev red (`NewsPolicy.nameColor`). **No bio** — that text belongs on the schedule.
+Each card: `img.dj-image` `src` + `.dj-card-name` text. Same loader as DJ image (`002-api.md`), including GIF autoplay and muted looping mp4/webm. Name colors: staff green, dj **blue** (not the Halloween/New Years play accent), dev red (`NewsPolicy.nameColor`). **No bio** — that text belongs on the schedule.
 
 Layout follows the live staff page, sized for a phone/tablet:
 
 - **Staff** and **Developers** sit **side by side** with a vertical separator from **600dp** (tablet / two-pane). Phone stacks them. Each of those groups is two-across (live `#notdjs` / `has-2-cols`).
 - **DJs** are **four-across** from 600dp, **two-across** on phone (live `has-4-cols has-2-cols-mobile`). A short last row keeps leftover cards together and does **not** stretch them across the row.
-- Square images with the same 6dp corner as cards. A 2dp rule under each group title (`content-border-top`).
+- Square images with the same 6dp corner as cards. Group titles **Staff** / **Developers** / **DJs** are centered over the group. A 2dp rule under each group title (`content-border-top`).
 
 ## Out of scope
 

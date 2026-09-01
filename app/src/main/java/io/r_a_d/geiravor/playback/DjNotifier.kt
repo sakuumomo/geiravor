@@ -36,9 +36,9 @@ object DjNotifier {
         }
     }
 
-    fun enqueue(context: Context, enabled: Boolean) {
+    fun enqueue(context: Context, djOn: Boolean, faveOn: Boolean) {
         val wm = WorkManager.getInstance(context.applicationContext)
-        if (!enabled) {
+        if (!FaveNotifierPolicy.workerNeeded(djOn, faveOn)) {
             wm.cancelUniqueWork(DjNotifierPolicy.WORK_NAME)
             return
         }

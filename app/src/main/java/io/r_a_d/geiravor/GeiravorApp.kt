@@ -19,6 +19,7 @@ import io.r_a_d.geiravor.data.MembershipStore
 import io.r_a_d.geiravor.data.NewsStore
 import io.r_a_d.geiravor.playback.AlarmBootReceiver
 import io.r_a_d.geiravor.playback.DjNotifier
+import io.r_a_d.geiravor.playback.FaveNotifier
 import io.r_a_d.geiravor.playback.CarModeReceiver
 import io.r_a_d.geiravor.playback.FavePolicy
 import io.r_a_d.geiravor.playback.HeadsetReceiver
@@ -101,6 +102,14 @@ class GeiravorApp : Application(), ImageLoaderFactory {
                     }
                     ioScope.launch {
                         DjNotifier.consider(this@GeiravorApp, settings, status, streamDown)
+                        FaveNotifier.consider(
+                            this@GeiravorApp,
+                            settings,
+                            radio,
+                            status,
+                            streamDown,
+                            playing = radio.isPlaying(),
+                        )
                     }
                 }
             },
@@ -108,9 +117,13 @@ class GeiravorApp : Application(), ImageLoaderFactory {
         ioScope.launch {
             AlarmBootReceiver.restore(this@GeiravorApp)
             val djOn = settings.djNotifierEnabled.first()
-            DjNotifier.enqueue(this@GeiravorApp, djOn)
+            val faveOn = settings.faveNotifierEnabled.first()
+            DjNotifier.enqueue(this@GeiravorApp, djOn, faveOn)
             if (djOn) {
                 DjNotifier.ensureChannel(this@GeiravorApp)
+            }
+            if (faveOn) {
+                FaveNotifier.ensureChannel(this@GeiravorApp)
             }
             keepNicks.forEach { nick ->
                 runCatching { radio.prefetchFavorites(nick) }

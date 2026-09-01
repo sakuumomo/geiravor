@@ -90,7 +90,7 @@ object NewsPolicy {
     fun nameColor(role: String, fallback: Color = RadioTheme.muted): Color =
         when (role) {
             "staff" -> RadioTheme.green
-            "dj" -> RadioTheme.blue
+            "dj" -> if (RadioTheme.glass) RadioTheme.link else RadioTheme.blue
             "dev" -> RadioTheme.red
             else -> fallback
         }

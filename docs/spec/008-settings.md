@@ -35,7 +35,7 @@ Android Auto Settings tab surfaces the same two auto-start flags (On/Off subtitl
 
 `008` still prefers DataStore over SharedPreferences. **Exception:** secrets only may use AndroidX Security EncryptedSharedPreferences (Tink). Do not move gain / auto-start into it.
 
-Settings sections are **General | Auto | Connection**. Alarm / snooze / sleep / DJ notifier live under General unless they overflow — then an **Alerts** section tab, still not a fifth bottom tab. IRC connection (nick, profile, NickServ, bouncer host/port/`PASS`, Allow insecure TLS, TLS fingerprint, SASL, client PEM, Test connection) is **Settings → Connection**. The Favorites tab nick stays the public list. NickServ / bouncer `PASS` / SASL password have no copy/cut.
+Settings sections are **General | Auto | Connection**. Alarm / snooze / sleep / DJ notifier / fave-currently-playing live under General unless they overflow — then an **Alerts** section tab, still not a fifth bottom tab. IRC connection (nick, profile, NickServ, bouncer host/port/`PASS`, Allow insecure TLS, TLS fingerprint, SASL, client PEM, Test connection) is **Settings → Connection**. The Favorites tab nick stays the public list. NickServ / bouncer `PASS` / SASL password have no copy/cut.
 
 ## 0.3.0
 
@@ -44,6 +44,7 @@ Settings sections are **General | Auto | Connection**. Alarm / snooze / sleep / 
 | Theme pack | DataStore | `default-dark` | Settings → General: **Default** \| **Default light** \| **Christmas** \| **Halloween** \| **New Years** |
 | Opt out of holiday themes | DataStore bool | **false** (auto allowed) | Settings → General (auto only) |
 | Convert schedule times to local | DataStore bool | **false** | Settings → General |
+| Fave currently playing | DataStore bool | **false** | Settings → Alerts |
 
 Theme pick may be any of the five packs, any day. Holiday **auto** still applies when the live site is serving them, opt-out is off, and a holiday window is open (`005-ui.md`). Opt-out does not block a manual holiday pick. Auto follows Default / Default light (holiday user pick or holiday auto → Default / night). Application night mode is set from that same dark/light split (`004-android-auto.md`).
 
