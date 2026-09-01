@@ -67,6 +67,7 @@ fun RequestPane(
                 PanePolicy.startIndex(p, vis),
                 vis,
                 PanePolicy.SEARCH_PER_PAGE,
+                ListingCache.searchServerLast(q) ?: 1,
             ).orEmpty(),
         )
     }
@@ -122,6 +123,7 @@ fun RequestPane(
             start,
             fit,
             PanePolicy.SEARCH_PER_PAGE,
+            ListingCache.searchServerLast(committed) ?: 1,
         )
         hits = window.orEmpty()
         lastPage = last

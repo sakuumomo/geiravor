@@ -105,10 +105,11 @@ object PanePolicy {
         start: Int,
         count: Int,
         perServer: Int,
+        serverLast: Int = Int.MAX_VALUE / 4,
     ): List<T>? {
         val vis = count.coerceAtLeast(1)
         val per = perServer.coerceAtLeast(1)
-        val needed = serverPages(start, vis, per, Int.MAX_VALUE / 4)
+        val needed = serverPages(start, vis, per, serverLast.coerceAtLeast(1))
         if (needed.isEmpty()) {
             return emptyList()
         }

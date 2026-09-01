@@ -36,6 +36,44 @@ class ListingCacheTest {
     }
 
     @Test
+    fun searchPastLastEmptyDoesNotBecomeLastPage() {
+        ListingCache.putSearch(
+            "idolmaster",
+            page(current = 1, total = 269, last = 14, from = 0),
+        )
+        ListingCache.putSearch(
+            "idolmaster",
+            SearchPage(
+                total = 0,
+                perPage = 20,
+                currentPage = 15,
+                lastPage = 1,
+                from = 281,
+                to = 280,
+                data = emptyList(),
+            ),
+        )
+        assertEquals(14, ListingCache.searchServerLast("idolmaster"))
+        assertEquals(269, ListingCache.searchTotal("idolmaster"))
+        ListingCache.putSearch(
+            "idolmaster",
+            page(current = 14, total = 269, last = 14, from = 260, count = 9),
+        )
+        assertEquals(13 * 20 + 9, ListingCache.searchTotal("idolmaster"))
+        val vis = 19
+        val last = PanePolicy.lastPage(ListingCache.searchTotal("idolmaster")!!, vis)
+        val start = PanePolicy.startIndex(last, vis)
+        val window = PanePolicy.window(
+            ListingCache.searchRows("idolmaster"),
+            start,
+            vis,
+            PanePolicy.SEARCH_PER_PAGE,
+            ListingCache.searchServerLast("idolmaster")!!,
+        )
+        assertEquals(3, window!!.size)
+    }
+
+    @Test
     fun visibleTracksTheCurrentPane() {
         assertEquals(6, ListingCache.freezeSearchVisible(6))
         assertEquals(3, ListingCache.freezeSearchVisible(3))
@@ -64,14 +102,14 @@ class ListingCacheTest {
         assertEquals(6 * 100 + 40, ListingCache.favesTotal("k"))
     }
 
-    private fun page(current: Int, total: Int, last: Int, from: Int) = SearchPage(
+    private fun page(current: Int, total: Int, last: Int, from: Int, count: Int = 20) = SearchPage(
         total = total.toLong(),
         perPage = 20,
         currentPage = current.toLong(),
         lastPage = last.toLong(),
         from = from.toLong(),
-        to = (from + 19).toLong(),
-        data = (from until from + 20).map { n ->
+        to = (from + count - 1).toLong(),
+        data = (from until from + count).map { n ->
             SearchHit(
                 artist = "A",
                 title = "$n",

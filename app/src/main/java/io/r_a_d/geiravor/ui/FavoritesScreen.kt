@@ -93,6 +93,7 @@ fun FavoritesPane(
                 PanePolicy.startIndex(p, vis),
                 vis,
                 PanePolicy.FAVES_PER_PAGE,
+                ListingCache.favesServerLast(fetch) ?: 1,
             ).orEmpty(),
         )
     }
@@ -151,6 +152,7 @@ fun FavoritesPane(
             start,
             fit,
             PanePolicy.FAVES_PER_PAGE,
+            ListingCache.favesServerLast(committed) ?: 1,
         )
         rows = window.orEmpty()
         lastPage = last

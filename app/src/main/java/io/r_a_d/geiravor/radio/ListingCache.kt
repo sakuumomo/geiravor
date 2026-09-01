@@ -24,7 +24,12 @@ object ListingCache {
         if (key.isEmpty()) {
             return
         }
-        synchronized(lock) { search[key to page.currentPage.toInt()] = page }
+        val current = page.currentPage.toInt()
+        val last = page.lastPage.toInt().coerceAtLeast(1)
+        if (page.data.isEmpty() && (current > last || (page.total == 0L && current > 1))) {
+            return
+        }
+        synchronized(lock) { search[key to current] = page }
     }
 
     fun searchRows(query: String): Map<Int, List<SearchHit>> = synchronized(lock) {
@@ -32,14 +37,28 @@ object ListingCache {
         search.filterKeys { it.first == key }.mapKeys { it.key.second }.mapValues { it.value.data }
     }
 
-    fun searchTotal(query: String): Int? = synchronized(lock) {
-        val key = query.trim()
-        search.entries.firstOrNull { it.key.first == key }?.value?.total?.toInt()
+    fun searchTotal(query: String): Int? {
+        val last = searchServerLast(query) ?: return null
+        val lastRows = search(query, last)?.data
+        if (lastRows != null) {
+            return (last - 1) * PanePolicy.SEARCH_PER_PAGE + lastRows.size
+        }
+        return synchronized(lock) {
+            val key = query.trim()
+            search.entries
+                .filter { it.key.first == key && it.value.total > 0 }
+                .maxOfOrNull { it.value.total.toInt() }
+        }
     }
 
     fun searchServerLast(query: String): Int? = synchronized(lock) {
         val key = query.trim()
-        search.entries.firstOrNull { it.key.first == key }?.value?.lastPage?.toInt()
+        search.entries
+            .filter {
+                it.key.first == key &&
+                    (it.value.data.isNotEmpty() || it.value.total > 0)
+            }
+            .maxOfOrNull { it.value.lastPage.toInt() }
     }
 
     fun faves(nick: String, page: Int): FavoritesPage? = synchronized(lock) {

@@ -56,6 +56,30 @@ class PanePolicyTest {
     }
 
     @Test
+    fun searchLastUiPageDoesNotNeedAPastLastServerPage() {
+        val pages = HashMap<Int, List<Int>>()
+        for (p in 1..13) {
+            pages[p] = ((p - 1) * 20 until p * 20).toList()
+        }
+        pages[14] = (260 until 269).toList()
+        val vis = 19
+        val last = PanePolicy.lastPage(269, vis)
+        val start = PanePolicy.startIndex(last, vis)
+        assertNull(
+            PanePolicy.window(pages, start, vis, perServer = 20),
+        )
+        val window = PanePolicy.window(
+            pages,
+            start,
+            vis,
+            perServer = 20,
+            serverLast = 14,
+        )
+        assertEquals((266 until 269).toList(), window)
+        assertEquals(15, last)
+    }
+
+    @Test
     fun favesCatalogSizeUsesLeftoverNotAFullLastPage() {
         assertEquals(100, PanePolicy.favesCatalogSize(serverLast = 1, lastPageCount = 100))
         assertEquals(37, PanePolicy.favesCatalogSize(serverLast = 1, lastPageCount = 37))
