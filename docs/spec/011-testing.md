@@ -10,6 +10,7 @@ Must cover:
 - `np` split (including no-hyphen and extra `" - "` in the title)
 - Progress offset with unix **seconds**
 - Queue hidden when `isafkstream == false`
+- Live DJ `tags: null` parses as empty (must not fail the snapshot)
 - Live DJ ignores catalog `start_time` / `end_time`
 - `end_time == 0` unknown duration (AFK)
 - Poll interval floor 2s / backoff

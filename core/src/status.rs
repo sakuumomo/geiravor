@@ -86,7 +86,8 @@ struct RawMain {
     dj: RawDj,
     queue: Vec<RawEntry>,
     lp: Vec<RawEntry>,
-    tags: Vec<String>,
+    #[serde(default)]
+    tags: Option<Vec<String>>,
 }
 
 #[derive(Deserialize)]
@@ -135,7 +136,7 @@ impl From<RawMain> for Status {
             },
             queue: raw.queue.into_iter().map(ListEntry::from).collect(),
             last_played: raw.lp.into_iter().map(ListEntry::from).collect(),
-            tags: raw.tags,
+            tags: raw.tags.unwrap_or_default(),
         }
     }
 }

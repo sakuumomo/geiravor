@@ -57,6 +57,7 @@ fn parse_live_dj_hides_queue_and_unknown_duration() {
     let s = parse_status(live_dj_json()).expect("parse");
     assert!(!s.is_afk_stream);
     assert!(!s.queue_visible());
+    assert!(s.tags.is_empty(), "live DJ tags may be null");
     assert!(!s.queue.is_empty(), "API may still send a queue");
     assert_eq!(
         s.thread.as_deref(),
