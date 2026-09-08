@@ -99,6 +99,12 @@ fun newsBlocks(html: String): List<NewsBlock> {
     }
 }
 
+fun articleImageHtml(body: String, commentBodies: List<String>): String =
+    buildString {
+        append(body)
+        commentBodies.forEach { append(it) }
+    }
+
 fun commentJumpId(url: String): Long? {
     val t = url.trim()
     val m = Regex("""#comment-(\d+)""").find(t) ?: return null

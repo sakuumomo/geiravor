@@ -36,6 +36,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.platform.LocalContext
+import io.r_a_d.geiravor.compat.evictNewsImages
 import io.r_a_d.geiravor.theme.LocalTokens
 import uniffi.geiravor_core.NewsCard
 import uniffi.geiravor_core.RadioCore
@@ -156,9 +158,19 @@ private fun rolePaint(role: RoleColor, t: io.r_a_d.geiravor.theme.Tokens) =
 private fun ArticlePane(ui: UiState, core: RadioCore) {
     val t = LocalTokens.current
     val article = ui.article ?: return
+    val ctx = LocalContext.current
     var draft by remember { mutableStateOf("") }
     val listState = rememberLazyListState()
     val scope = rememberCoroutineScope()
+    LaunchedEffect(article.id, article.body, article.comments) {
+        val html = articleImageHtml(article.body, article.comments.map { it.body })
+        val urls = uniffi.geiravor_core.newsImageUrlsFor(html)
+        val dropped = uniffi.geiravor_core.droppedNewsImagesFor(ui.newsCoilUrls, urls)
+        ui.newsCoilUrls = urls
+        if (dropped.isNotEmpty()) {
+            ui.offMain { evictNewsImages(ctx, dropped) }
+        }
+    }
     fun jump(id: Long) {
         commentListIndex(article.comments.map { it.id }, id)?.let { idx ->
             scope.launch { listState.animateScrollToItem(idx) }

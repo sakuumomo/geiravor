@@ -45,7 +45,8 @@ pub use log_init::init_logging;
 pub use net::{Coalescer, HttpClient, ReqwestClient};
 pub use news::{
     BOARD_NEWS_LABEL, NewsArticle, NewsCard, NewsComment, NewsList, RoleColor, board_news_label,
-    news_article_url, news_list_url, parse_news_article, parse_news_list,
+    dropped_news_images, dropped_news_images_for, news_article_url, news_image_urls,
+    news_image_urls_for, news_list_url, parse_news_article, parse_news_list,
 };
 pub use notices::{DjNotice, dj_notice, fave_on_air_key, is_hanyuu};
 pub use parse::{

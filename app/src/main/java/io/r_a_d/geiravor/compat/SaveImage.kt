@@ -7,7 +7,9 @@ import android.os.Build
 import android.os.Environment
 import android.provider.MediaStore
 import androidx.core.graphics.drawable.toBitmap
+import coil.annotation.ExperimentalCoilApi
 import coil.imageLoader
+import coil.memory.MemoryCache
 import coil.request.ImageRequest
 import coil.request.SuccessResult
 import kotlinx.coroutines.runBlocking
@@ -57,4 +59,17 @@ fun saveThreadStill(context: Context, url: String): Boolean {
         bitmap.compress(Bitmap.CompressFormat.JPEG, 90, out)
     } ?: return false
     return true
+}
+
+@OptIn(ExperimentalCoilApi::class)
+fun evictCoilUrl(loader: coil.ImageLoader, url: String) {
+    loader.memoryCache?.remove(MemoryCache.Key(url))
+    loader.diskCache?.remove(url)
+}
+
+fun evictNewsImages(context: Context, urls: List<String>) {
+    if (urls.isEmpty()) return
+    val app = context.applicationContext as? io.r_a_d.geiravor.GeiravorApp
+    val loaders = listOfNotNull(context.imageLoader, app?.stillImages)
+    urls.forEach { url -> loaders.forEach { evictCoilUrl(it, url) } }
 }

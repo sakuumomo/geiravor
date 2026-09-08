@@ -252,6 +252,52 @@ fn allow_news_img(src: &str) -> bool {
     src.starts_with("https://static.r-a-d.io/") || src.starts_with("//static.r-a-d.io/")
 }
 
+fn absolute_news_img(src: &str) -> String {
+    if src.starts_with("//") {
+        format!("https:{src}")
+    } else {
+        src.to_string()
+    }
+}
+
+/// `static.r-a-d.io` image srcs in article/comment HTML (https, protocol-relative folded).
+pub fn news_image_urls(html: &str) -> Vec<String> {
+    let mut out = Vec::new();
+    let mut rest = html;
+    while let Some(i) = rest.find("<img") {
+        rest = &rest[i..];
+        let Some(gt) = rest.find('>') else {
+            break;
+        };
+        let tag = &rest[..=gt];
+        rest = &rest[gt + 1..];
+        if let Some(src) = crate::html::between(tag, "src=\"", "\"")
+            && allow_news_img(src)
+        {
+            out.push(absolute_news_img(src));
+        }
+    }
+    out
+}
+
+/// URLs in `old` that are not in `new`. Coil should drop those files.
+pub fn dropped_news_images(old: &[String], new: &[String]) -> Vec<String> {
+    old.iter()
+        .filter(|u| !new.iter().any(|n| n == *u))
+        .cloned()
+        .collect()
+}
+
+#[uniffi::export]
+pub fn news_image_urls_for(html: String) -> Vec<String> {
+    news_image_urls(&html)
+}
+
+#[uniffi::export]
+pub fn dropped_news_images_for(old: Vec<String>, new: Vec<String>) -> Vec<String> {
+    dropped_news_images(&old, &new)
+}
+
 fn role_from(html: &str) -> RoleColor {
     if html.contains("is-color-staff") {
         RoleColor::Staff
@@ -323,6 +369,25 @@ mod tests {
         assert!(!out.contains("script"));
         assert!(out.contains("<p>Hi</p>"));
         assert!(sanitize_news_html(r#"<img src="//static.r-a-d.io/y.png">"#).contains("y.png"));
+    }
+
+    #[test]
+    fn news_image_urls_keep_static_and_drop_gone() {
+        let old = news_image_urls(
+            r#"<img src="https://static.r-a-d.io/a.jpg"><img src="https://evil.example/x.jpg"><img src="//static.r-a-d.io/b.gif">"#,
+        );
+        assert_eq!(
+            old,
+            vec![
+                "https://static.r-a-d.io/a.jpg".to_string(),
+                "https://static.r-a-d.io/b.gif".to_string(),
+            ]
+        );
+        let new = news_image_urls(r#"<img src="https://static.r-a-d.io/b.gif">"#);
+        assert_eq!(
+            dropped_news_images(&old, &new),
+            vec!["https://static.r-a-d.io/a.jpg".to_string()]
+        );
     }
 
     #[test]

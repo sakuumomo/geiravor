@@ -80,6 +80,7 @@ class UiState {
     var searchFit by mutableStateOf(0u)
     var faveFit by mutableStateOf(0u)
     var article by mutableStateOf<NewsArticle?>(null)
+    var newsCoilUrls by mutableStateOf<List<String>>(emptyList())
     var schedule by mutableStateOf<List<ScheduleDay>>(emptyList())
     var staff by mutableStateOf<List<StaffGroup>>(emptyList())
 

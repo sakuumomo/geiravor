@@ -14,3 +14,4 @@ User-visible changes to **this** tree. 0.3.0 history lives on `legacy/0.3`.
 - Thread embed long-press save/open (phone only); compact Now Playing logo badge; theme-radio hover; list row count locked across rotation.
 - Holiday theme sniff reuses news/schedule/staff HTML, GETs `/` at most hourly until the live pack matches, and Board section labels come from domain constants.
 - GIF and muted looping video autoplay on DJ, schedule, staff, and thread; news article images stay still.
+- Coil drops news image files when those URLs leave the article body or comments.

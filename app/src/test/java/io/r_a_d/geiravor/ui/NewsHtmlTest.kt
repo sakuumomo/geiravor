@@ -9,6 +9,14 @@ import java.util.Locale
 
 class NewsHtmlTest {
     @Test
+    fun articleImageHtmlJoinsBodyAndComments() {
+        assertEquals(
+            "<img src=\"a\"><img src=\"b\">",
+            articleImageHtml("<img src=\"a\">", listOf("<img src=\"b\">")),
+        )
+    }
+
+    @Test
     fun splitsStaticImages() {
         val blocks = newsBlocks("""<p>Hi</p><img src="https://static.r-a-d.io/x.jpg"><p>Bye</p>""")
         assertEquals(3, blocks.size)
