@@ -328,6 +328,11 @@ class PlaybackService : MediaLibraryService() {
             if (app.ui.autoStartVehicle) {
                 live.playLive()
             }
+            app.ui.offMain {
+                app.ui.membershipNicks().forEach { nick ->
+                    runCatching { core().revalidateMembership(nick) }
+                }
+            }
             refreshButtons()
             return MediaSession.ConnectionResult.AcceptedResultBuilder(session)
                 .setAvailableSessionCommands(sessionCommands)

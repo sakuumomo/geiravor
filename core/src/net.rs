@@ -34,6 +34,7 @@ impl ReqwestClient {
             .user_agent(USER_AGENT)
             .cookie_store(true)
             .timeout(Duration::from_secs(20))
+            .connect_timeout(Duration::from_secs(10))
             .build()
             .map_err(|e| ApiError::Network {
                 detail: e.to_string(),

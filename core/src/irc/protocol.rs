@@ -45,9 +45,85 @@ pub fn is_nick_error(line: &str) -> bool {
     matches!(numeric(line), Some("432" | "433" | "436" | "437"))
 }
 
+/// RFC 1459 casemap (`[]\\~` ≡ `{|^`) plus ASCII case. Rizon uses this.
+pub fn nicks_match(left: &str, right: &str) -> bool {
+    let a = left.trim();
+    let b = right.trim();
+    !a.is_empty() && fold_nick(a) == fold_nick(b)
+}
+
+fn fold_nick(nick: &str) -> String {
+    nick.chars()
+        .map(|c| match c {
+            'A'..='Z' => c.to_ascii_lowercase(),
+            '[' => '{',
+            ']' => '}',
+            '\\' => '|',
+            '~' => '^',
+            other => other,
+        })
+        .collect()
+}
+
+/// `CAP LS` list and whether more lines follow (`LS *`).
+pub fn cap_ls(line: &str) -> Option<(bool, String)> {
+    let mut parts = line.split_whitespace();
+    if line.starts_with(':') {
+        parts.next()?;
+    }
+    if !parts.next()?.eq_ignore_ascii_case("CAP") {
+        return None;
+    }
+    parts.next()?;
+    if !parts.next()?.eq_ignore_ascii_case("LS") {
+        return None;
+    }
+    let rest: Vec<&str> = parts.collect();
+    if rest.is_empty() {
+        return Some((false, String::new()));
+    }
+    let continued = rest[0] == "*";
+    let list = rest
+        .iter()
+        .skip(usize::from(continued))
+        .map(|s| s.trim_start_matches(':'))
+        .collect::<Vec<_>>()
+        .join(" ");
+    Some((continued, list))
+}
+
+pub fn list_has_sasl(list: &str) -> bool {
+    list.split_whitespace().any(|token| {
+        token
+            .split('=')
+            .next()
+            .unwrap_or(token)
+            .eq_ignore_ascii_case("sasl")
+    })
+}
+
+pub fn is_authenticate_plus(line: &str) -> bool {
+    let t = line.trim();
+    let upper = t.to_ascii_uppercase();
+    upper == "AUTHENTICATE +" || upper.ends_with(" AUTHENTICATE +")
+}
+
+pub fn is_cap_ack(line: &str) -> bool {
+    let mut parts = line.split_whitespace();
+    if line.starts_with(':') {
+        parts.next();
+    }
+    parts.next().is_some_and(|c| c.eq_ignore_ascii_case("CAP"))
+        && parts.nth(1).is_some_and(|c| c.eq_ignore_ascii_case("ACK"))
+}
+
 pub fn is_hanyuu_notice(line: &str) -> bool {
     let lower = line.to_ascii_lowercase();
-    lower.contains("notice") && lower.contains(&HANYUU.to_ascii_lowercase())
+    let h = HANYUU.to_ascii_lowercase();
+    lower.contains(&h)
+        && (lower.contains(" notice ")
+            || lower.contains(" privmsg ")
+            || lower.contains("\tnotice "))
 }
 
 pub fn named_song(notice: &str) -> Option<String> {
@@ -71,6 +147,11 @@ pub fn hanyuu_already(notice: &str) -> bool {
 pub fn hanyuu_removed(notice: &str) -> bool {
     let t = strip_colors(notice).to_ascii_lowercase();
     t.contains("removed")
+}
+
+pub fn hanyuu_not_favorited(notice: &str) -> bool {
+    let t = strip_colors(notice).to_ascii_lowercase();
+    t.contains("don't have") || t.contains("do not have")
 }
 
 pub fn hanyuu_unknown(notice: &str) -> bool {
@@ -98,5 +179,24 @@ mod tests {
         let line = ":Hanyuu-sama NOTICE x :\x033Added 'Foo - Bar' to your favorites.";
         assert_eq!(named_song(line).as_deref(), Some("Foo - Bar"));
         assert!(hanyuu_added(line));
+    }
+
+    #[test]
+    fn nicks_match_rfc1459() {
+        assert!(nicks_match("Geiravor", "geiravor"));
+        assert!(nicks_match("nick[a]", "nick{a}"));
+        assert!(!nicks_match("alice", "bob"));
+        assert!(!nicks_match("", "x"));
+    }
+
+    #[test]
+    fn cap_ls_finds_sasl_and_continuation() {
+        let (cont, list) = cap_ls(":irc CAP * LS :multi-prefix sasl=PLAIN,EXTERNAL").unwrap();
+        assert!(!cont);
+        assert!(list_has_sasl(&list));
+        let (cont, list) = cap_ls(":irc CAP * LS * :sasl").unwrap();
+        assert!(cont);
+        assert!(list_has_sasl(&list));
+        assert!(!list_has_sasl("multi-prefix account-tag"));
     }
 }

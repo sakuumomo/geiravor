@@ -180,7 +180,6 @@ private fun FavoritesPane(ui: UiState, core: RadioCore) {
             }
             val live = runCatching { core.favesWindow(nick, page, n) }.getOrNull()
             live?.let {
-                runCatching { core.rememberMembership(nick, it.rows) }
                 ui.onMain {
                     ui.faveRows = it.rows
                     ui.favePage = it.page
@@ -209,7 +208,9 @@ private fun FavoritesPane(ui: UiState, core: RadioCore) {
         BoxWithConstraints(Modifier.weight(1f).fillMaxWidth()) {
             val measured = (maxHeight / 56.dp).toInt().coerceAtLeast(1).toUInt()
             fit = lockPaneFit(measured, ui.faveFit) { ui.faveFit = it }
-            LaunchedEffect(ui.listNick, ui.nick, fit) { load(ui.favePage) }
+            LaunchedEffect(ui.songsSection, ui.nick, fit) {
+                if (ui.songsSection == SongsSection.Favorites) load(ui.favePage)
+            }
             Column {
                 val rows = ui.faveRows
                 rows.forEach { row ->

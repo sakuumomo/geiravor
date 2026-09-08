@@ -1,7 +1,7 @@
 //! rustls client. IPv6 first; leftover addresses use a short connect timeout.
 
-use std::io::{Read, Write};
-use std::net::{TcpStream, ToSocketAddrs};
+use std::io::{BufRead, BufReader, Write};
+use std::net::{Shutdown, TcpStream, ToSocketAddrs};
 use std::sync::Arc;
 use std::time::Duration;
 
@@ -70,6 +70,33 @@ fn normalize_fp(s: &str) -> String {
         .collect()
 }
 
+/// Host field may include `:port` (and `[ipv6]:port`). Hostname is TLS SNI.
+pub fn parse_host_port(host: &str, port: u16) -> (String, u16) {
+    let h = host.trim();
+    if h.is_empty() {
+        return (String::new(), port);
+    }
+    if let Some(rest) = h.strip_prefix('[')
+        && let Some((ip, tail)) = rest.split_once(']')
+    {
+        let p = tail
+            .strip_prefix(':')
+            .and_then(|s| s.parse().ok())
+            .filter(|n: &u16| *n > 0)
+            .unwrap_or(port);
+        return (ip.to_string(), p);
+    }
+    if let Some((name, pstr)) = h.rsplit_once(':')
+        && !name.is_empty()
+        && !name.contains(':')
+        && let Ok(p) = pstr.parse::<u16>()
+        && p > 0
+    {
+        return (name.to_string(), p);
+    }
+    (h.to_string(), port)
+}
+
 /// Open TLS to `host:port`. `insecure` is bouncer-only at the call site.
 pub fn connect_irc(
     host: &str,
@@ -80,7 +107,11 @@ pub fn connect_irc(
     tls_fingerprint: &str,
 ) -> Result<TlsIrc, IrcError> {
     let _ = rustls::crypto::ring::default_provider().install_default();
-    let tcp = tcp_connect(host, port)?;
+    let (host, port) = parse_host_port(host, port);
+    if host.is_empty() {
+        return Err(IrcError::Protocol("bouncer host required".into()));
+    }
+    let mut tcp = tcp_connect(&host, port)?;
     tcp.set_read_timeout(Some(Duration::from_secs(30))).ok();
     tcp.set_write_timeout(Some(Duration::from_secs(30))).ok();
 
@@ -101,15 +132,14 @@ pub fn connect_irc(
         finish_client_config(b, client_cert_pem, client_key_pem)?
     };
 
-    let server_name =
-        ServerName::try_from(host.to_string()).map_err(|e| IrcError::Tls(e.to_string()))?;
-    let conn = ClientConnection::new(Arc::new(config), server_name)
+    let server_name = ServerName::try_from(host).map_err(|e| IrcError::Tls(e.to_string()))?;
+    let mut conn = ClientConnection::new(Arc::new(config), server_name)
         .map_err(|e| IrcError::Tls(e.to_string()))?;
-    let mut tls = StreamOwned::new(conn, tcp);
-    // Drive handshake.
-    tls.flush().map_err(|e| IrcError::Tls(e.to_string()))?;
-    let fp = tls
-        .conn
+    while conn.is_handshaking() {
+        conn.complete_io(&mut tcp)
+            .map_err(|e| IrcError::Tls(e.to_string()))?;
+    }
+    let fp = conn
         .peer_certificates()
         .and_then(|c| c.first())
         .map(|c| fingerprint_der(c.as_ref()))
@@ -118,7 +148,7 @@ pub fn connect_irc(
         return Err(IrcError::Fingerprint);
     }
     Ok(TlsIrc {
-        tls,
+        reader: BufReader::new(StreamOwned::new(conn, tcp)),
         fingerprint: fp,
     })
 }
@@ -218,20 +248,30 @@ impl rustls::client::danger::ServerCertVerifier for PinVerifier {
 
     fn verify_tls12_signature(
         &self,
-        _message: &[u8],
-        _cert: &CertificateDer<'_>,
-        _dss: &rustls::DigitallySignedStruct,
+        message: &[u8],
+        cert: &CertificateDer<'_>,
+        dss: &rustls::DigitallySignedStruct,
     ) -> Result<rustls::client::danger::HandshakeSignatureValid, rustls::Error> {
-        Ok(rustls::client::danger::HandshakeSignatureValid::assertion())
+        rustls::crypto::verify_tls12_signature(
+            message,
+            cert,
+            dss,
+            &rustls::crypto::ring::default_provider().signature_verification_algorithms,
+        )
     }
 
     fn verify_tls13_signature(
         &self,
-        _message: &[u8],
-        _cert: &CertificateDer<'_>,
-        _dss: &rustls::DigitallySignedStruct,
+        message: &[u8],
+        cert: &CertificateDer<'_>,
+        dss: &rustls::DigitallySignedStruct,
     ) -> Result<rustls::client::danger::HandshakeSignatureValid, rustls::Error> {
-        Ok(rustls::client::danger::HandshakeSignatureValid::assertion())
+        rustls::crypto::verify_tls13_signature(
+            message,
+            cert,
+            dss,
+            &rustls::crypto::ring::default_provider().signature_verification_algorithms,
+        )
     }
 
     fn supported_verify_schemes(&self) -> Vec<rustls::SignatureScheme> {
@@ -241,9 +281,9 @@ impl rustls::client::danger::ServerCertVerifier for PinVerifier {
     }
 }
 
-/// TLS IRC stream. `close_notify` is orderly detach (bouncer).
+/// TLS IRC stream. `close_notify` is orderly detach (bouncer): TLS then TCP FIN.
 pub struct TlsIrc {
-    tls: StreamOwned<ClientConnection, TcpStream>,
+    reader: BufReader<StreamOwned<ClientConnection, TcpStream>>,
     fingerprint: String,
 }
 
@@ -261,52 +301,57 @@ impl TlsIrc {
         } else {
             tracing::debug!(line, "irc write");
         }
-        self.tls
+        let stream = self.reader.get_mut();
+        stream
             .write_all(line.as_bytes())
-            .and_then(|_| self.tls.write_all(b"\r\n"))
-            .and_then(|_| self.tls.flush())
+            .and_then(|_| stream.write_all(b"\r\n"))
+            .and_then(|_| stream.flush())
             .map_err(|e| IrcError::Network(e.to_string()))
     }
 
     pub fn read_line(&mut self) -> Result<String, IrcError> {
-        let mut buf = Vec::new();
-        let mut byte = [0u8; 1];
-        loop {
-            match self.tls.read(&mut byte) {
-                Ok(0) => {
-                    return Err(IrcError::Network("eof".into()));
-                }
-                Ok(_) => {
-                    if byte[0] == b'\n' {
-                        break;
-                    }
-                    if byte[0] != b'\r' {
-                        buf.push(byte[0]);
-                    }
-                    if buf.len() > 8192 {
-                        return Err(IrcError::Network("line too long".into()));
-                    }
-                }
-                Err(e)
-                    if e.kind() == std::io::ErrorKind::WouldBlock
-                        || e.kind() == std::io::ErrorKind::TimedOut =>
-                {
-                    return Err(IrcError::Timeout);
-                }
-                Err(e) => return Err(IrcError::Network(e.to_string())),
+        let mut line = String::new();
+        let n = self.reader.read_line(&mut line).map_err(|e| {
+            if e.kind() == std::io::ErrorKind::WouldBlock
+                || e.kind() == std::io::ErrorKind::TimedOut
+            {
+                IrcError::Timeout
+            } else {
+                IrcError::Network(e.to_string())
             }
+        })?;
+        if n == 0 {
+            return Err(IrcError::Network("eof".into()));
         }
-        Ok(String::from_utf8_lossy(&buf).into_owned())
+        if line.len() > 8192 {
+            return Err(IrcError::Network("line too long".into()));
+        }
+        while line.ends_with('\n') || line.ends_with('\r') {
+            line.pop();
+        }
+        Ok(line)
     }
 
     pub fn close_notify(&mut self) -> Result<(), IrcError> {
-        self.tls.conn.send_close_notify();
-        let _ = self.tls.flush();
+        self.reader.get_mut().conn.send_close_notify();
+        let _ = self.reader.get_mut().flush();
+        let _ = self.reader.get_ref().sock.shutdown(Shutdown::Both);
         Ok(())
     }
+}
 
-    pub fn tls_set_read_timeout(&self, d: Duration) -> Result<(), IrcError> {
-        self.tls
+impl super::io::IrcIo for TlsIrc {
+    fn send(&mut self, line: &str) -> Result<(), IrcError> {
+        self.write_line(line)
+    }
+
+    fn recv(&mut self) -> Result<String, IrcError> {
+        self.read_line()
+    }
+
+    fn set_read_timeout(&mut self, d: Duration) -> Result<(), IrcError> {
+        self.reader
+            .get_ref()
             .sock
             .set_read_timeout(Some(d))
             .map_err(|e| IrcError::Network(e.to_string()))
@@ -321,5 +366,31 @@ impl From<rustls::Error> for IrcError {
         } else {
             IrcError::Tls(s)
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::parse_host_port;
+
+    #[test]
+    fn host_can_include_port() {
+        assert_eq!(
+            parse_host_port("bouncer.example.com:12329", 6697),
+            ("bouncer.example.com".into(), 12329)
+        );
+        assert_eq!(
+            parse_host_port("example.com", 6697),
+            ("example.com".into(), 6697)
+        );
+        assert_eq!(
+            parse_host_port("[2001:db8::1]:12329", 6697),
+            ("2001:db8::1".into(), 12329)
+        );
+        assert_eq!(
+            parse_host_port("2001:db8::1", 12329),
+            ("2001:db8::1".into(), 12329)
+        );
+        assert_eq!(parse_host_port("  ", 6697), (String::new(), 6697));
     }
 }

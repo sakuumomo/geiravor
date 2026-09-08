@@ -18,23 +18,22 @@ pub enum NowPlayingEvent {
 }
 
 /// Apply one event. A successful snapshot does not clear stream-down.
-pub fn reduce(state: NowPlayingState, event: NowPlayingEvent) -> NowPlayingState {
+pub fn reduce_in_place(state: &mut NowPlayingState, event: NowPlayingEvent) {
     match event {
-        NowPlayingEvent::Snapshot(status) => NowPlayingState {
-            status: Some(*status),
-            ..state
-        },
-        NowPlayingEvent::Playing(playing) => NowPlayingState { playing, ..state },
-        NowPlayingEvent::PlayerError => NowPlayingState {
-            stream_down: true,
-            ..state
-        },
-        NowPlayingEvent::PlayerPlaying => NowPlayingState {
-            stream_down: false,
-            playing: true,
-            ..state
-        },
+        NowPlayingEvent::Snapshot(status) => state.status = Some(*status),
+        NowPlayingEvent::Playing(playing) => state.playing = playing,
+        NowPlayingEvent::PlayerError => state.stream_down = true,
+        NowPlayingEvent::PlayerPlaying => {
+            state.stream_down = false;
+            state.playing = true;
+        }
     }
+}
+
+/// Apply one event. A successful snapshot does not clear stream-down.
+pub fn reduce(mut state: NowPlayingState, event: NowPlayingEvent) -> NowPlayingState {
+    reduce_in_place(&mut state, event);
+    state
 }
 
 #[cfg(test)]

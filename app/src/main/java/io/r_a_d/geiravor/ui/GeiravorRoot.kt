@@ -61,15 +61,17 @@ fun GeiravorRoot(
         setApplicationNightMode(ctx, themePackIsNight(ui.pack))
     }
     LaunchedEffect(ui.status?.np, ui.listNick, ui.nick) {
-        val nick = ui.listNickOrConnection()
+        val nicks = ui.membershipNicks()
         val s = ui.status
         ui.offMain {
-            val hit = if (s == null || nick.isEmpty()) {
+            val hit = if (s == null || nicks.isEmpty()) {
                 false
             } else {
-                runCatching {
-                    core.membershipHas(nick, if (s.isAfk) s.trackId else 0, s.np)
-                }.getOrDefault(false)
+                nicks.any { nick ->
+                    runCatching {
+                        core.membershipHas(nick, if (s.isAfk) s.trackId else 0, s.np)
+                    }.getOrDefault(false)
+                }
             }
             ui.onMain { if (!ui.faveBusy) ui.heartFilled = hit }
         }
@@ -200,9 +202,13 @@ fun tapFave(
     onHeart()
     val cfg = ui.faveConfig(secrets)
     val catalog = ui.status?.let { if (it.isAfk) it.trackId else 0L } ?: 0L
-    Thread({
+    val nicks = ui.membershipNicks()
+    ui.offMain {
         val result = core.addFave(cfg, was, catalog)
-        android.os.Handler(android.os.Looper.getMainLooper()).post {
+        if (result.kind == FaveKind.SUCCESS) {
+            nicks.forEach { nick -> runCatching { core.revalidateMembership(nick) } }
+        }
+        ui.onMain {
             ui.faveBusy = false
             when (result.kind) {
                 FaveKind.SUCCESS -> {
@@ -223,5 +229,5 @@ fun tapFave(
             }
             onHeart()
         }
-    }, "geiravor-fave").start()
+    }
 }

@@ -36,10 +36,8 @@ class GeiravorApp : Application(), ImageLoaderFactory {
         Alerts.ensureChannel(this)
         core.addListener(object : StatusListener {
             override fun onStatus(status: Status, streamDown: Boolean, playing: Boolean) {
-                val nick = ui.listNickOrConnection()
-                val member = if (nick.isEmpty()) {
-                    false
-                } else {
+                val nicks = ui.membershipNicks()
+                val member = nicks.any { nick ->
                     runCatching {
                         core.membershipHas(
                             nick,

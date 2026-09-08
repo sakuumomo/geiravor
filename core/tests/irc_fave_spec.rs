@@ -202,7 +202,8 @@ fn probe_is_handshake_only_no_fave() {
         (true, ":irc 001 geiravor-test :welcome".into()),
     ]);
     let mut conn = connect_irc("127.0.0.1", port, true, "", "", "").expect("tls");
-    let fp = run_probe(&mut conn, &afk_config(true, port), "geiravor-test").expect("probe");
+    run_probe(&mut conn, &afk_config(true, port), "geiravor-test").expect("probe");
+    let fp = conn.server_fingerprint().to_string();
     let _ = conn.close_notify();
     assert!(fp.contains(':'), "got {fp}");
     let got = server.join().expect("server");

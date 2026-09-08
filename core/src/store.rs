@@ -11,6 +11,25 @@ use crate::parse::{Status, last_paint_chrome};
 const LAST_PAINT: &str = "last_paint";
 const LAST_PAINT_CHROME: &str = "last_paint_chrome";
 
+fn get_locked(db: &Connection, key: &str) -> Result<Option<String>, ApiError> {
+    let mut stmt = db
+        .prepare("SELECT value FROM kv WHERE key = ?1")
+        .map_err(|e| ApiError::Network {
+            detail: e.to_string(),
+        })?;
+    let mut rows = stmt.query([key]).map_err(|e| ApiError::Network {
+        detail: e.to_string(),
+    })?;
+    match rows.next().map_err(|e| ApiError::Network {
+        detail: e.to_string(),
+    })? {
+        Some(row) => Ok(Some(row.get(0).map_err(|e| ApiError::Network {
+            detail: e.to_string(),
+        })?)),
+        None => Ok(None),
+    }
+}
+
 /// True when the payload actually changed.
 pub fn payload_changed(old: &str, new: &str) -> bool {
     old != new
@@ -33,7 +52,10 @@ impl Store {
             detail: e.to_string(),
         })?;
         db.execute_batch(
-            "CREATE TABLE IF NOT EXISTS kv (
+            "PRAGMA journal_mode=WAL;
+             PRAGMA busy_timeout=5000;
+             PRAGMA synchronous=NORMAL;
+             CREATE TABLE IF NOT EXISTS kv (
                 key TEXT PRIMARY KEY NOT NULL,
                 value TEXT NOT NULL
             );",
@@ -46,31 +68,16 @@ impl Store {
 
     pub fn get(&self, key: &str) -> Result<Option<String>, ApiError> {
         let db = self.db.lock().expect("store");
-        let mut stmt = db
-            .prepare("SELECT value FROM kv WHERE key = ?1")
-            .map_err(|e| ApiError::Network {
-                detail: e.to_string(),
-            })?;
-        let mut rows = stmt.query([key]).map_err(|e| ApiError::Network {
-            detail: e.to_string(),
-        })?;
-        match rows.next().map_err(|e| ApiError::Network {
-            detail: e.to_string(),
-        })? {
-            Some(row) => Ok(Some(row.get(0).map_err(|e| ApiError::Network {
-                detail: e.to_string(),
-            })?)),
-            None => Ok(None),
-        }
+        get_locked(&db, key)
     }
 
     /// Write `key` only if `value` differs from what is stored.
     pub fn put_if_changed(&self, key: &str, value: &str) -> Result<bool, ApiError> {
-        let old = self.get(key)?;
+        let db = self.db.lock().expect("store");
+        let old = get_locked(&db, key)?;
         if old.as_deref() == Some(value) {
             return Ok(false);
         }
-        let db = self.db.lock().expect("store");
         db.execute(
             "INSERT INTO kv(key, value) VALUES(?1, ?2)
              ON CONFLICT(key) DO UPDATE SET value = excluded.value",

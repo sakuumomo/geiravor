@@ -21,7 +21,7 @@ use crate::news::{
 };
 use crate::parse::{API_URL, HOME_URL, Status, parse_status, parse_status_str, parse_theme_name};
 use crate::poll::poll_interval;
-use crate::reducer::{NowPlayingEvent, NowPlayingState, reduce};
+use crate::reducer::{NowPlayingEvent, NowPlayingState, reduce_in_place};
 use crate::schedule::{SCHEDULE_URL, ScheduleDay, parse_schedule};
 use crate::search::{
     CAN_REQUEST_URL, RequestResult, SEARCH_HTML_URL, SearchPage, parse_can_request,
@@ -50,6 +50,68 @@ struct Inner<C: HttpClient> {
     poller_started: Mutex<bool>,
     fave_busy: Mutex<bool>,
     search_ram: Mutex<HashMap<(String, u32), SearchPage>>,
+    overlay: Mutex<FaveOverlay>,
+}
+
+#[derive(Default)]
+struct FaveOverlay {
+    plus: HashMap<String, Vec<FaveRow>>,
+    minus: HashMap<String, Vec<FaveRow>>,
+}
+
+struct FaveBusy<'a>(&'a Mutex<bool>);
+
+impl Drop for FaveBusy<'_> {
+    fn drop(&mut self) {
+        if let Ok(mut g) = self.0.lock() {
+            *g = false;
+        }
+    }
+}
+
+fn row_meta(row: &FaveRow) -> String {
+    if row.artist.is_empty() {
+        row.title.clone()
+    } else {
+        format!("{} - {}", row.artist, row.title)
+    }
+}
+
+fn meta_match(a: &str, b: &str) -> bool {
+    let key = |s: &str| {
+        s.split_whitespace()
+            .collect::<Vec<_>>()
+            .join(" ")
+            .to_lowercase()
+    };
+    !a.trim().is_empty() && key(a) == key(b)
+}
+
+fn row_is_song(row: &FaveRow, track_id: i64, np: &str) -> bool {
+    (track_id > 0 && row.tracks_id == track_id) || meta_match(&row_meta(row), np)
+}
+
+fn membership_text_has(raw: &str, track_id: i64, np: &str) -> bool {
+    raw.lines().any(|l| {
+        let Some((id_s, meta)) = l.split_once('\t') else {
+            return false;
+        };
+        let id: i64 = id_s.parse().unwrap_or(0);
+        (track_id > 0 && id == track_id) || meta_match(meta, np)
+    })
+}
+
+fn overlay_nicks(cfg: &FaveConfig) -> Vec<String> {
+    let mut nicks = Vec::new();
+    let list = cfg.list_nick.trim();
+    let irc = irc_nick(cfg);
+    if !list.is_empty() {
+        nicks.push(list.to_string());
+    }
+    if !irc.is_empty() && !nicks.iter().any(|n| n == irc) {
+        nicks.push(irc.to_string());
+    }
+    nicks
 }
 
 /// Named UniFFI surface. Kotlin must not call this on the main thread for GET/sqlite.
@@ -82,6 +144,7 @@ impl RadioCore {
                 poller_started: Mutex::new(false),
                 fave_busy: Mutex::new(false),
                 search_ram: Mutex::new(HashMap::new()),
+                overlay: Mutex::new(FaveOverlay::default()),
             }),
         }))
     }
@@ -93,8 +156,8 @@ impl RadioCore {
             return Ok(());
         }
         let status = parse_status_str(&json)?;
-        *state = reduce(
-            state.clone(),
+        reduce_in_place(
+            &mut state,
             NowPlayingEvent::Snapshot(Box::new(status.clone())),
         );
         drop(state);
@@ -117,8 +180,8 @@ impl RadioCore {
     pub fn set_playing(&self, playing: bool) {
         let state = {
             let mut state = self.inner.state.lock().expect("state");
-            *state = reduce(
-                state.clone(),
+            reduce_in_place(
+                &mut state,
                 if playing {
                     NowPlayingEvent::PlayerPlaying
                 } else {
@@ -133,7 +196,7 @@ impl RadioCore {
     pub fn set_player_error(&self) {
         let state = {
             let mut state = self.inner.state.lock().expect("state");
-            *state = reduce(state.clone(), NowPlayingEvent::PlayerError);
+            reduce_in_place(&mut state, NowPlayingEvent::PlayerError);
             state.clone()
         };
         self.fanout(&state);
@@ -337,11 +400,9 @@ impl RadioCore {
         if parsed.total == 0 && parsed.tracks.is_empty() {
             return Ok(parsed);
         }
-        self.inner
-            .search_ram
-            .lock()
-            .expect("search")
-            .insert((q, page), parsed.clone());
+        let mut ram = self.inner.search_ram.lock().expect("search");
+        ram.retain(|(query, _), _| query == &q);
+        ram.insert((q, page), parsed.clone());
         Ok(parsed)
     }
 
@@ -501,18 +562,61 @@ impl RadioCore {
         if nick.is_empty() {
             return Ok(false);
         }
+        {
+            let overlay = self.inner.overlay.lock().expect("overlay");
+            if overlay
+                .plus
+                .get(&nick)
+                .into_iter()
+                .flatten()
+                .any(|r| row_is_song(r, track_id, &np))
+            {
+                return Ok(true);
+            }
+            if overlay
+                .minus
+                .get(&nick)
+                .into_iter()
+                .flatten()
+                .any(|r| row_is_song(r, track_id, &np))
+            {
+                return Ok(false);
+            }
+        }
         let Some(raw) = self.inner.store.get(&format!("membership:{nick}"))? else {
             return Ok(false);
         };
-        if track_id > 0 && raw.lines().any(|l| l.starts_with(&format!("{track_id}\t"))) {
-            return Ok(true);
+        Ok(membership_text_has(&raw, track_id, &np))
+    }
+
+    /// GET every `/faves` JSON page for `nick` and replace membership.
+    /// Overlay rows stay until the GET agrees.
+    pub fn revalidate_membership(&self, nick: String) -> Result<(), ApiError> {
+        let nick = nick.trim().to_string();
+        if nick.is_empty() {
+            return Ok(());
         }
-        if !np.trim().is_empty() {
-            return Ok(raw
-                .lines()
-                .any(|l| l.ends_with(&format!("\t{}", np.trim()))));
+        let last = self.faves_last_page(nick.clone())?.max(1);
+        let mut rows = Vec::new();
+        for page in 1..=last {
+            rows.extend(self.fetch_faves(nick.clone(), page)?);
         }
-        Ok(false)
+        self.remember_membership(nick.clone(), rows.clone())?;
+        let mut overlay = self.inner.overlay.lock().expect("overlay");
+        if let Some(plus) = overlay.plus.get_mut(&nick) {
+            plus.retain(|r| {
+                !rows
+                    .iter()
+                    .any(|g| row_is_song(g, r.tracks_id, &row_meta(r)))
+            });
+        }
+        if let Some(minus) = overlay.minus.get_mut(&nick) {
+            minus.retain(|r| {
+                rows.iter()
+                    .any(|g| row_is_song(g, r.tracks_id, &row_meta(r)))
+            });
+        }
+        Ok(())
     }
 
     pub fn remember_membership(&self, nick: String, rows: Vec<FaveRow>) -> Result<(), ApiError> {
@@ -563,7 +667,8 @@ impl RadioCore {
                 &cfg.client_key_pem,
                 &cfg.tls_fingerprint,
             )?;
-            let fp = run_probe(&mut conn, &cfg, &expected)?;
+            run_probe(&mut conn, &cfg, &expected)?;
+            let fp = conn.server_fingerprint().to_string();
             if matches!(cfg.profile, IrcProfile::Rizon) {
                 let _ = conn.write_line("QUIT :Geiravor");
             }
@@ -585,9 +690,8 @@ impl RadioCore {
             }
             *busy = true;
         }
-        let result = self.add_fave_inner(cfg, unfave, catalog_id);
-        *self.inner.fave_busy.lock().expect("fave") = false;
-        result
+        let _guard = FaveBusy(&self.inner.fave_busy);
+        self.add_fave_inner(cfg, unfave, catalog_id)
     }
 }
 
@@ -763,12 +867,122 @@ impl RadioCore {
                 e.insert(rows);
             }
         }
-        let rows = take_window(|p| pages.get(&p).cloned().unwrap_or_default(), &spans);
+        let mut rows = take_window(|p| pages.get(&p).cloned().unwrap_or_default(), &spans);
+        rows = self.apply_fave_overlay(&nick, ui, rows);
         Ok(FavePage {
             page: ui,
             last_page: last_ui,
             rows,
         })
+    }
+
+    fn apply_fave_overlay(&self, nick: &str, ui_page: u32, mut rows: Vec<FaveRow>) -> Vec<FaveRow> {
+        let overlay = self.inner.overlay.lock().expect("overlay");
+        if let Some(minus) = overlay.minus.get(nick) {
+            rows.retain(|r| {
+                !minus
+                    .iter()
+                    .any(|m| row_is_song(r, m.tracks_id, &row_meta(m)))
+            });
+        }
+        if ui_page <= 1
+            && let Some(plus) = overlay.plus.get(nick)
+        {
+            for p in plus.iter().rev() {
+                if !rows
+                    .iter()
+                    .any(|r| row_is_song(r, p.tracks_id, &row_meta(p)))
+                {
+                    rows.insert(0, p.clone());
+                }
+            }
+        }
+        rows
+    }
+
+    fn catalog_id_for(&self, nicks: &[String], tap: &TapSnapshot) -> Option<i64> {
+        if tap.is_afk && tap.track_id > 0 {
+            return Some(tap.track_id);
+        }
+        for nick in nicks {
+            if let Ok(overlay) = self.inner.overlay.lock() {
+                let hit = overlay
+                    .plus
+                    .get(nick)
+                    .into_iter()
+                    .flatten()
+                    .chain(overlay.minus.get(nick).into_iter().flatten())
+                    .find(|r| row_is_song(r, 0, &tap.np) && r.tracks_id > 0)
+                    .map(|r| r.tracks_id);
+                if hit.is_some() {
+                    return hit;
+                }
+            }
+            if let Ok(Some(raw)) = self.inner.store.get(&format!("membership:{nick}")) {
+                for line in raw.lines() {
+                    let Some((id_s, meta)) = line.split_once('\t') else {
+                        continue;
+                    };
+                    let id: i64 = id_s.parse().unwrap_or(0);
+                    if id > 0 && meta_match(meta, &tap.np) {
+                        return Some(id);
+                    }
+                }
+            }
+        }
+        None
+    }
+
+    fn remember_toggle(
+        &self,
+        nicks: &[String],
+        tap: &TapSnapshot,
+        catalog_id: Option<i64>,
+        favorited: bool,
+    ) {
+        let id = catalog_id
+            .filter(|i| *i > 0)
+            .or(if tap.is_afk && tap.track_id > 0 {
+                Some(tap.track_id)
+            } else {
+                None
+            })
+            .unwrap_or(0);
+        let (artist, title) = crate::parse::split_np(&tap.np);
+        let row = FaveRow {
+            tracks_id: id,
+            artist,
+            title,
+            lastrequested: 0,
+            lastplayed: 0,
+            requestcount: 0,
+        };
+        let mut overlay = self.inner.overlay.lock().expect("overlay");
+        for nick in nicks {
+            overlay
+                .plus
+                .entry(nick.clone())
+                .or_default()
+                .retain(|r| !row_is_song(r, id, &tap.np));
+            overlay
+                .minus
+                .entry(nick.clone())
+                .or_default()
+                .retain(|r| !row_is_song(r, id, &tap.np));
+            if favorited {
+                overlay
+                    .plus
+                    .entry(nick.clone())
+                    .or_default()
+                    .push(row.clone());
+            } else {
+                overlay
+                    .minus
+                    .entry(nick.clone())
+                    .or_default()
+                    .push(row.clone());
+            }
+        }
     }
 
     fn add_fave_inner(&self, cfg: FaveConfig, unfave: bool, catalog_id: i64) -> FaveResult {
@@ -806,11 +1020,15 @@ impl RadioCore {
             IrcProfile::Rizon => irc_nick(&cfg).to_string(),
             IrcProfile::Bouncer => attach_nick(),
         };
+        let nicks = overlay_nicks(&cfg);
         let catalog = if catalog_id > 0 {
             Some(catalog_id)
         } else {
-            None
+            self.catalog_id_for(&nicks, &tap)
         };
+        if unfave && catalog.is_none() {
+            return FaveResult::failed("no catalog id");
+        }
         let latest = || {
             self.snapshot()
                 .map(|s| s.np)
@@ -833,7 +1051,12 @@ impl RadioCore {
             Ok(r)
         });
         match outcome {
-            Ok(r) => r,
+            Ok(r) => {
+                if r.kind == crate::irc::FaveKind::Success {
+                    self.remember_toggle(&nicks, &tap, catalog, r.favorited);
+                }
+                r
+            }
             Err(e) => FaveResult::failed(e.to_string()),
         }
     }
@@ -843,8 +1066,8 @@ impl RadioCore {
         let json = String::from_utf8_lossy(bytes).into_owned();
         let state = {
             let mut state = self.inner.state.lock().expect("state");
-            *state = reduce(
-                state.clone(),
+            reduce_in_place(
+                &mut state,
                 NowPlayingEvent::Snapshot(Box::new(status.clone())),
             );
             state.clone()
@@ -878,8 +1101,8 @@ fn poll_loop(inner: Arc<Inner<ReqwestClient>>) {
                     let json = String::from_utf8_lossy(&bytes).into_owned();
                     let (down, playing) = {
                         let mut state = inner.state.lock().expect("state");
-                        *state = reduce(
-                            state.clone(),
+                        reduce_in_place(
+                            &mut state,
                             NowPlayingEvent::Snapshot(Box::new(status.clone())),
                         );
                         (state.stream_down, state.playing)
@@ -923,6 +1146,30 @@ mod tests {
         assert_eq!(core.pref("gain".into()).unwrap(), "0.5");
         core.set_pref("gain".into(), "0.5".into()).unwrap();
         assert_eq!(core.pref("gain".into()).unwrap(), "0.5");
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn overlay_fills_before_membership_get() {
+        let dir = std::env::temp_dir().join(format!("geiravor-ov-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        let core = RadioCore::new(dir.to_str().unwrap().into()).unwrap();
+        let tap = TapSnapshot {
+            is_afk: true,
+            track_id: 42,
+            np: "Artist - Title".into(),
+        };
+        core.remember_toggle(&["Alice".into()], &tap, Some(42), true);
+        assert!(
+            core.membership_has("Alice".into(), 42, "Artist - Title".into())
+                .unwrap()
+        );
+        core.remember_toggle(&["Alice".into()], &tap, Some(42), false);
+        assert!(
+            !core
+                .membership_has("Alice".into(), 42, "Artist - Title".into())
+                .unwrap()
+        );
         let _ = std::fs::remove_dir_all(&dir);
     }
 }

@@ -81,10 +81,7 @@ class StationCheckWorker(ctx: Context, params: WorkerParameters) : Worker(ctx, p
         val status = runCatching { app.core.fetchStatus() }.getOrNull() ?: return Result.retry()
         val playing = app.core.isPlaying()
         val down = app.core.isStreamDown()
-        val nick = app.ui.listNickOrConnection()
-        val member = if (nick.isEmpty()) {
-            false
-        } else {
+        val member = app.ui.membershipNicks().any { nick ->
             runCatching {
                 app.core.membershipHas(nick, if (status.isAfk) status.trackId else 0, status.np)
             }.getOrDefault(false)

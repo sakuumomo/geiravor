@@ -127,6 +127,15 @@ class UiState {
             val slHr = core.pref(Prefs.SLEEP_HOURS).ifBlank { "0" }
             val slMin = core.pref(Prefs.SLEEP_MINUTES).ifBlank { "30" }
             secrets.get(SecretKeys.NICKSERV)
+            worker.execute {
+                listOf(list, n)
+                    .map { it.trim() }
+                    .filter { it.isNotEmpty() }
+                    .distinct()
+                    .forEach { nick ->
+                        runCatching { core.revalidateMembership(nick) }
+                    }
+            }
             main.post {
                 userPick = pick
                 holidayOptOut = opt
@@ -190,7 +199,7 @@ class UiState {
     }
 
     fun faveConfig(secrets: SecretsStore): FaveConfig {
-        val port = bouncerPort.toUShortOrNull() ?: 6697u
+        val port = bouncerPort.toUShortOrNull() ?: 0u
         return FaveConfig(
             nick = nick,
             listNick = listNick,
@@ -220,6 +229,15 @@ class UiState {
 
     fun listNickOrConnection(): String =
         listNick.trim().ifEmpty { nick.trim() }
+
+    fun membershipNicks(): List<String> {
+        val out = ArrayList<String>(2)
+        val list = listNick.trim()
+        val connection = nick.trim()
+        if (list.isNotEmpty()) out.add(list)
+        if (connection.isNotEmpty() && connection != list) out.add(connection)
+        return out
+    }
 
     private fun redecide(core: RadioCore) {
         worker.execute {

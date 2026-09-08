@@ -2,12 +2,16 @@
 //!
 //! Product: [`docs/spec/requests-faves.md`](../../../docs/spec/requests-faves.md).
 
+mod io;
 mod protocol;
 mod session;
 mod tls;
 
 pub use session::{attach_nick, run_add_fave, run_probe, with_retries};
-pub use tls::{IrcError, TlsIrc, certificate_fingerprint_sha256, connect_irc, tcp_connect_timeout};
+pub use tls::{
+    IrcError, TlsIrc, certificate_fingerprint_sha256, connect_irc, parse_host_port,
+    tcp_connect_timeout,
+};
 
 pub const RIZON_HOST: &str = "irc.rizon.net";
 pub const RIZON_PORT: u16 = 6697;

@@ -41,7 +41,7 @@ pub use html::{extract_csrf, path_encode};
 pub use irc::{
     DEFAULT_BOUNCER_PORT, FaveConfig, FaveKind, FaveResult, IrcError, IrcProfile, RIZON_HOST,
     RIZON_PORT, TapSnapshot, TlsIrc, attach_nick, certificate_fingerprint_sha256, connect_irc,
-    irc_nick, nick_is_empty, run_add_fave, run_probe, tcp_connect_timeout,
+    irc_nick, nick_is_empty, parse_host_port, run_add_fave, run_probe, tcp_connect_timeout,
 };
 pub use log_init::init_logging;
 pub use net::{Coalescer, HttpClient, ReqwestClient};
@@ -60,7 +60,7 @@ pub use parse::{
 };
 pub use poll::poll_interval;
 pub use radio::{RadioCore, StatusListener};
-pub use reducer::{NowPlayingEvent, NowPlayingState, reduce};
+pub use reducer::{NowPlayingEvent, NowPlayingState, reduce, reduce_in_place};
 pub use schedule::{
     BOARD_SCHEDULE_LABEL, EST_ZONE, SCHEDULE_URL, ScheduleDay, WEEKDAYS, board_schedule_label,
     est_zone_id, parse_schedule,
