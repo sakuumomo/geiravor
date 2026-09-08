@@ -16,7 +16,7 @@ Default: **one agent**. Fan-out only with a frozen contract. No Kotlin in parall
 
 - **docs** — `docs/`, CHANGELOG, README, this file
 - **domain** — `core/`
-- **shell** — `app/` (Kotlin floor; none in this skeleton)
+- **shell** — `app/` (Kotlin floor)
 - **tooling** — flake, `.github/`, `scripts/`, `.githooks`
 
 ## Commands
@@ -29,6 +29,7 @@ nix develop .#rust -c cargo clippy --all-targets -- -D warnings
 nix develop .#rust -c cargo test --manifest-path core/Cargo.toml
 RUSTDOCFLAGS='-D warnings' nix develop .#rust -c cargo doc --no-deps
 ./scripts/check-pins
+nix develop -c ./gradlew :app:testDebugUnitTest :app:assembleDebug
 ```
 
 `git config core.hooksPath .githooks` once per clone.

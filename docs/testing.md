@@ -22,13 +22,13 @@ Cover the product spec, including at least:
 - IRC: AFK `.fave {id}`, live-DJ accuracy, bouncer no-QUIT, IPv6 leftover timeout, nick rename does not fave, SASL
 - Last-paint restore so a tap before the first poll is not empty
 
-## Shell (`app/`, when it exists)
+## Shell (`app/`)
 
 Fake UniFFI core. Cover pause→stop, notification/Auto session with the Activity dead, permission paths (play does not require `POST_NOTIFICATIONS`), Auto browse tree, cold Auto heart/membership, theme night mode, pane/glass rules that are not parseable in Rust.
 
 ## CI
 
-[`build.md`](build.md). Today: `nix develop .#rust` fmt, clippy, test, rustdoc, pins. Gradle jobs start with `app/`.
+[`build.md`](build.md). `nix develop .#rust` fmt, clippy, test, rustdoc, pins. Gradle: `:app:testDebugUnitTest` and `:app:assembleDebug`.
 
 ## Device
 

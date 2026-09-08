@@ -1,6 +1,6 @@
 # Compat
 
-Package `io.r_a_d.geiravor.compat` inside `app` (when the shell exists). Not a second Gradle module.
+Package `io.r_a_d.geiravor.compat` inside `app`. Not a second Gradle module.
 
 minSdk **26**. Call sites go through this package, not scattered `SDK_INT`.
 

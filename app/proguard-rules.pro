@@ -1,0 +1,7 @@
+-keepattributes *Annotation*,InnerClasses,EnclosingMethod,Signature
+-keep class uniffi.** { *; }
+-keep class com.sun.jna.** { *; }
+-keep class * implements com.sun.jna.Library { *; }
+-keep class * implements com.sun.jna.Callback { *; }
+-keepclassmembers class * extends com.sun.jna.Structure { *; }
+-dontwarn java.awt.**

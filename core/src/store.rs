@@ -26,11 +26,11 @@ impl Store {
     pub fn open(files_dir: &str) -> Result<Self, ApiError> {
         let dir = Path::new(files_dir);
         std::fs::create_dir_all(dir).map_err(|e| ApiError::Network {
-            message: e.to_string(),
+            detail: e.to_string(),
         })?;
         let path = dir.join("geiravor.sqlite");
         let db = Connection::open(path).map_err(|e| ApiError::Network {
-            message: e.to_string(),
+            detail: e.to_string(),
         })?;
         db.execute_batch(
             "CREATE TABLE IF NOT EXISTS kv (
@@ -39,7 +39,7 @@ impl Store {
             );",
         )
         .map_err(|e| ApiError::Network {
-            message: e.to_string(),
+            detail: e.to_string(),
         })?;
         Ok(Self { db: Mutex::new(db) })
     }
@@ -49,16 +49,16 @@ impl Store {
         let mut stmt = db
             .prepare("SELECT value FROM kv WHERE key = ?1")
             .map_err(|e| ApiError::Network {
-                message: e.to_string(),
+                detail: e.to_string(),
             })?;
         let mut rows = stmt.query([key]).map_err(|e| ApiError::Network {
-            message: e.to_string(),
+            detail: e.to_string(),
         })?;
         match rows.next().map_err(|e| ApiError::Network {
-            message: e.to_string(),
+            detail: e.to_string(),
         })? {
             Some(row) => Ok(Some(row.get(0).map_err(|e| ApiError::Network {
-                message: e.to_string(),
+                detail: e.to_string(),
             })?)),
             None => Ok(None),
         }
@@ -77,7 +77,7 @@ impl Store {
             rusqlite::params![key, value],
         )
         .map_err(|e| ApiError::Network {
-            message: e.to_string(),
+            detail: e.to_string(),
         })?;
         Ok(true)
     }

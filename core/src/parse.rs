@@ -100,7 +100,7 @@ struct RawList {
 pub fn check_bound(bytes: &[u8]) -> Result<(), ApiError> {
     if bytes.len() > MAX_BODY {
         return Err(ApiError::Decode {
-            message: format!("body {} exceeds {MAX_BODY}", bytes.len()),
+            detail: format!("body {} exceeds {MAX_BODY}", bytes.len()),
         });
     }
     Ok(())
@@ -110,7 +110,7 @@ pub fn check_bound(bytes: &[u8]) -> Result<(), ApiError> {
 pub fn parse_status(bytes: &[u8]) -> Result<Status, ApiError> {
     check_bound(bytes)?;
     let text = std::str::from_utf8(bytes).map_err(|e| ApiError::Decode {
-        message: e.to_string(),
+        detail: e.to_string(),
     })?;
     parse_status_str(text)
 }
@@ -119,11 +119,11 @@ pub fn parse_status(bytes: &[u8]) -> Result<Status, ApiError> {
 pub fn parse_status_str(text: &str) -> Result<Status, ApiError> {
     if text.len() > MAX_BODY {
         return Err(ApiError::Decode {
-            message: format!("body {} exceeds {MAX_BODY}", text.len()),
+            detail: format!("body {} exceeds {MAX_BODY}", text.len()),
         });
     }
     let env: Envelope = serde_json::from_str(text).map_err(|e| ApiError::Decode {
-        message: e.to_string(),
+        detail: e.to_string(),
     })?;
     let m = env.main;
     let (artist, title) = split_np(&m.np);

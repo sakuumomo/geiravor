@@ -16,6 +16,7 @@ Nix is the supported toolchain:
 nix develop          # full shell (JDK, Android SDK/NDK, DHU on Linux)
 nix develop .#rust   # host Rust only (fmt, clippy, tests, rustdoc)
 cargo test --manifest-path core/Cargo.toml
+./gradlew :app:testDebugUnitTest :app:assembleDebug
 ```
 
 Needs a flake-capable Nix. `aarch64-linux` is not a flake target.

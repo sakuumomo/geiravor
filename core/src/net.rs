@@ -29,7 +29,7 @@ impl ReqwestClient {
             .timeout(Duration::from_secs(20))
             .build()
             .map_err(|e| ApiError::Network {
-                message: e.to_string(),
+                detail: e.to_string(),
             })?;
         Ok(Self { inner })
     }
@@ -39,14 +39,14 @@ impl HttpClient for ReqwestClient {
     fn get(&self, url: &str) -> Result<Vec<u8>, ApiError> {
         tracing::debug!(url, "GET");
         let res = self.inner.get(url).send().map_err(|e| ApiError::Network {
-            message: e.to_string(),
+            detail: e.to_string(),
         })?;
         let code = res.status().as_u16();
         if !res.status().is_success() {
             return Err(ApiError::Http { code });
         }
         let bytes = res.bytes().map_err(|e| ApiError::Network {
-            message: e.to_string(),
+            detail: e.to_string(),
         })?;
         crate::parse::check_bound(&bytes)?;
         Ok(bytes.to_vec())
@@ -66,14 +66,14 @@ impl HttpClient for ReqwestClient {
             .form(form)
             .send()
             .map_err(|e| ApiError::Network {
-                message: e.to_string(),
+                detail: e.to_string(),
             })?;
         let code = res.status().as_u16();
         if !res.status().is_success() {
             return Err(ApiError::Http { code });
         }
         let bytes = res.bytes().map_err(|e| ApiError::Network {
-            message: e.to_string(),
+            detail: e.to_string(),
         })?;
         crate::parse::check_bound(&bytes)?;
         Ok(bytes.to_vec())
@@ -87,14 +87,14 @@ impl HttpClient for ReqwestClient {
             .form(form)
             .send()
             .map_err(|e| ApiError::Network {
-                message: e.to_string(),
+                detail: e.to_string(),
             })?;
         let code = res.status().as_u16();
         if !res.status().is_success() {
             return Err(ApiError::Http { code });
         }
         let bytes = res.bytes().map_err(|e| ApiError::Network {
-            message: e.to_string(),
+            detail: e.to_string(),
         })?;
         crate::parse::check_bound(&bytes)?;
         Ok(bytes.to_vec())

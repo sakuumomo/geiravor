@@ -35,3 +35,9 @@ jobs:
         run: nix develop .#rust -c env RUSTDOCFLAGS='-D warnings' cargo doc --no-deps
       - name: pins
         run: nix develop .#rust -c ./scripts/check-pins
+      - name: Drop host cargo artifacts
+        run: rm -rf target
+      - name: kotlin tests
+        run: nix develop -c ./gradlew :app:testDebugUnitTest
+      - name: assemble debug
+        run: nix develop -c ./gradlew :app:assembleDebug

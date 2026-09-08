@@ -66,7 +66,7 @@ Never log NickServ / SASL / PASS / PEM / CSRF **values** / cookies. Debug APK = 
 ## Layout
 
 - `core/` — domain crate. No Android types.
-- `app/` — one Gradle module, one Activity, package `io.r_a_d.geiravor` (when the shell exists)
+- `app/` — one Gradle module, one Activity, package `io.r_a_d.geiravor`
 - `app/.../compat/` — [compat.md](compat.md)
 - Root `Cargo.toml` workspace member `core`
 

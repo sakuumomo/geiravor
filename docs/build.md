@@ -1,6 +1,6 @@
 # Build
 
-Supported flow: **Nix flake**. Cargo (and later Gradle) run inside `nix develop`.
+Supported flow: **Nix flake**. Cargo and Gradle run inside `nix develop`.
 
 ## Semver
 
