@@ -18,6 +18,13 @@ pub struct FaveRow {
     pub requestcount: i64,
 }
 
+#[derive(Debug, Clone, PartialEq, uniffi::Record)]
+pub struct FavePage {
+    pub page: u32,
+    pub last_page: u32,
+    pub rows: Vec<FaveRow>,
+}
+
 #[derive(Deserialize)]
 struct RawFave {
     #[serde(default)]

@@ -97,6 +97,16 @@ impl Store {
     pub fn last_paint(&self) -> Result<Option<String>, ApiError> {
         self.get(LAST_PAINT)
     }
+
+    /// Delete keys matching a SQL `LIKE` pattern.
+    pub fn delete_like(&self, pattern: &str) -> Result<(), ApiError> {
+        let db = self.db.lock().expect("store");
+        db.execute("DELETE FROM kv WHERE key LIKE ?1", [pattern])
+            .map_err(|e| ApiError::Network {
+                detail: e.to_string(),
+            })?;
+        Ok(())
+    }
 }
 
 #[cfg(test)]
@@ -108,6 +118,21 @@ mod tests {
     fn unchanged_payload_is_not_written() {
         assert!(!payload_changed("a", "a"));
         assert!(payload_changed("a", "b"));
+    }
+
+    #[test]
+    fn delete_like_drops_matching_keys() {
+        let dir = std::env::temp_dir().join(format!("geiravor-del-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        let store = Store::open(dir.to_str().unwrap()).unwrap();
+        store.put_if_changed("news:list:1", "a").unwrap();
+        store.put_if_changed("news:list:2", "b").unwrap();
+        store.put_if_changed("news:article:9", "c").unwrap();
+        store.delete_like("news:list:%").unwrap();
+        assert!(store.get("news:list:1").unwrap().is_none());
+        assert!(store.get("news:list:2").unwrap().is_none());
+        assert_eq!(store.get("news:article:9").unwrap().as_deref(), Some("c"));
+        let _ = std::fs::remove_dir_all(&dir);
     }
 
     #[test]

@@ -51,12 +51,7 @@ fun BoardScreen(ui: UiState, core: RadioCore) {
     val sections = BoardSection.entries
     LaunchedEffect(ui.boardSection) {
         when (ui.boardSection) {
-            BoardSection.News -> ui.offMain {
-                val cached = runCatching { core.cachedNewsList(1u) }.getOrNull()
-                ui.onMain { if (cached != null) ui.news = cached }
-                val live = runCatching { core.fetchNewsList(1u) }.getOrNull()
-                ui.onMain { if (live != null) ui.news = live }
-            }
+            BoardSection.News -> {}
             BoardSection.Schedule -> ui.offMain {
                 val cached = runCatching { core.cachedSchedule() }.getOrDefault(emptyList())
                 ui.onMain { ui.schedule = cached }
@@ -98,34 +93,39 @@ fun BoardScreen(ui: UiState, core: RadioCore) {
 @Composable
 private fun NewsListPane(ui: UiState, core: RadioCore) {
     val t = LocalTokens.current
-    BoxWithConstraints(Modifier.fillMaxSize()) {
-        val n = (maxHeight / 72.dp).toInt().coerceAtLeast(1)
-        val cards = ui.news?.cards.orEmpty().take(n)
-        Column {
-            cards.forEach { card ->
-                NewsCardRow(card) {
-                    ui.offMain {
-                        val cached = runCatching { core.cachedNewsArticle(card.id) }.getOrNull()
-                        cached?.let { ui.onMain { ui.article = it } }
-                        val live = runCatching { core.fetchNewsArticle(card.id) }.getOrNull()
-                        ui.onMain { if (live != null) ui.article = live }
-                    }
+    Column(Modifier.fillMaxSize()) {
+        BoxWithConstraints(Modifier.weight(1f).fillMaxWidth()) {
+            val fit = (maxHeight / 72.dp).toInt().coerceAtLeast(1).toUInt()
+            LaunchedEffect(fit, ui.newsPage) {
+                ui.offMain {
+                    val cached = runCatching { core.cachedNewsWindow(ui.newsPage, fit) }.getOrNull()
+                    ui.onMain { if (cached != null) ui.news = cached }
+                    val live = runCatching { core.newsWindow(ui.newsPage, fit) }.getOrNull()
+                    ui.onMain { if (live != null) ui.news = live }
                 }
             }
-            if (cards.isEmpty()) {
-                Text("News loads from the site.", color = t.muted)
-            }
-            PagerBar(
-                page = ui.news?.page ?: 1u,
-                last = ui.news?.lastPage ?: 1u,
-                onPage = { p ->
-                    ui.offMain {
-                        val live = runCatching { core.fetchNewsList(p) }.getOrNull()
-                        ui.onMain { if (live != null) ui.news = live }
+            val cards = ui.news?.cards.orEmpty()
+            Column {
+                cards.forEach { card ->
+                    NewsCardRow(card) {
+                        ui.offMain {
+                            val cached = runCatching { core.cachedNewsArticle(card.id) }.getOrNull()
+                            cached?.let { ui.onMain { ui.article = it } }
+                            val live = runCatching { core.fetchNewsArticle(card.id) }.getOrNull()
+                            ui.onMain { if (live != null) ui.article = live }
+                        }
                     }
-                },
-            )
+                }
+                if (cards.isEmpty()) {
+                    Text("News loads from the site.", color = t.muted)
+                }
+            }
         }
+        PagerBar(
+            page = ui.news?.page ?: 1u,
+            last = ui.news?.lastPage ?: 1u,
+            onPage = { ui.newsPage = it },
+        )
     }
 }
 

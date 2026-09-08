@@ -73,6 +73,7 @@ class UiState {
     var favePage by mutableStateOf(1u)
     var faveLast by mutableStateOf(1u)
     var news by mutableStateOf<NewsList?>(null)
+    var newsPage by mutableStateOf(1u)
     var article by mutableStateOf<NewsArticle?>(null)
     var schedule by mutableStateOf<List<ScheduleDay>>(emptyList())
     var staff by mutableStateOf<List<StaffGroup>>(emptyList())

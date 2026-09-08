@@ -18,6 +18,10 @@ import androidx.compose.material3.TextButton
 import androidx.compose.material3.TextField
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
@@ -79,11 +83,13 @@ fun SongsScreen(ui: UiState, core: RadioCore) {
 private fun RequestPane(ui: UiState, core: RadioCore) {
     val t = LocalTokens.current
     val afk = ui.status?.isAfk == true
+    var fit by remember { mutableStateOf(1u) }
     fun go(page: UInt) {
         val q = ui.query
+        val n = fit
         ui.offMain {
             runCatching { core.canRequest() }.onSuccess { ok -> ui.onMain { ui.canRequest = ok } }
-            val result = runCatching { core.search(q, page) }.getOrNull()
+            val result = runCatching { core.searchWindow(q, page, n) }.getOrNull()
             ui.onMain { ui.search = result }
         }
     }
@@ -99,9 +105,12 @@ private fun RequestPane(ui: UiState, core: RadioCore) {
         )
         ui.requestText?.let { Text(it, color = if (it.contains("Thank", true)) t.green else t.red) }
         BoxWithConstraints(Modifier.weight(1f).fillMaxWidth()) {
-            val n = (maxHeight / 56.dp).toInt().coerceAtLeast(1)
-            val tracks = ui.search?.tracks.orEmpty().take(n)
+            fit = (maxHeight / 56.dp).toInt().coerceAtLeast(1).toUInt()
+            LaunchedEffect(fit) {
+                if (ui.query.isNotBlank() && ui.search != null) go(ui.search?.currentPage ?: 1u)
+            }
             Column {
+                val tracks = ui.search?.tracks.orEmpty()
                 tracks.forEach { track ->
                     SearchRow(ui, core, track, afk && ui.canRequest && track.requestable)
                 }
@@ -147,29 +156,38 @@ private fun FavoritesPane(ui: UiState, core: RadioCore) {
     val t = LocalTokens.current
     val afk = ui.status?.isAfk == true
     val now = ui.status?.current ?: 0
+    var fit by remember { mutableStateOf(1u) }
     fun load(page: UInt) {
         val nick = ui.listNickOrConnection()
+        val n = fit
         ui.offMain {
             if (nick.isEmpty()) {
                 ui.onMain {
                     ui.faveRows = emptyList()
+                    ui.favePage = 1u
                     ui.faveLast = 1u
                 }
                 return@offMain
             }
-            val cached = runCatching { core.cachedFaves(nick, page) }.getOrDefault(emptyList())
-            ui.onMain { ui.faveRows = cached }
-            val last = runCatching { core.favesLastPage(nick) }.getOrDefault(1u)
-            val live = runCatching { core.fetchFaves(nick, page) }.getOrDefault(cached)
-            runCatching { core.rememberMembership(nick, live) }
-            ui.onMain {
-                ui.faveRows = live
-                ui.favePage = page
-                ui.faveLast = last
+            val cached = runCatching { core.cachedFavesWindow(nick, page, n) }.getOrNull()
+            cached?.let {
+                ui.onMain {
+                    ui.faveRows = it.rows
+                    ui.favePage = it.page
+                    ui.faveLast = it.lastPage
+                }
+            }
+            val live = runCatching { core.favesWindow(nick, page, n) }.getOrNull()
+            live?.let {
+                runCatching { core.rememberMembership(nick, it.rows) }
+                ui.onMain {
+                    ui.faveRows = it.rows
+                    ui.favePage = it.page
+                    ui.faveLast = it.lastPage
+                }
             }
         }
     }
-    LaunchedEffect(ui.listNick, ui.nick) { load(1u) }
     Column(Modifier.fillMaxSize()) {
         TextField(
             value = ui.listNick,
@@ -180,6 +198,7 @@ private fun FavoritesPane(ui: UiState, core: RadioCore) {
             keyboardActions = KeyboardActions(
                 onDone = {
                     ui.setPref(core, Prefs.LIST_NICK, ui.listNick)
+                    ui.favePage = 1u
                     load(1u)
                 },
             ),
@@ -187,9 +206,10 @@ private fun FavoritesPane(ui: UiState, core: RadioCore) {
         )
         ui.requestText?.let { Text(it, color = t.red) }
         BoxWithConstraints(Modifier.weight(1f).fillMaxWidth()) {
-            val n = (maxHeight / 56.dp).toInt().coerceAtLeast(1)
-            val rows = ui.faveRows.take(n)
+            fit = (maxHeight / 56.dp).toInt().coerceAtLeast(1).toUInt()
+            LaunchedEffect(ui.listNick, ui.nick, fit) { load(ui.favePage) }
             Column {
+                val rows = ui.faveRows
                 rows.forEach { row ->
                     FaveRowView(
                         ui,

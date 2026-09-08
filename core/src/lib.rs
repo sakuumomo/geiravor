@@ -22,6 +22,7 @@ mod search;
 mod staff;
 mod store;
 mod theme;
+mod window;
 
 /// Cargo package version (`X.Y.Z`). Identical to `versionName` and the User-Agent suffix.
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");
@@ -31,7 +32,7 @@ pub const USER_AGENT: &str = concat!("Geiravor/", env!("CARGO_PKG_VERSION"));
 
 pub use error::ApiError;
 pub use faves::{
-    FaveRow, fave_requestable, faves_html_last_page, faves_html_url, faves_json_url,
+    FavePage, FaveRow, fave_requestable, faves_html_last_page, faves_html_url, faves_json_url,
     parse_faves_json, trim_faves_overlap,
 };
 pub use html::{extract_csrf, path_encode};
@@ -66,6 +67,10 @@ pub use store::{Store, payload_changed};
 pub use theme::{
     ThemePack, decide_theme, holiday_window, theme_pack_from_pref, theme_pack_is_night,
     theme_pack_pref,
+};
+pub use window::{
+    FAVES_SERVER_SIZE, NEWS_SERVER_SIZE, SEARCH_SERVER_SIZE, ServerSpan, catalog_total,
+    server_spans, take_window, ui_last_page,
 };
 
 #[cfg(test)]

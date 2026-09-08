@@ -7,7 +7,7 @@ use std::time::Duration;
 
 use crate::error::ApiError;
 use crate::faves::{
-    FaveRow, faves_html_last_page, faves_html_url, faves_json_url, parse_faves_json,
+    FavePage, FaveRow, faves_html_last_page, faves_html_url, faves_json_url, parse_faves_json,
     trim_faves_overlap,
 };
 use crate::html::extract_csrf;
@@ -29,6 +29,10 @@ use crate::search::{
 };
 use crate::staff::{STAFF_URL, StaffGroup, parse_staff};
 use crate::store::Store;
+use crate::window::{
+    FAVES_SERVER_SIZE, NEWS_SERVER_SIZE, SEARCH_SERVER_SIZE, catalog_total, server_spans,
+    take_window, ui_last_page,
+};
 
 /// Callbacks from the poller. Arrive off the Android main thread.
 #[uniffi::export(callback_interface)]
@@ -208,6 +212,16 @@ impl RadioCore {
         parse_news_list(&html, page)
     }
 
+    /// Disk-only UI window. `fit` is rows that fill the pane.
+    pub fn cached_news_window(&self, ui_page: u32, fit: u32) -> Result<NewsList, ApiError> {
+        self.news_window_inner(ui_page, fit, false)
+    }
+
+    /// UI window over HTML pages. Page 1 re-GETs HTML page 1. Worker-thread only.
+    pub fn news_window(&self, ui_page: u32, fit: u32) -> Result<NewsList, ApiError> {
+        self.news_window_inner(ui_page, fit, true)
+    }
+
     pub fn cached_news_article(&self, id: i64) -> Result<Option<NewsArticle>, ApiError> {
         match self.inner.store.get(&format!("news:article:{id}"))? {
             Some(html) if !html.is_empty() => Ok(Some(parse_news_article(&html, id)?)),
@@ -308,12 +322,71 @@ impl RadioCore {
         }
         let bytes = self.inner.http.get(&search_url(&q, page))?;
         let parsed = parse_search(&bytes)?;
+        if parsed.total == 0 && parsed.tracks.is_empty() {
+            return Ok(parsed);
+        }
         self.inner
             .search_ram
             .lock()
             .expect("search")
             .insert((q, page), parsed.clone());
         Ok(parsed)
+    }
+
+    /// UI window over search JSON pages. Worker-thread only.
+    pub fn search_window(
+        &self,
+        query: String,
+        ui_page: u32,
+        fit: u32,
+    ) -> Result<SearchPage, ApiError> {
+        let q = query.trim().to_string();
+        let fit = fit.max(1);
+        if q.is_empty() {
+            return Ok(SearchPage {
+                total: 0,
+                per_page: SEARCH_SERVER_SIZE,
+                current_page: 1,
+                last_page: 1,
+                tracks: Vec::new(),
+            });
+        }
+        let force_first = ui_page <= 1;
+        let first = self.search_server(&q, 1, force_first)?;
+        if first.total == 0 && first.tracks.is_empty() {
+            return Ok(SearchPage {
+                total: 0,
+                per_page: SEARCH_SERVER_SIZE,
+                current_page: 1,
+                last_page: 1,
+                tracks: Vec::new(),
+            });
+        }
+        let total = first.total;
+        let last_server = first.last_page.max(1);
+        let server_size = first.per_page.max(1);
+        let last_ui = ui_last_page(total, fit);
+        let ui = ui_page.max(1).min(last_ui);
+        let spans: Vec<_> = server_spans(ui, fit, total, server_size)
+            .into_iter()
+            .filter(|s| s.page <= last_server)
+            .collect();
+        let mut pages = HashMap::new();
+        pages.insert(1u32, first.tracks.clone());
+        for span in &spans {
+            if let std::collections::hash_map::Entry::Vacant(e) = pages.entry(span.page) {
+                let p = self.search_server(&q, span.page, false)?;
+                e.insert(p.tracks);
+            }
+        }
+        let tracks = take_window(|p| pages.get(&p).cloned().unwrap_or_default(), &spans);
+        Ok(SearchPage {
+            total,
+            per_page: first.per_page,
+            current_page: ui,
+            last_page: last_ui,
+            tracks,
+        })
     }
 
     pub fn can_request(&self) -> Result<bool, ApiError> {
@@ -379,7 +452,27 @@ impl RadioCore {
         }
         let bytes = self.inner.http.get(&faves_html_url(&nick))?;
         let html = String::from_utf8_lossy(&bytes);
-        Ok(faves_html_last_page(&html))
+        let n = faves_html_last_page(&html);
+        let _ = self
+            .inner
+            .store
+            .put_if_changed(&format!("faves:{nick}:html_last"), &n.to_string())?;
+        Ok(n)
+    }
+
+    /// Disk-only favorites UI window.
+    pub fn cached_faves_window(
+        &self,
+        nick: String,
+        ui_page: u32,
+        fit: u32,
+    ) -> Result<FavePage, ApiError> {
+        self.faves_window_inner(nick, ui_page, fit, false)
+    }
+
+    /// UI window over faves JSON pages. Worker-thread only.
+    pub fn faves_window(&self, nick: String, ui_page: u32, fit: u32) -> Result<FavePage, ApiError> {
+        self.faves_window_inner(nick, ui_page, fit, true)
     }
 
     pub fn trim_fave_page(&self, prev: Vec<FaveRow>, last: Vec<FaveRow>) -> Vec<FaveRow> {
@@ -492,6 +585,177 @@ impl RadioCore {
         let html = String::from_utf8_lossy(&bytes);
         extract_csrf(&html).ok_or(ApiError::Decode {
             detail: "csrf token missing".into(),
+        })
+    }
+
+    fn news_ids(list: &NewsList) -> Vec<i64> {
+        list.cards.iter().map(|c| c.id).collect()
+    }
+
+    fn news_html_page(&self, page: u32, live: bool, force_get: bool) -> Result<NewsList, ApiError> {
+        if !force_get
+            && self
+                .inner
+                .store
+                .get(&format!("news:list:{page}"))?
+                .is_some()
+        {
+            return self.cached_news_list(page);
+        }
+        if live {
+            return self.fetch_news_list(page);
+        }
+        self.cached_news_list(page)
+    }
+
+    fn news_window_inner(&self, ui_page: u32, fit: u32, live: bool) -> Result<NewsList, ApiError> {
+        let fit = fit.max(1);
+        let old = self.cached_news_list(1)?;
+        let first = self.news_html_page(1, live, live && ui_page <= 1)?;
+        if live
+            && ui_page <= 1
+            && !old.cards.is_empty()
+            && Self::news_ids(&old) != Self::news_ids(&first)
+        {
+            let html1 = self.inner.store.get("news:list:1")?;
+            self.inner.store.delete_like("news:list:%")?;
+            if let Some(html) = html1 {
+                let _ = self.inner.store.put_if_changed("news:list:1", &html)?;
+            }
+        }
+        let mut html_last = first.last_page.max(1);
+        let mut last_list = if html_last == 1 {
+            first.clone()
+        } else {
+            self.news_html_page(html_last, live, false)?
+        };
+        if last_list.cards.is_empty() && html_last > 1 {
+            html_last = last_list.last_page.max(1);
+            last_list = if html_last == 1 {
+                first.clone()
+            } else {
+                self.news_html_page(html_last, live, false)?
+            };
+        }
+        let total = catalog_total(html_last, last_list.cards.len() as u32, NEWS_SERVER_SIZE);
+        let last_ui = ui_last_page(total, fit);
+        let ui = ui_page.max(1).min(last_ui);
+        let spans = server_spans(ui, fit, total, NEWS_SERVER_SIZE);
+        let mut pages = HashMap::new();
+        pages.insert(1u32, first.cards.clone());
+        pages.insert(html_last, last_list.cards.clone());
+        for span in &spans {
+            if let std::collections::hash_map::Entry::Vacant(e) = pages.entry(span.page) {
+                let list = self.news_html_page(span.page, live, false)?;
+                e.insert(list.cards);
+            }
+        }
+        let cards = take_window(|p| pages.get(&p).cloned().unwrap_or_default(), &spans);
+        Ok(NewsList {
+            page: ui,
+            last_page: last_ui,
+            cards,
+        })
+    }
+
+    fn faves_json_page(
+        &self,
+        nick: &str,
+        page: u32,
+        live: bool,
+        force_get: bool,
+    ) -> Result<Vec<FaveRow>, ApiError> {
+        if !force_get
+            && self
+                .inner
+                .store
+                .get(&format!("faves:{nick}:{page}"))?
+                .is_some()
+        {
+            return self.cached_faves(nick.to_string(), page);
+        }
+        if live {
+            return self.fetch_faves(nick.to_string(), page);
+        }
+        self.cached_faves(nick.to_string(), page)
+    }
+
+    fn search_server(&self, query: &str, page: u32, force: bool) -> Result<SearchPage, ApiError> {
+        if !force {
+            let ram = self.inner.search_ram.lock().expect("search");
+            if let Some(hit) = ram.get(&(query.to_string(), page)) {
+                return Ok(hit.clone());
+            }
+        }
+        self.search(query.to_string(), page)
+    }
+
+    fn faves_window_inner(
+        &self,
+        nick: String,
+        ui_page: u32,
+        fit: u32,
+        live: bool,
+    ) -> Result<FavePage, ApiError> {
+        let nick = nick.trim().to_string();
+        let fit = fit.max(1);
+        if nick.is_empty() {
+            return Ok(FavePage {
+                page: 1,
+                last_page: 1,
+                rows: Vec::new(),
+            });
+        }
+        let stored_last = self
+            .inner
+            .store
+            .get(&format!("faves:{nick}:html_last"))?
+            .and_then(|s| s.parse().ok());
+        let mut last_server = if live && ui_page <= 1 {
+            self.faves_last_page(nick.clone())?
+        } else {
+            stored_last.unwrap_or(if live {
+                self.faves_last_page(nick.clone())?
+            } else {
+                1
+            })
+        }
+        .max(1);
+        let first = self.faves_json_page(&nick, 1, live, live && ui_page <= 1)?;
+        let mut pages = HashMap::new();
+        pages.insert(1u32, first.clone());
+        if last_server > 1 {
+            loop {
+                let last_rows = self.faves_json_page(&nick, last_server, live, false)?;
+                let prev = self.faves_json_page(&nick, last_server - 1, live, false)?;
+                let trimmed = trim_faves_overlap(&prev, last_rows);
+                if !trimmed.is_empty() || last_server == 1 || !live {
+                    pages.insert(last_server, trimmed);
+                    break;
+                }
+                last_server -= 1;
+                if last_server == 1 {
+                    pages.insert(1, first.clone());
+                    break;
+                }
+            }
+        }
+        let last_len = pages.get(&last_server).map(|r| r.len() as u32).unwrap_or(0);
+        let total = catalog_total(last_server, last_len, FAVES_SERVER_SIZE);
+        let last_ui = ui_last_page(total, fit);
+        let ui = ui_page.max(1).min(last_ui);
+        let spans = server_spans(ui, fit, total, FAVES_SERVER_SIZE);
+        for span in &spans {
+            if let std::collections::hash_map::Entry::Vacant(e) = pages.entry(span.page) {
+                let rows = self.faves_json_page(&nick, span.page, live, false)?;
+                e.insert(rows);
+            }
+        }
+        let rows = take_window(|p| pages.get(&p).cloned().unwrap_or_default(), &spans);
+        Ok(FavePage {
+            page: ui,
+            last_page: last_ui,
+            rows,
         })
     }
 
