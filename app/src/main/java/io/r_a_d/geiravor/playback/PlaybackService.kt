@@ -120,7 +120,9 @@ class PlaybackService : MediaLibraryService() {
                     if (metadata.get(i) is IcyInfo) icy = true
                 }
                 if (icy) {
-                    Thread({ runCatching { core().fetchStatus() } }, "geiravor-icy").start()
+                    (application as GeiravorApp).ui.offMain {
+                        runCatching { core().fetchStatus() }
+                    }
                 }
             }
         })

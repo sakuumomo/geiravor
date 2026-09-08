@@ -131,6 +131,8 @@ fun NewsHtml(html: String, onJump: (Long) -> Unit) {
                         setTextColor(t.text.toArgb())
                         setLinkTextColor(t.link.toArgb())
                         setBackgroundColor(AndroidColor.TRANSPARENT)
+                        includeFontPadding = false
+                        setPadding(0, 0, 0, 0)
                         movementMethod = LinkMovementMethod.getInstance()
                     }
                 },

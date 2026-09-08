@@ -78,7 +78,7 @@ fun NowPlayingScreen(
         }
     }
     val progress = status?.let { songProgressAt(it, now, ui.fetchedAt) }
-    Pane(Modifier.fillMaxWidth(), hug = true) {
+    Pane(hug = true) {
         Column(
             Modifier
                 .fillMaxWidth()

@@ -51,7 +51,7 @@ fun SongsScreen(ui: UiState, core: RadioCore) {
     }
     val selected = sections.indexOf(ui.songsSection).coerceAtLeast(0)
     val hug = ui.songsSection == SongsSection.LastPlayed || ui.songsSection == SongsSection.Queue
-    Pane(Modifier.fillMaxSize(), hug = hug) {
+    Pane(hug = hug) {
         SectionTabs(
             labels = sections.map { it.label },
             selected = selected,

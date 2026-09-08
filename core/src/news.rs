@@ -216,7 +216,22 @@ pub fn sanitize_news_html(raw: &str) -> String {
         }
     }
     out.push_str(rest);
-    out
+    trim_leading_breaks(&out)
+}
+
+fn trim_leading_breaks(s: &str) -> String {
+    let mut t = s.trim_start();
+    loop {
+        let lower = t.to_ascii_lowercase();
+        if !lower.starts_with("<br") {
+            break;
+        }
+        let Some(gt) = t.find('>') else {
+            break;
+        };
+        t = t[gt + 1..].trim_start();
+    }
+    t.to_string()
 }
 
 fn is_block_tag(lower: &str) -> bool {
@@ -368,6 +383,12 @@ mod tests {
         assert_eq!(staff.role, RoleColor::Staff);
         assert!(staff.author.contains("Ojiisan"));
         assert!(staff.body.contains("5276"));
+    }
+
+    #[test]
+    fn sanitize_drops_leading_block_breaks() {
+        assert_eq!(sanitize_news_html("<div></div><p>Hi</p>"), "<p>Hi</p>");
+        assert!(!sanitize_news_html("<section></section>Hello").starts_with('<'));
     }
 
     #[test]

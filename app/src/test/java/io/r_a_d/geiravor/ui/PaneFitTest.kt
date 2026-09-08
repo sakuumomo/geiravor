@@ -23,4 +23,11 @@ class PaneFitTest {
     fun twoPaneRemeasures() {
         assertEquals(6u, lockedPaneFit(6u, portrait = false, twoPane = true, locked = 8u))
     }
+
+    @Test
+    fun hugSheetIsNotFillMaxSize() {
+        val hug = paneSheetModifier(hug = true)
+        val fill = paneSheetModifier(hug = false)
+        assertEquals(false, hug == fill)
+    }
 }

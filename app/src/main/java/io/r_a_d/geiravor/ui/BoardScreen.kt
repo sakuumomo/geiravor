@@ -80,8 +80,8 @@ fun BoardScreen(ui: UiState, core: RadioCore) {
         }
     }
     val hug = ui.boardSection == BoardSection.Schedule ||
-        (ui.boardSection == BoardSection.Staff && ui.article == null)
-    Pane(Modifier.fillMaxSize(), hug = hug) {
+        ui.boardSection == BoardSection.Staff
+    Pane(hug = hug) {
         SectionTabs(
             labels = sections.map { it.label },
             selected = ui.boardSection.ordinal,

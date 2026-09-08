@@ -62,9 +62,11 @@ class GeiravorApp : Application(), ImageLoaderFactory {
         })
         ui.load(core, secrets)
         core.startPoller()
+        ui.offMain {
+            AlarmScheduler.schedule(this, core) {}
+        }
         Handler(Looper.getMainLooper()).post {
             StationWatch.sync(this, ui.djNotifier, ui.favePlaying)
-            AlarmScheduler.schedule(this, core) {}
         }
     }
 

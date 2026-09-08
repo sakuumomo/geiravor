@@ -8,7 +8,6 @@ import androidx.compose.foundation.interaction.collectIsHoveredAsState
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -58,7 +57,7 @@ fun SettingsScreen(ui: UiState, core: RadioCore, secrets: SecretsStore) {
     val t = LocalTokens.current
     val ctx = LocalContext.current
     val sections = SettingsSection.entries
-    Pane(Modifier.fillMaxSize(), hug = false) {
+    Pane(hug = false) {
         SectionTabs(
             labels = sections.map { it.label },
             selected = ui.settingsSection.ordinal,
@@ -224,16 +223,24 @@ fun SettingsScreen(ui: UiState, core: RadioCore, secrets: SecretsStore) {
                     FlagRow("Alarm", ui.alarmOn) {
                         ui.alarmOn = it
                         ui.setFlag(core, Prefs.ALARM_ON, it)
-                        io.r_a_d.geiravor.alert.AlarmScheduler.schedule(
-                            ctx,
-                            core,
-                        ) { msg -> ui.alertError = msg }
+                        ui.offMain {
+                            io.r_a_d.geiravor.alert.AlarmScheduler.schedule(ctx, core) { msg ->
+                                ui.onMain { ui.alertError = msg }
+                            }
+                        }
                     }
                     ClockRow("Alarm time", ui.alarmHour, ui.alarmMinute) { h, m ->
                         ui.alarmHour = h
                         ui.alarmMinute = m
                         ui.setPref(core, Prefs.ALARM_HOUR, h)
                         ui.setPref(core, Prefs.ALARM_MINUTE, m)
+                        if (ui.alarmOn) {
+                            ui.offMain {
+                                io.r_a_d.geiravor.alert.AlarmScheduler.schedule(ctx, core) { msg ->
+                                    ui.onMain { ui.alertError = msg }
+                                }
+                            }
+                        }
                     }
                     FlagRow("Snooze", ui.snoozeOn) {
                         ui.snoozeOn = it
