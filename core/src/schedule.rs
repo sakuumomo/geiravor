@@ -39,11 +39,11 @@ pub fn est_zone_id() -> String {
 pub fn parse_schedule(html: &str) -> Result<Vec<ScheduleDay>, ApiError> {
     check_bound(html.as_bytes())?;
     let mut days = Vec::with_capacity(7);
-    for (idx, day) in WEEKDAYS.iter().enumerate() {
+    for day in WEEKDAYS {
         let marker = format!("data-weekday=\"{day}\"");
         let Some(at) = html.find(&marker) else {
             days.push(ScheduleDay {
-                weekday: (*day).into(),
+                weekday: day.to_string(),
                 body: String::new(),
                 owner: String::new(),
                 image: String::new(),
@@ -54,13 +54,19 @@ pub fn parse_schedule(html: &str) -> Result<Vec<ScheduleDay>, ApiError> {
             .rfind("class=\"cell")
             .and_then(|i| html[..i].rfind("<div"))
             .unwrap_or_else(|| html[..at].rfind("<div").unwrap_or(at));
-        let end = WEEKDAYS
-            .iter()
-            .skip(idx + 1)
-            .find_map(|next| {
-                html[at + marker.len()..]
-                    .find(&format!("data-weekday=\"{next}\""))
-                    .map(|i| at + marker.len() + i)
+        // One `.cell` only (desktop copy). Next cell is the mobile duplicate or
+        // the next day — never walk to the next weekday marker (that stole
+        // Saturday's image, which sits *before* Saturday's marker).
+        let after_open = html[start..]
+            .find('>')
+            .map(|i| start + i + 1)
+            .unwrap_or(start + 1);
+        let end = html[after_open..]
+            .find("class=\"cell")
+            .map(|i| {
+                html[..after_open + i]
+                    .rfind("<div")
+                    .unwrap_or(after_open + i)
             })
             .unwrap_or(html.len());
         let window = &html[start..end];
@@ -68,7 +74,7 @@ pub fn parse_schedule(html: &str) -> Result<Vec<ScheduleDay>, ApiError> {
             .map(|s| strip_tags(&s[s.find('>').map(|x| x + 1).unwrap_or(0)..]))
             .unwrap_or_default();
         let mut owner = String::new();
-        let mut search = window.find(&marker).map(|i| &window[..i]).unwrap_or(window);
+        let mut search = window;
         while let Some(h) = search.find("<h6") {
             search = &search[h + 3..];
             if let Some(inner) = between(search, ">", "</h6>") {
@@ -79,11 +85,10 @@ pub fn parse_schedule(html: &str) -> Result<Vec<ScheduleDay>, ApiError> {
                 }
             }
         }
-        let before_text = window.find(&marker).map(|i| &window[..i]).unwrap_or("");
-        let image = before_text
+        let image = window
             .find("/api/dj-image/")
             .map(|j| {
-                let rest = &before_text[j + 14..];
+                let rest = &window[j + 14..];
                 let file: String = rest
                     .chars()
                     .take_while(|c| c.is_ascii_alphanumeric() || *c == '-' || *c == '.')
@@ -92,7 +97,7 @@ pub fn parse_schedule(html: &str) -> Result<Vec<ScheduleDay>, ApiError> {
             })
             .unwrap_or_default();
         days.push(ScheduleDay {
-            weekday: (*day).into(),
+            weekday: day.to_string(),
             body,
             owner,
             image,
@@ -114,10 +119,14 @@ mod tests {
         assert_eq!(days[0].owner, "kipukun");
         assert!(days[0].image.contains("45-"));
         assert!(days[0].body.contains("8pm"));
+        assert!(days[1].image.contains("26-"));
+        assert_eq!(days[1].owner, "Master_Bacon");
+        assert!(days[3].image.contains("49-"));
         assert!(days[4].owner.is_empty());
         assert!(days[4].image.is_empty());
         assert!(!days[4].body.is_empty());
         assert!(days[5].image.contains("73-"));
         assert_eq!(days[5].owner, "HIACE");
+        assert!(days[6].image.contains("26-"));
     }
 }

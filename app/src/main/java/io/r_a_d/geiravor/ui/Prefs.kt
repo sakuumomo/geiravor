@@ -20,6 +20,7 @@ object Prefs {
     const val ALARM_ON = "alarm_on"
     const val ALARM_HOUR = "alarm_hour"
     const val ALARM_MINUTE = "alarm_minute"
+    const val ALARM_24H = "alarm_24h"
     const val SNOOZE_ON = "snooze_on"
     const val SNOOZE_HOURS = "snooze_hours"
     const val SNOOZE_MINUTES = "snooze_minutes"

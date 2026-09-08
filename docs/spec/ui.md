@@ -27,7 +27,7 @@ URLs, weekday order, staff role order, holiday windows, EST zone id (`America/Ne
 
 Follow the live homepage order for player chrome: play + volume, title, tags (+/-), progress + listeners + clock, DJ column, next, previous, then thread.
 
-Now Playing lists **Next** first (`queue[0]` when AFK; live DJ: `???`) and **Last played** second (`lp[0]`). Currently playing may wrap up to two lines. Next and last played are one line each, centered, ellipsized to the width of the screen. Hug panes sit at the **top** of the tab (wallpaper still shows below). DJ name is centered under the image. **Listeners** is centered on its line; the AFK mm:ss clock stays on the right of that line. Full last-played and queue live on the Songs tab.
+Now Playing lists **Next** first (`queue[0]` when AFK; live DJ: `???`) and **Last played** second (`lp[0]`). Currently playing may wrap up to two lines. Next and last played are one line each, centered, ellipsized to the width of the screen. Hug panes sit at the **top** of the tab (wallpaper still shows below). Schedule rows always reserve the DJ-image slot so a day without an image (Friday) lines up with the others. DJ name is centered under the image. **Listeners** is centered on its line; the AFK mm:ss clock stays on the right of that line. Full last-played and queue live on the Songs tab.
 
 Tags: one space-separated line from `tags[]`, collapsed behind +/- like the site.
 

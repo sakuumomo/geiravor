@@ -30,8 +30,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.layout.LayoutCoordinates
 import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.layout.positionInRoot
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalConfiguration
@@ -87,21 +87,22 @@ fun GeiravorRoot(
                     ui.tab = BottomTab.Songs
                 }
             }
-            var rootCoords by remember { mutableStateOf<LayoutCoordinates?>(null) }
-            CompositionLocalProvider(
-                LocalWallpaperRoot provides WallpaperRoot(rootCoords, rootCoords?.size ?: androidx.compose.ui.unit.IntSize.Zero),
-            ) {
+            var wallpaper by remember { mutableStateOf(WallpaperLayout()) }
+            CompositionLocalProvider(LocalWallpaperLayout provides wallpaper) {
             Box(
                 Modifier
                     .fillMaxSize()
-                    .background(if (t.wallpaper == null) t.background else Color.Transparent)
-                    .onGloballyPositioned { rootCoords = it },
+                    .background(if (t.wallpaper == null) t.background else Color.Transparent),
             ) {
                 t.wallpaper?.let { res ->
                     Image(
                         painterResource(res),
                         contentDescription = null,
-                        modifier = Modifier.fillMaxSize(),
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .onGloballyPositioned {
+                                wallpaper = WallpaperLayout(it.size, it.positionInRoot())
+                            },
                         contentScale = ContentScale.Crop,
                     )
                 }

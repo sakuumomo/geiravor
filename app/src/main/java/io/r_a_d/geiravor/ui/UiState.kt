@@ -53,6 +53,7 @@ class UiState {
     var alarmOn by mutableStateOf(false)
     var alarmHour by mutableStateOf("7")
     var alarmMinute by mutableStateOf("0")
+    var alarm24h by mutableStateOf(false)
     var snoozeOn by mutableStateOf(true)
     var snoozeHours by mutableStateOf("0")
     var snoozeMinutes by mutableStateOf("10")
@@ -120,6 +121,7 @@ class UiState {
             val alarm = flag(Prefs.ALARM_ON)
             val ah = core.pref(Prefs.ALARM_HOUR).ifBlank { "7" }
             val amn = core.pref(Prefs.ALARM_MINUTE).ifBlank { "0" }
+            val a24 = flag(Prefs.ALARM_24H)
             val snOn = core.pref(Prefs.SNOOZE_ON).let { it.isEmpty() || it == "1" }
             val snHr = core.pref(Prefs.SNOOZE_HOURS).ifBlank { "0" }
             val snMin = core.pref(Prefs.SNOOZE_MINUTES).ifBlank { "10" }
@@ -157,6 +159,7 @@ class UiState {
                 alarmOn = alarm
                 alarmHour = ah
                 alarmMinute = amn
+                alarm24h = a24
                 snoozeOn = snOn
                 snoozeHours = snHr
                 snoozeMinutes = snMin

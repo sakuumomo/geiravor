@@ -31,7 +31,10 @@ pub const VERSION: &str = env!("CARGO_PKG_VERSION");
 /// HTTP User-Agent: `Geiravor/X.Y.Z`.
 pub const USER_AGENT: &str = concat!("Geiravor/", env!("CARGO_PKG_VERSION"));
 
-pub use alert::{ALERT_MAX_MINUTES, ALERT_MIN_MINUTES, alert_duration_minutes};
+pub use alert::{
+    ALERT_MAX_MINUTES, ALERT_MIN_MINUTES, alarm_hour_12, alarm_hour_24, alarm_is_pm,
+    alert_duration_minutes,
+};
 pub use error::ApiError;
 pub use faves::{
     FavePage, FaveRow, fave_requestable, faves_html_last_page, faves_html_url, faves_json_url,

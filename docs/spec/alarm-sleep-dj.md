@@ -4,6 +4,8 @@
 
 Exact alarm via `AlarmManager` + compat. On fire: start the live stream through the same play path ([playback.md](playback.md)) — pause still **stops**. If the stream cannot start (no network / player error), play a **committed local** fallback sound in `res/raw` — not a network asset at ring time. Do not GET Icecast in tests.
 
+Alarm time is stored as 0–23 hours. Settings → Alerts lets the listener pick **AM/PM** or **24-hour** for that field (default AM/PM). Changing the time while the alarm is on reschedules.
+
 Snooze: optional disable; duration is a custom hours + minutes (1 minute–12 hours, default 10 minutes). Notification while ringing uses large labeled actions (not icon-only).
 
 ## Sleep timer

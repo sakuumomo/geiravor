@@ -26,7 +26,7 @@ Phone sections: **General | Auto | Connection**. Alarm / snooze / sleep / DJ not
 | Theme pack | prefs | `default-dark` | Settings → General: **Default** \| **Default light** \| **Christmas** \| **Halloween** \| **New Years** |
 | Opt out of holiday themes | prefs | **false** (auto allowed) | Settings → General (auto only) |
 | Convert schedule times to local | prefs | **false** | Settings → General |
-| Alarm / snooze / sleep | prefs | [alarm-sleep-dj.md](alarm-sleep-dj.md) | Settings → Alerts |
+| Alarm / snooze / sleep | prefs | [alarm-sleep-dj.md](alarm-sleep-dj.md) | Settings → Alerts; alarm clock AM/PM or 24-hour |
 | DJ notifier opt-in | prefs | **false** | Settings → Alerts |
 | Fave currently playing | prefs | **false** | Settings → Alerts |
 

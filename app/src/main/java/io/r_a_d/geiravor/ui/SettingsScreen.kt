@@ -51,6 +51,9 @@ import io.r_a_d.geiravor.theme.LocalTokens
 import uniffi.geiravor_core.IrcProfile
 import uniffi.geiravor_core.RadioCore
 import uniffi.geiravor_core.ThemePack
+import uniffi.geiravor_core.alarmHour12
+import uniffi.geiravor_core.alarmHour24
+import uniffi.geiravor_core.alarmIsPm
 
 @Composable
 fun SettingsScreen(ui: UiState, core: RadioCore, secrets: SecretsStore) {
@@ -229,7 +232,7 @@ fun SettingsScreen(ui: UiState, core: RadioCore, secrets: SecretsStore) {
                             }
                         }
                     }
-                    ClockRow("Alarm time", ui.alarmHour, ui.alarmMinute) { h, m ->
+                    ClockRow("Alarm time", ui.alarmHour, ui.alarmMinute, ui.alarm24h) { h, m ->
                         ui.alarmHour = h
                         ui.alarmMinute = m
                         ui.setPref(core, Prefs.ALARM_HOUR, h)
@@ -241,6 +244,10 @@ fun SettingsScreen(ui: UiState, core: RadioCore, secrets: SecretsStore) {
                                 }
                             }
                         }
+                    }
+                    FlagRow("24-hour clock", ui.alarm24h) {
+                        ui.alarm24h = it
+                        ui.setFlag(core, Prefs.ALARM_24H, it)
                     }
                     FlagRow("Snooze", ui.snoozeOn) {
                         ui.snoozeOn = it
@@ -276,7 +283,7 @@ fun SettingsScreen(ui: UiState, core: RadioCore, secrets: SecretsStore) {
                     }
                     ui.alertError?.let { Text(it, color = t.red) }
                     Text(
-                        "Alarm and sleep use the same play/stop path. Notifiers share a 15-minute network check and cost battery. Permission denied is shown here — not skipped.",
+                        "DJ and fave notices check every 15 minutes and use battery. Denied notification permission shows here.",
                         color = t.muted,
                         modifier = Modifier.padding(top = 8.dp),
                     )
@@ -316,17 +323,41 @@ private fun ClockRow(
     label: String,
     hour: String,
     minute: String,
+    use24: Boolean,
     onChange: (String, String) -> Unit,
 ) {
     val t = LocalTokens.current
+    val h24 = hour.toUIntOrNull()?.coerceIn(0u, 23u) ?: 7u
+    val shown = if (use24) h24.toString() else alarmHour12(h24).toString()
+    val pm = alarmIsPm(h24)
     Row(
         Modifier.fillMaxWidth().padding(vertical = 6.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Text(label, color = t.text, modifier = Modifier.weight(1f))
-        CompactNumber(hour, "h") { onChange(it.filter { c -> c.isDigit() }.take(2), minute) }
+        CompactNumber(shown, "h") { raw ->
+            val digits = raw.filter { c -> c.isDigit() }.take(2)
+            val next = if (use24) {
+                digits.toUIntOrNull()?.coerceIn(0u, 23u) ?: h24
+            } else {
+                val h12 = digits.toUIntOrNull()?.coerceIn(1u, 12u) ?: alarmHour12(h24)
+                alarmHour24(h12, pm)
+            }
+            onChange(next.toString(), minute)
+        }
         Text(":", color = t.muted, modifier = Modifier.padding(horizontal = 4.dp))
         CompactNumber(minute, "m") { onChange(hour, it.filter { c -> c.isDigit() }.take(2)) }
+        if (!use24) {
+            Text(
+                if (pm) "PM" else "AM",
+                color = t.highlight,
+                modifier = Modifier
+                    .padding(start = 8.dp)
+                    .clickable {
+                        onChange(alarmHour24(alarmHour12(h24), !pm).toString(), minute)
+                    },
+            )
+        }
     }
 }
 

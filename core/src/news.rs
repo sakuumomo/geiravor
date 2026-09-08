@@ -151,7 +151,7 @@ pub fn parse_news_article(html: &str, id: i64) -> Result<NewsArticle, ApiError> 
             .and_then(|s| s.find('>').map(|i| &s[i + 1..]))
             .unwrap_or(""),
     );
-    let body_raw = between(single, "message-body", "</div>").unwrap_or("");
+    let body_raw = after_open(between(single, "message-body", "</div>").unwrap_or(""));
     let body = article_body(body_raw);
     let comments = parse_comments(single);
     Ok(NewsArticle {
@@ -259,16 +259,17 @@ fn parse_comments(html: &str) -> Vec<NewsComment> {
         let Ok(id) = id_s.parse::<i64>() else {
             continue;
         };
-        let chunk = rest.get(..2000).unwrap_or(rest);
+        let next = rest.find("id=\"comment-\"").unwrap_or(rest.len());
+        let chunk = rest.get(..next).unwrap_or(rest);
         let role = role_from(chunk);
         let author = between(chunk, "ml-1", "</div>")
-            .map(strip_tags)
+            .map(|s| strip_tags(after_open(s)))
             .unwrap_or_default();
         let when_utc = between(chunk, "text-align:end", "</div>")
-            .map(|s| strip_tags(&s[s.find('>').map(|x| x + 1).unwrap_or(0)..]))
+            .map(|s| strip_tags(after_open(s)))
             .unwrap_or_default();
         let body = between(chunk, "class=\"p-4\"", "</div>")
-            .map(sanitize_news_html)
+            .map(|s| sanitize_news_html(after_open(s)))
             .unwrap_or_default();
         out.push(NewsComment {
             id,
@@ -343,6 +344,10 @@ fn role_from(html: &str) -> RoleColor {
     }
 }
 
+fn after_open(s: &str) -> &str {
+    s.find('>').map(|i| s[i + 1..].trim_start()).unwrap_or(s)
+}
+
 fn role_near(html: &str, marker: &str) -> RoleColor {
     let Some(i) = html.find(marker) else {
         return RoleColor::None;
@@ -376,8 +381,15 @@ mod tests {
         assert_eq!(a.id, 82);
         assert!(a.title.contains("lentines"));
         assert!(!a.body.contains("217 days"));
+        assert!(!a.body.contains("has-background"));
+        assert!(!a.body.contains("disable-message"));
         assert!(a.body.contains("Good evening"));
         assert_eq!(a.role, RoleColor::None);
+        let first = a.comments.iter().find(|c| c.id == 5282).unwrap();
+        assert_eq!(first.author, "Anonymous (b42a)");
+        assert!(!first.author.contains('>'));
+        assert!(first.body.contains("Anni time"));
+        assert!(!first.body.contains("p-4"));
         assert!(a.comments.iter().any(|c| c.id == 5282));
         let staff = a.comments.iter().find(|c| c.id == 5279).unwrap();
         assert_eq!(staff.role, RoleColor::Staff);

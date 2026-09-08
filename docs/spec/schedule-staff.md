@@ -23,7 +23,7 @@ Each row:
 | Owner name | the `h6` in that cell that is **not** the weekday |
 | Owner image | `img.dj-image` `src` in that cell → `https://r-a-d.io/api/dj-image/{file}` |
 
-Empty owner **and** empty/whitespace body → empty day. Do **not** substitute Hanyuu. Missing image → no image (not mystery-DJ). Text without an owner is still shown (open-slot days). Highlight **today** using the device-local weekday.
+Empty owner **and** empty/whitespace body → empty day. Do **not** substitute Hanyuu. Missing image → no image (not mystery-DJ), but the row still **reserves the image slot** so text lines up with days that have a portrait. Text without an owner is still shown (open-slot days). Image may sit before or after that day’s `.schedule-text`; take it from **that day’s `.cell` only** (desktop copy), never from the next weekday. Highlight **today** using the device-local weekday.
 
 No bio, no tap-through. Ignore the site’s per-slot `Notification` flag.
 

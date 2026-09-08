@@ -207,17 +207,27 @@ private fun ArticlePane(ui: UiState, core: RadioCore) {
                         RoleColor.DEV -> t.red
                         RoleColor.NONE -> t.text
                     }
-                    Row(Modifier.padding(top = 8.dp)) {
-                        Text("${c.author}  ${c.whenUtc}  ", color = color)
-                        Text(
-                            "#${c.id}",
-                            color = t.link,
-                            modifier = Modifier.clickable {
-                                draft = draft + ">>${c.id}\n"
-                            },
-                        )
+                    Column(Modifier.fillMaxWidth().padding(top = 12.dp)) {
+                        Row(Modifier.fillMaxWidth()) {
+                            Text(
+                                c.author,
+                                color = color,
+                                maxLines = 1,
+                                modifier = Modifier.weight(1f),
+                            )
+                            Text(
+                                "#${c.id}",
+                                color = t.link,
+                                modifier = Modifier.clickable {
+                                    draft = draft + ">>${c.id}\n"
+                                },
+                            )
+                        }
+                        if (c.whenUtc.isNotBlank()) {
+                            Text(c.whenUtc, color = t.muted, maxLines = 1)
+                        }
+                        NewsHtml(c.body, onJump = { jump(it) })
                     }
-                    NewsHtml(c.body, onJump = { jump(it) })
                 }
             }
             val filmHover = remember { MutableInteractionSource() }
@@ -272,17 +282,21 @@ private fun SchedulePane(ui: UiState) {
         ui.schedule.forEach { day ->
             val highlight = weekdayToday(day, today)
             Row(Modifier.fillMaxWidth().padding(vertical = 8.dp), verticalAlignment = Alignment.Top) {
-                if (day.image.isNotBlank()) {
-                    StationMedia(
-                        url = day.image,
-                        autoplay = true,
-                        contentDescription = day.owner,
-                        modifier = Modifier
-                            .padding(end = 8.dp)
-                            .size(56.dp)
-                            .clip(RoundedCornerShape(6.dp)),
-                        contentScale = ContentScale.Fit,
-                    )
+                Box(
+                    Modifier
+                        .padding(end = 8.dp)
+                        .size(56.dp)
+                        .clip(RoundedCornerShape(6.dp)),
+                ) {
+                    if (day.image.isNotBlank()) {
+                        StationMedia(
+                            url = day.image,
+                            autoplay = true,
+                            contentDescription = day.owner,
+                            modifier = Modifier.fillMaxSize(),
+                            contentScale = ContentScale.Fit,
+                        )
+                    }
                 }
                 Column(Modifier.weight(1f)) {
                     Text(
