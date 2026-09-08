@@ -1,0 +1,36 @@
+# Nix / direnv
+.direnv/
+result
+result-*
+
+# Gradle / Android
+.gradle/
+.kotlin/
+build/
+**/build/
+local.properties
+*.iml
+.idea/
+.cxx/
+captures/
+*.apk
+*.aab
+*.ap_
+*.dex
+
+# Native libs produced by cargo-ndk
+**/jniLibs/
+
+# Rust
+target/
+**/*.rs.bk
+
+# OS / editor
+.DS_Store
+*~
+*.swp
+
+# Keys
+*.jks
+*.keystore
+keystore.properties

@@ -1,0 +1,26 @@
+#!/usr/bin/env bash
+# Fast local gates. Full tests live in CI / definition of done.
+set -euo pipefail
+root="$(git rev-parse --show-toplevel)"
+cd "$root"
+
+if ! command -v rustfmt >/dev/null 2>&1; then
+  echo "pre-commit: rustfmt not on PATH (use nix develop)" >&2
+  exit 1
+fi
+
+cargo fmt --all -- --check
+
+if command -v nixfmt >/dev/null 2>&1; then
+  while IFS= read -r -d '' f; do
+    nixfmt --check "$f"
+  done < <(find . -name '*.nix' -not -path './.direnv/*' -print0)
+fi
+
+./scripts/check-pins
+
+# Staged forbidden paths
+if git diff --cached --name-only | grep -E '(^|/)(local\.properties|.*\.jks|.*\.keystore|keystore\.properties)$|(^|/)jniLibs/|(^|/)target/'; then
+  echo "pre-commit: refused forbidden path" >&2
+  exit 1
+fi

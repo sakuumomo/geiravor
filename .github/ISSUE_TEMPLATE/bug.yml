@@ -1,0 +1,23 @@
+name: Bug
+description: Code disagrees with the spec
+labels: [bug]
+body:
+  - type: textarea
+    id: spec
+    attributes:
+      label: Spec
+      description: Path under docs/spec/ (or repo doc) that the code violates.
+    validations:
+      required: true
+  - type: textarea
+    id: seen
+    attributes:
+      label: What happened
+    validations:
+      required: true
+  - type: textarea
+    id: expect
+    attributes:
+      label: What the spec says should happen
+    validations:
+      required: true

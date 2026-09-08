@@ -1,0 +1,17 @@
+name: Spec
+description: Change the product or repo contract
+labels: [spec]
+body:
+  - type: textarea
+    id: path
+    attributes:
+      label: File
+      description: docs/spec/... or a repo doc to change.
+    validations:
+      required: true
+  - type: textarea
+    id: change
+    attributes:
+      label: Proposed change
+    validations:
+      required: true

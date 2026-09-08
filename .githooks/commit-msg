@@ -1,0 +1,14 @@
+#!/usr/bin/env bash
+set -euo pipefail
+file="$1"
+msg="$(head -n1 "$file")"
+
+if grep -qiE '^(Co-Authored-By|Made-with|Generated-by):' "$file"; then
+  echo "commit-msg: no trailers (including Co-Authored-By)" >&2
+  exit 1
+fi
+
+if ! echo "$msg" | grep -qE '^(feat|fix|docs|test|ci|build|refactor|chore)(\([^)]+\))?: .+'; then
+  echo "commit-msg: use Conventional Commits (feat|fix|docs|test|ci|build|refactor|chore): subject" >&2
+  exit 1
+fi

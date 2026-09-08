@@ -1,0 +1,4 @@
+- Spec path (or repo doc):
+- Planes: docs / domain / shell / tooling
+- Tests run:
+- No Icecast GET in tests

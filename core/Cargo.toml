@@ -1,0 +1,11 @@
+[package]
+name = "geiravor-core"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "r/a/dio client domain"
+authors.workspace = true
+repository.workspace = true
+
+[lib]
+name = "geiravor_core"

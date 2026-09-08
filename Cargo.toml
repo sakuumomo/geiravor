@@ -1,0 +1,10 @@
+[workspace]
+resolver = "2"
+members = ["core"]
+
+[workspace.package]
+version = "0.3.0"
+edition = "2024"
+license = "MIT"
+authors = ["Sakurai Momoka"]
+repository = "https://github.com/sakuumomo/geiravor"

@@ -1,0 +1,37 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Free disk space
+        run: |
+          df -hT /
+          sudo rm -rf \
+            /usr/local/lib/android \
+            /usr/share/dotnet \
+            /opt/ghc \
+            /opt/hostedtoolcache/CodeQL \
+            /usr/local/share/powershell
+          sudo docker image prune -af || true
+          df -hT /
+      - uses: DeterminateSystems/nix-installer-action@v22
+      - name: cargo fmt
+        run: nix develop .#rust -c cargo fmt --all -- --check
+      - name: clippy
+        run: nix develop .#rust -c cargo clippy --all-targets -- -D warnings
+      - name: cargo test
+        run: nix develop .#rust -c cargo test --manifest-path core/Cargo.toml
+      - name: rustdoc
+        run: nix develop .#rust -c env RUSTDOCFLAGS='-D warnings' cargo doc --no-deps
+      - name: pins
+        run: nix develop .#rust -c ./scripts/check-pins

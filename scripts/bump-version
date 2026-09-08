@@ -1,0 +1,52 @@
+#!/usr/bin/env bash
+# Bump the semver triad. Agents must not hand-edit version fields.
+# Usage: scripts/bump-version 1.0.0
+set -euo pipefail
+
+root="$(cd "$(dirname "$0")/.." && pwd)"
+cd "$root"
+
+new="${1:-}"
+[[ "$new" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || {
+  echo "usage: scripts/bump-version X.Y.Z" >&2
+  exit 1
+}
+
+old="$(sed -n 's/^version = "\([0-9][^"]*\)"/\1/p' Cargo.toml | head -n1)"
+[[ -n "$old" ]] || {
+  echo "bump-version: current Cargo version missing" >&2
+  exit 1
+}
+
+today="$(date -u +%Y-%m-%d)"
+
+sed -i "s/^version = \"$old\"/version = \"$new\"/" Cargo.toml
+
+if [[ -f app/build.gradle.kts ]]; then
+  sed -i "s/versionName = \"$old\"/versionName = \"$new\"/" app/build.gradle.kts
+  if grep -q 'versionCode' app/build.gradle.kts; then
+    code="$(sed -n 's/.*versionCode[[:space:]]*=[[:space:]]*\([0-9][0-9]*\).*/\1/p' app/build.gradle.kts | head -n1)"
+    if [[ -n "$code" ]]; then
+      sed -i "s/versionCode[[:space:]]*=[[:space:]]*$code/versionCode = $((code + 1))/" app/build.gradle.kts
+    fi
+  fi
+fi
+
+if [[ -f CHANGELOG.md ]]; then
+  tmp="$(mktemp)"
+  awk -v ver="$new" -v day="$today" '
+    BEGIN { done=0 }
+    /^## \[Unreleased\]$/ && !done {
+      print
+      print ""
+      print "## [" ver "] - " day
+      done=1
+      next
+    }
+    { print }
+  ' CHANGELOG.md >"$tmp"
+  mv "$tmp" CHANGELOG.md
+fi
+
+echo "bump-version: $old -> $new"
+./scripts/check-pins

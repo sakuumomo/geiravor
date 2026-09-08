@@ -1,0 +1,36 @@
+#!/usr/bin/env bash
+# Fail if version or NDK pins drift. Gradle versionName is checked when app/ exists.
+set -euo pipefail
+
+root="$(cd "$(dirname "$0")/.." && pwd)"
+cd "$root"
+
+fail() {
+  echo "check-pins: $*" >&2
+  exit 1
+}
+
+cargo_version="$(sed -n 's/^version = "\([0-9][^"]*\)"/\1/p' Cargo.toml | head -n1)"
+[[ -n "$cargo_version" ]] || fail "workspace version missing in Cargo.toml"
+
+if [[ -f app/build.gradle.kts ]]; then
+  name="$(sed -n 's/.*versionName = "\([0-9][^"]*\)".*/\1/p' app/build.gradle.kts | head -n1)"
+  [[ "$name" == "$cargo_version" ]] || fail "versionName ($name) != Cargo version ($cargo_version)"
+fi
+
+grep -q 'android-nixpkgs.inputs.nixpkgs.follows' flake.nix && fail "android-nixpkgs must not follows nixpkgs"
+grep -q 'inputs.nixpkgs.follows = "nixpkgs"' flake.nix || fail "fenix should follows nixpkgs"
+
+ndk="$(sed -n 's/^[[:space:]]*ndkVersion = "\([^"]*\)";/\1/p' flake.nix | head -n1)"
+[[ -n "$ndk" ]] || fail "ndkVersion missing in flake.nix"
+ndk_attr="ndk-$(echo "$ndk" | tr . -)"
+grep -q "$ndk_attr" flake.nix || fail "flake SDK list missing $ndk_attr"
+
+if [[ -f app/build.gradle.kts ]]; then
+  gradle_ndk="$(sed -n 's/.*ndkVersion = "\([^"]*\)".*/\1/p' app/build.gradle.kts | head -n1)"
+  if [[ -n "$gradle_ndk" ]]; then
+    [[ "$gradle_ndk" == "$ndk" ]] || fail "Gradle ndkVersion ($gradle_ndk) != flake ($ndk)"
+  fi
+fi
+
+echo "check-pins: ok (version $cargo_version, NDK $ndk)"
