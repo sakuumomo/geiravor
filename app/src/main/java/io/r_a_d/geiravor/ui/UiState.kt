@@ -54,8 +54,10 @@ class UiState {
     var alarmHour by mutableStateOf("7")
     var alarmMinute by mutableStateOf("0")
     var snoozeOn by mutableStateOf(true)
+    var snoozeHours by mutableStateOf("0")
     var snoozeMinutes by mutableStateOf("10")
     var sleepOn by mutableStateOf(false)
+    var sleepHours by mutableStateOf("0")
     var sleepMinutes by mutableStateOf("30")
     var alertError by mutableStateOf<String?>(null)
     var probeText by mutableStateOf<String?>(null)
@@ -119,8 +121,10 @@ class UiState {
             val ah = core.pref(Prefs.ALARM_HOUR).ifBlank { "7" }
             val amn = core.pref(Prefs.ALARM_MINUTE).ifBlank { "0" }
             val snOn = core.pref(Prefs.SNOOZE_ON).let { it.isEmpty() || it == "1" }
+            val snHr = core.pref(Prefs.SNOOZE_HOURS).ifBlank { "0" }
             val snMin = core.pref(Prefs.SNOOZE_MINUTES).ifBlank { "10" }
             val slOn = flag(Prefs.SLEEP_ON)
+            val slHr = core.pref(Prefs.SLEEP_HOURS).ifBlank { "0" }
             val slMin = core.pref(Prefs.SLEEP_MINUTES).ifBlank { "30" }
             secrets.get(SecretKeys.NICKSERV)
             main.post {
@@ -145,8 +149,10 @@ class UiState {
                 alarmHour = ah
                 alarmMinute = amn
                 snoozeOn = snOn
+                snoozeHours = snHr
                 snoozeMinutes = snMin
                 sleepOn = slOn
+                sleepHours = slHr
                 sleepMinutes = slMin
                 applyStatus(snap, streamDown, playing)
             }

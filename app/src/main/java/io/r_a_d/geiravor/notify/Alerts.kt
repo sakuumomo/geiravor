@@ -36,29 +36,36 @@ object Alerts {
             .setContentTitle(context.getString(R.string.app_name))
             .setContentText(body)
             .setContentIntent(open)
-            .setAutoCancel(true)
+            .setAutoCancel(!alarmActions)
         if (alarmActions) {
-            b.addAction(
-                0,
-                "Stop",
-                PendingIntent.getService(
-                    context,
-                    1,
-                    PlaybackService.stopIntent(context),
-                    PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
-                ),
-            )
-            b.addAction(
-                0,
-                "Snooze",
-                PendingIntent.getBroadcast(
-                    context,
-                    2,
-                    Intent(context, io.r_a_d.geiravor.alert.AlarmReceiver::class.java)
-                        .setAction(io.r_a_d.geiravor.alert.AlarmReceiver.SNOOZE),
-                    PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
-                ),
-            )
+            b.setCategory(NotificationCompat.CATEGORY_ALARM)
+                .setOngoing(true)
+                .setPriority(NotificationCompat.PRIORITY_HIGH)
+                .addAction(
+                    NotificationCompat.Action.Builder(
+                        R.drawable.ic_speaker_off,
+                        "Stop",
+                        PendingIntent.getService(
+                            context,
+                            1,
+                            PlaybackService.stopIntent(context),
+                            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+                        ),
+                    ).build(),
+                )
+                .addAction(
+                    NotificationCompat.Action.Builder(
+                        R.drawable.ic_speaker,
+                        "Snooze",
+                        PendingIntent.getBroadcast(
+                            context,
+                            2,
+                            Intent(context, io.r_a_d.geiravor.alert.AlarmReceiver::class.java)
+                                .setAction(io.r_a_d.geiravor.alert.AlarmReceiver.SNOOZE),
+                            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+                        ),
+                    ).build(),
+                )
         }
         context.getSystemService(NotificationManager::class.java)?.notify(id, b.build())
     }

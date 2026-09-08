@@ -11,6 +11,9 @@ object LivePlaybackPolicy {
     const val VOL_UP = "VOL_UP"
     const val VOL_DOWN = "VOL_DOWN"
     const val DEFAULT_GAIN = 0.8f
+    const val RECONNECT_DELAY_MS = 2000L
+
+    fun shouldReconnect(wantPlay: Boolean): Boolean = wantPlay
 
     fun djImageUrl(image: String?): String? {
         val name = image?.trim().orEmpty()

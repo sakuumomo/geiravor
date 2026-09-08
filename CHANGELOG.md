@@ -16,3 +16,4 @@ User-visible changes to **this** tree. 0.3.0 history lives on `legacy/0.3`.
 - GIF and muted looping video autoplay on DJ, schedule, staff, and thread; news article images stay still.
 - Coil drops news image files when those URLs leave the article body or comments.
 - Fave failure text fades out when `np` changes instead of vanishing.
+- Live stream auto-reconnects after 2s on error/end while play is wanted; snooze and sleep take hours + minutes (1 min–12 h); sleep duration change restarts the timer; alarm notification uses labeled Stop/Snooze actions.

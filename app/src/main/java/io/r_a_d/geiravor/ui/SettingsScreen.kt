@@ -241,6 +241,10 @@ fun SettingsScreen(ui: UiState, core: RadioCore, secrets: SecretsStore) {
                         ui.snoozeOn = it
                         ui.setFlag(core, Prefs.SNOOZE_ON, it)
                     }
+                    PrefField("Snooze hours", ui.snoozeHours, KeyboardType.Number) {
+                        ui.snoozeHours = it
+                        ui.setPref(core, Prefs.SNOOZE_HOURS, it)
+                    }
                     PrefField("Snooze minutes", ui.snoozeMinutes, KeyboardType.Number) {
                         ui.snoozeMinutes = it
                         ui.setPref(core, Prefs.SNOOZE_MINUTES, it)
@@ -248,16 +252,17 @@ fun SettingsScreen(ui: UiState, core: RadioCore, secrets: SecretsStore) {
                     FlagRow("Sleep timer", ui.sleepOn) {
                         ui.sleepOn = it
                         ui.setFlag(core, Prefs.SLEEP_ON, it)
-                        if (it) {
-                            val mins = ui.sleepMinutes.toIntOrNull()?.coerceIn(1, 12 * 60) ?: 30
-                            ctx.startService(
-                                io.r_a_d.geiravor.playback.PlaybackService.sleepIntent(ctx, mins),
-                            )
-                        }
+                        if (it) armSleep(ctx, ui)
+                    }
+                    PrefField("Sleep hours", ui.sleepHours, KeyboardType.Number) {
+                        ui.sleepHours = it
+                        ui.setPref(core, Prefs.SLEEP_HOURS, it)
+                        if (ui.sleepOn) armSleep(ctx, ui)
                     }
                     PrefField("Sleep minutes", ui.sleepMinutes, KeyboardType.Number) {
                         ui.sleepMinutes = it
                         ui.setPref(core, Prefs.SLEEP_MINUTES, it)
+                        if (ui.sleepOn) armSleep(ctx, ui)
                     }
                     FlagRow("DJ online notifier", ui.djNotifier) {
                         ui.djNotifier = it
@@ -279,6 +284,13 @@ fun SettingsScreen(ui: UiState, core: RadioCore, secrets: SecretsStore) {
             }
         }
     }
+}
+
+private fun armSleep(ctx: android.content.Context, ui: UiState) {
+    val hours = ui.sleepHours.toUIntOrNull() ?: 0u
+    val minutes = ui.sleepMinutes.toUIntOrNull() ?: 30u
+    val mins = uniffi.geiravor_core.alertDurationMinutes(hours, minutes).toInt()
+    ctx.startService(io.r_a_d.geiravor.playback.PlaybackService.sleepIntent(ctx, mins))
 }
 
 @Composable

@@ -50,7 +50,9 @@ object AlarmScheduler {
 
     fun snooze(context: Context, core: RadioCore) {
         if (core.pref(Prefs.SNOOZE_ON) != "1") return
-        val mins = core.pref(Prefs.SNOOZE_MINUTES).toIntOrNull()?.coerceIn(1, 12 * 60) ?: 10
+        val hours = core.pref(Prefs.SNOOZE_HOURS).toUIntOrNull() ?: 0u
+        val minutes = core.pref(Prefs.SNOOZE_MINUTES).toUIntOrNull() ?: 10u
+        val mins = uniffi.geiravor_core.alertDurationMinutes(hours, minutes).toInt()
         val at = System.currentTimeMillis() + mins * 60_000L
         val am = context.getSystemService(AlarmManager::class.java) ?: return
         am.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, at, pending(context))

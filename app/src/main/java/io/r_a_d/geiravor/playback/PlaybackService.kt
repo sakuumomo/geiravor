@@ -38,6 +38,12 @@ class PlaybackService : MediaLibraryService() {
     private var fallback: android.media.MediaPlayer? = null
     private var sleepAt = 0L
     private val sleepHandler = Handler(Looper.getMainLooper())
+    private val reconnectHandler = Handler(Looper.getMainLooper())
+    private val reconnectLive = Runnable {
+        if (LivePlaybackPolicy.shouldReconnect(player.playWhenReady)) {
+            live.playLive()
+        }
+    }
     private val sleepTick = object : Runnable {
         override fun run() {
             if (sleepAt == 0L) return
@@ -76,14 +82,27 @@ class PlaybackService : MediaLibraryService() {
                     alarmRing = false
                     fallback?.release()
                     fallback = null
+                    cancelReconnect()
                 } else {
                     cancelSleep(restore = true)
                 }
             }
 
+            override fun onPlayWhenReadyChanged(playWhenReady: Boolean, reason: Int) {
+                if (!playWhenReady) cancelReconnect()
+            }
+
             override fun onPlayerError(error: androidx.media3.common.PlaybackException) {
                 core().setPlayerError()
                 if (alarmRing) playFallback()
+                scheduleReconnect()
+            }
+
+            override fun onPlaybackStateChanged(playbackState: Int) {
+                if (playbackState == Player.STATE_ENDED) {
+                    core().setPlayerError()
+                    scheduleReconnect()
+                }
             }
 
             override fun onMetadata(metadata: Metadata) {
@@ -112,6 +131,7 @@ class PlaybackService : MediaLibraryService() {
         when (intent?.action) {
             ACTION_PLAY -> live.playLive()
             ACTION_STOP -> {
+                cancelReconnect()
                 cancelSleep(restore = true)
                 live.pauseStops()
             }
@@ -135,6 +155,7 @@ class PlaybackService : MediaLibraryService() {
     }
 
     override fun onDestroy() {
+        cancelReconnect()
         cancelSleep(restore = false)
         fallback?.release()
         session?.release()
@@ -190,6 +211,16 @@ class PlaybackService : MediaLibraryService() {
         sleepAt = 0L
         sleepHandler.removeCallbacks(sleepTick)
         if (restore) player.volume = lastGain
+    }
+
+    private fun scheduleReconnect() {
+        if (!LivePlaybackPolicy.shouldReconnect(player.playWhenReady)) return
+        reconnectHandler.removeCallbacks(reconnectLive)
+        reconnectHandler.postDelayed(reconnectLive, LivePlaybackPolicy.RECONNECT_DELAY_MS)
+    }
+
+    private fun cancelReconnect() {
+        reconnectHandler.removeCallbacks(reconnectLive)
     }
 
     private inner class Listener : StatusListener {

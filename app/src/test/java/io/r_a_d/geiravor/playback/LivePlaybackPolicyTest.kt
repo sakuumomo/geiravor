@@ -41,6 +41,13 @@ class LivePlaybackPolicyTest {
     }
 
     @Test
+    fun reconnectsAfterTwoSecondsOnlyWhileWantingPlay() {
+        assertEquals(2000L, LivePlaybackPolicy.RECONNECT_DELAY_MS)
+        assertTrue(LivePlaybackPolicy.shouldReconnect(true))
+        assertFalse(LivePlaybackPolicy.shouldReconnect(false))
+    }
+
+    @Test
     fun blankDjImageIsNull() {
         assertNull(LivePlaybackPolicy.djImageUrl(" "))
         assertEquals(
