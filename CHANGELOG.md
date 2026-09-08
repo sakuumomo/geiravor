@@ -19,3 +19,4 @@ User-visible changes to **this** tree. 0.3.0 history lives on `legacy/0.3`.
 - Live stream auto-reconnects after 2s on error/end while play is wanted; snooze and sleep take hours + minutes (1 min–12 h); sleep duration change restarts the timer; alarm notification uses labeled Stop/Snooze actions.
 - Android Auto Settings lists auto-start in vehicle and on plug (On/Off) plus About; tapping a flag flips it without starting the stream. Mute / Fave / Vol − / Vol + sit in media-button slots; the Fave heart matches the phone.
 - Staff and Developers sit side by side from 600dp; DJs are four-across there and two-across on phones; leftover cards stay together; group titles are centered with a 2dp rule.
+- Auto now-playing is title, artist, and DJ (no `| DJ` pipe). The shade still ellipsizes `artist | DJ`. Tapping the notification opens the app. AFK songs are not reported as live.

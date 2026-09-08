@@ -1,5 +1,6 @@
 package io.r_a_d.geiravor.playback
 
+import androidx.media3.common.C
 import androidx.media3.common.ForwardingPlayer
 import androidx.media3.common.MediaItem
 import androidx.media3.common.Player
@@ -83,6 +84,11 @@ class LiveStationPlayer(private val exo: ExoPlayer) : ForwardingPlayer(exo) {
 
     override fun isPlaying(): Boolean =
         playWhenReady && super.getPlaybackState() == Player.STATE_READY
+
+    override fun isCurrentMediaItemLive(): Boolean {
+        val dur = mediaMetadata.durationMs ?: C.TIME_UNSET
+        return NowPlayingMeta.isLive(dur)
+    }
 
     private fun takeSkip(): Boolean {
         if (!skipNextPlay) return false

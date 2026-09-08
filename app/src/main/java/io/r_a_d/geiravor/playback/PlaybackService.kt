@@ -1,5 +1,6 @@
 package io.r_a_d.geiravor.playback
 
+import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
 import android.os.Bundle
@@ -24,6 +25,7 @@ import android.os.Handler
 import android.os.Looper
 import io.r_a_d.geiravor.BuildConfig
 import io.r_a_d.geiravor.GeiravorApp
+import io.r_a_d.geiravor.MainActivity
 import io.r_a_d.geiravor.ui.Prefs
 import io.r_a_d.geiravor.ui.tapFave
 import uniffi.geiravor_core.Status
@@ -64,6 +66,7 @@ class PlaybackService : MediaLibraryService() {
 
     override fun onCreate() {
         super.onCreate()
+        setMediaNotificationProvider(ShadeNotificationProvider(this))
         player = ExoPlayer.Builder(this)
             .setAudioAttributes(
                 AudioAttributes.Builder()
@@ -122,6 +125,14 @@ class PlaybackService : MediaLibraryService() {
         lastSongsSig = AutoBrowse.songsSignature(core().snapshot())
         session = MediaLibrarySession.Builder(this, live, Callbacks())
             .setId("geiravor")
+            .setSessionActivity(
+                PendingIntent.getActivity(
+                    this,
+                    0,
+                    Intent(this, MainActivity::class.java),
+                    PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+                ),
+            )
             .build()
         refreshButtons()
         (application as GeiravorApp).heartPaint = { refreshButtons() }
@@ -183,18 +194,23 @@ class PlaybackService : MediaLibraryService() {
         val fetched = (application as GeiravorApp).ui.fetchedAt
         val progress = uniffi.geiravor_core.songProgressAt(status, now, fetched)
         val duration = if (progress.known) progress.durationSecs * 1000 else C.TIME_UNSET
-        val line2 = ShadeLine.fitForShade(this, status.artist, status.dj.name)
+        val fields = NowPlayingMeta.fields(status.title, status.artist, status.np, status.dj.name)
         val meta = MediaMetadata.Builder()
-            .setTitle(status.title.ifBlank { status.np })
-            .setArtist(line2)
-            .setAlbumArtist(status.dj.name)
+            .setDisplayTitle(fields.title)
+            .setTitle(fields.title)
+            .setArtist(fields.subtitle)
+            .setDescription(fields.description)
+            .setAlbumArtist(fields.dj)
             .setDurationMs(duration)
             .setArtworkUri(
                 LivePlaybackPolicy.djImageUrl(status.dj.image)?.let { android.net.Uri.parse(it) },
             )
+            .setExtras(NowPlayingMeta.extras(fields.artist, fields.dj))
             .build()
         val built = item.buildUpon().setMediaMetadata(meta)
-        if (!progress.known) {
+        if (progress.known) {
+            built.setLiveConfiguration(MediaItem.LiveConfiguration.UNSET)
+        } else {
             built.setLiveConfiguration(MediaItem.LiveConfiguration.Builder().build())
         }
         player.replaceMediaItem(0, built.build())
