@@ -101,6 +101,7 @@ fun tokens(pack: ThemePack): Tokens {
                 green = green,
                 blue = blue,
                 glass = false,
+                // Snow is in the jpg. Do not add a particle overlay.
                 wallpaper = R.drawable.wallpaper_christmas,
             )
         }
@@ -120,6 +121,7 @@ fun tokens(pack: ThemePack): Tokens {
                 green = green,
                 blue = blue,
                 glass = true,
+                // Hair, moon, and pumpkins are in the jpg. Do not add overlay paint.
                 wallpaper = R.drawable.wallpaper_halloween,
             )
         }

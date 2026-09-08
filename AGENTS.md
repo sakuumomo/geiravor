@@ -10,6 +10,8 @@ Spec-first Android client for [r-a-d.io](https://r-a-d.io). Rewrite toward 1.0.0
 
 Do not implement a feature that is not in a spec. Do not port or copy another Android radio app. Do not copy implementation out of `legacy/0.3` (assets and LICENSE are allowed). Do not consume `/v1/sse`. Pause on a live stream **stops**. Empty nick = fave no-op. Do not GET the Icecast URL in tests. Do not live-`.fave` unless the human asked.
 
+Christmas snow and Halloween hair/moon/pumpkins are **in the committed wallpapers** (`drawable-nodpi/wallpaper_*.jpg`). Live `/assets/{theme}/js/theme.js` is empty and those image dirs only have the wallpaper. Do **not** add particle overlays. Type stays on panes (frost/sheet), not on the wallpaper.
+
 ## Planes
 
 Default: **one agent**. Fan-out only with a frozen contract. No Kotlin in parallel with an unfrozen UniFFI surface.
