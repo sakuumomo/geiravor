@@ -30,4 +30,14 @@ class PaneFitTest {
         val fill = paneSheetModifier(hug = false)
         assertEquals(false, hug == fill)
     }
+
+    @Test
+    fun innerSectionsUseBorderAndPad() {
+        assertEquals(8, InnerSection.GAP_DP)
+        assertEquals(12, InnerSection.PAD_DP)
+        assertEquals(8, InnerSection.ROW_PAD_DP)
+        assertEquals(1, InnerSection.BORDER_DP)
+        assertEquals(68, InnerSection.SONG_ROW_DP)
+        assertEquals(88, InnerSection.NEWS_ROW_DP)
+    }
 }

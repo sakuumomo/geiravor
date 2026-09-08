@@ -37,13 +37,13 @@ Report `isCurrentMediaItemLive` only when that duration is unknown. Icecast is s
 
 ## Foreground service
 
-`MediaLibraryService` is bindable while **idle** (Auto discovery). Promote to FGS `mediaPlayback` only while `STATE_PLAYING`. Drop FGS on stop.
+`MediaLibraryService` is bindable while **idle** (Auto discovery). After Play or alarm, call `startForeground` **immediately** with the playback notification so Android’s FGS timeout is met while Icecast buffers — do not wait for `STATE_PLAYING` or artwork. Media3 then updates that same notification. Drop FGS on stop.
 
 Manifest: `FOREGROUND_SERVICE` + `FOREGROUND_SERVICE_MEDIA_PLAYBACK`. Start type via compat.
 
 ## Notification
 
-Media3 media notification. Title is the current track (up to two lines). Second line is `artist | dj.djname` (the DJ’s name, never the word “DJ”). One line; newlines are not rendered. Ellipsize the artist so `| {dj.djname}` stays visible; do not ellipsize away the `|`. Fit that line to remaining shade width (notification Line2 typeface and letter spacing; window width minus the system large-icon slot and the compact play control). Do not use a character cap. No artist (`""` or whitespace): DJ name only, no pipe. No next/prev on the shade. Fave custom action uses a filled heart when the current song is already a favorite, outline otherwise (same rule as Auto and the phone). Artwork uses the Coil DJ-image cache, flattened to a still (GIF first frame). Mystery-DJ only on error/miss. On API 33+ we may ask `POST_NOTIFICATIONS` on Play so the shade can show it. Playback does **not** wait on grant; deny or ignore still plays and pauses. Channel for playback.
+Media3 media notification. Title is the current track (up to two lines). Second line is `artist | dj.djname` (the DJ’s name, never the word “DJ”). One line; newlines are not rendered. Ellipsize the artist so `| {dj.djname}` stays visible; do not ellipsize away the `|`. Fit that line to remaining shade width (notification Line2 typeface and letter spacing; window width minus the system large-icon slot and the compact play control). Do not use a character cap. No artist (`""` or whitespace): DJ name only, no pipe. No next/prev on the shade. Fave custom action uses a filled heart when the current song is already a favorite, outline otherwise (same rule as Auto and the phone). Artwork uses the Coil DJ-image cache, flattened to a still (GIF first frame). Mystery-DJ only on error/miss. On API 33+ we may ask `POST_NOTIFICATIONS` on Play so the shade can show it. Playback does **not** wait on grant; deny or ignore still plays and pauses. Channel `geiravor_playback` (`IMPORTANCE_LOW`), not the alerts channel. Same notification id as Media3’s default (1001) so the connecting placeholder and the shade are one notification.
 
 `/api` metadata (`np`, DJ name, `djimage`, artwork URI, AFK duration / live `TIME_UNSET`) is applied **in place** on the current live item (same URI / mediaId). Do not rebuild the Icecast `MediaSource` or start a new GET on a snapshot. Pause still **stops**.
 
@@ -57,7 +57,7 @@ ICY metadata may fire on song change. Treat as a refetch trigger only ([api.md](
 
 ## Volume
 
-Player gain 0.0–1.0, UI 0–100, default **80**. Independent of system stream volume. Persist. Control lives on now-playing (phone slider) and Android Auto (same gain, ±5). Not only Settings.
+Player gain 0.0–1.0, UI 0–100, default **80**. Independent of system stream volume. Persist. Control lives on now-playing (phone slider **and mute**) and Android Auto (same gain, ±5). Mute toggles to 0 and back to the last non-zero gain (default 80 if none). Not only Settings.
 
 ## Alarm and sleep
 

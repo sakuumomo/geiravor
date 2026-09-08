@@ -1,6 +1,7 @@
 package io.r_a_d.geiravor.ui
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -32,14 +33,16 @@ fun SectionTabs(
     ) {
         labels.forEachIndexed { i, label ->
             val on = i == selected
+            val shape = RoundedCornerShape(6.dp)
             Box(
                 Modifier
                     .weight(1f)
                     .background(
                         if (on) t.highlight.copy(alpha = if (t.glass) 0.92f else 0.35f)
                         else t.surface.copy(alpha = if (t.glass) 0.8f else 1f),
-                        RoundedCornerShape(6.dp),
+                        shape,
                     )
+                    .border(InnerSection.BORDER_DP.dp, t.border, shape)
                     .clickable { onSelect(i) }
                     .padding(horizontal = 4.dp, vertical = 8.dp),
                 contentAlignment = Alignment.Center,

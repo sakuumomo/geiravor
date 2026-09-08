@@ -8,6 +8,7 @@ import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -84,11 +85,11 @@ fun NowPlayingScreen(
                 .fillMaxWidth()
                 .verticalScroll(rememberScrollState()),
             horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(InnerSection.GAP_DP.dp),
         ) {
             val logoShape = RoundedCornerShape(6.dp)
             Box(
                 Modifier
-                    .padding(bottom = 12.dp)
                     .wrapContentWidth()
                     .clip(logoShape)
                     .then(
@@ -105,151 +106,179 @@ fun NowPlayingScreen(
                     contentScale = ContentScale.Fit,
                 )
             }
-            Row(
-                Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                IconButton(onClick = { if (ui.playing) onStop() else onPlay() }) {
-                    Icon(
-                        if (ui.playing) Icons.Filled.Stop else Icons.Filled.PlayArrow,
-                        contentDescription = if (ui.playing) "Stop" else "Play",
-                        tint = t.accent,
-                        modifier = Modifier.size(40.dp),
+            InnerCard {
+                Row(
+                    Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    IconButton(onClick = { if (ui.playing) onStop() else onPlay() }) {
+                        Icon(
+                            if (ui.playing) Icons.Filled.Stop else Icons.Filled.PlayArrow,
+                            contentDescription = if (ui.playing) "Stop" else "Play",
+                            tint = t.accent,
+                            modifier = Modifier.size(40.dp),
+                        )
+                    }
+                    Slider(
+                        value = ui.gain * 100f,
+                        onValueChange = {
+                            val g = (it / 100f).coerceIn(0f, 1f)
+                            if (g > 0f) ui.lastGain = g
+                            onGain(g)
+                        },
+                        valueRange = 0f..100f,
+                        modifier = Modifier.weight(1f),
+                        colors = SliderDefaults.colors(
+                            thumbColor = t.accent,
+                            activeTrackColor = t.accent,
+                        ),
                     )
-                }
-                Slider(
-                    value = ui.gain * 100f,
-                    onValueChange = { onGain((it / 100f).coerceIn(0f, 1f)) },
-                    valueRange = 0f..100f,
-                    modifier = Modifier.weight(1f),
-                    colors = SliderDefaults.colors(
-                        thumbColor = t.accent,
-                        activeTrackColor = t.accent,
-                    ),
-                )
-                IconButton(onClick = onFave, enabled = !ui.faveBusy) {
-                    Icon(
-                        painterResource(if (ui.heartFilled) R.drawable.ic_fave_filled else R.drawable.ic_fave),
-                        contentDescription = "Fave",
-                        tint = t.accent,
-                    )
+                    IconButton(
+                        onClick = {
+                            val next = LivePlaybackPolicy.nextGainAfterMute(ui.gain, ui.lastGain)
+                            if (ui.gain > 0f) ui.lastGain = ui.gain
+                            onGain(next)
+                        },
+                    ) {
+                        Icon(
+                            painterResource(
+                                if (ui.gain > 0f) R.drawable.ic_speaker else R.drawable.ic_speaker_off,
+                            ),
+                            contentDescription = if (ui.gain > 0f) "Mute" else "Unmute",
+                            tint = t.accent,
+                        )
+                    }
+                    IconButton(onClick = onFave, enabled = !ui.faveBusy) {
+                        Icon(
+                            painterResource(if (ui.heartFilled) R.drawable.ic_fave_filled else R.drawable.ic_fave),
+                            contentDescription = "Fave",
+                            tint = t.accent,
+                        )
+                    }
                 }
             }
             val title = status?.title?.ifBlank { status.np } ?: "…"
             val artist = status?.artist.orEmpty()
-            Text(
-                if (artist.isBlank()) title else "$artist - $title",
-                color = t.text,
-                textAlign = TextAlign.Center,
-                maxLines = 2,
-                overflow = TextOverflow.Ellipsis,
-                modifier = Modifier.padding(top = 8.dp),
-            )
-            val tags = status?.tags.orEmpty()
-            if (tags.isNotEmpty()) {
+            InnerCard(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
                 Text(
-                    if (ui.tagsOpen) "−" else "+",
-                    color = t.link,
-                    modifier = Modifier
-                        .clickable { ui.tagsOpen = !ui.tagsOpen }
-                        .padding(4.dp),
-                )
-                if (ui.tagsOpen) {
-                    Text(tags.joinToString(" "), color = t.muted, textAlign = TextAlign.Center)
-                }
-            }
-            if (progress?.known == true) {
-                LinearProgressIndicator(
-                    progress = {
-                        if (progress.durationSecs == 0L) 0f
-                        else progress.elapsedSecs.toFloat() / progress.durationSecs.toFloat()
-                    },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(top = 8.dp),
-                    color = t.accent,
-                    trackColor = t.border,
-                )
-            }
-            Row(
-                Modifier
-                    .fillMaxWidth()
-                    .padding(top = 4.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Spacer(Modifier.weight(1f))
-                Text(
-                    status?.listeners?.toString() ?: "",
+                    if (artist.isBlank()) title else "$artist - $title",
                     color = t.text,
                     textAlign = TextAlign.Center,
-                    modifier = Modifier.weight(1f),
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
+                )
+                val tags = status?.tags.orEmpty()
+                if (tags.isNotEmpty()) {
+                    Text(
+                        if (ui.tagsOpen) "−" else "+",
+                        color = t.link,
+                        modifier = Modifier
+                            .clickable { ui.tagsOpen = !ui.tagsOpen }
+                            .padding(4.dp),
+                    )
+                    if (ui.tagsOpen) {
+                        Text(tags.joinToString(" "), color = t.muted, textAlign = TextAlign.Center)
+                    }
+                }
+                if (progress?.known == true) {
+                    LinearProgressIndicator(
+                        progress = {
+                            if (progress.durationSecs == 0L) 0f
+                            else progress.elapsedSecs.toFloat() / progress.durationSecs.toFloat()
+                        },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(top = 8.dp),
+                        color = t.accent,
+                        trackColor = t.border,
+                    )
+                }
+                Row(
+                    Modifier
+                        .fillMaxWidth()
+                        .padding(top = 4.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Spacer(Modifier.weight(1f))
+                    Text(
+                        NowPlayingCopy.listenersLabel(status?.listeners),
+                        color = t.text,
+                        textAlign = TextAlign.Center,
+                        modifier = Modifier.weight(1f),
+                    )
+                    Text(
+                        if (progress?.known == true) {
+                            "${formatClock(progress.elapsedSecs)} / ${formatClock(progress.durationSecs)}"
+                        } else {
+                            ""
+                        },
+                        color = t.muted,
+                        modifier = Modifier.weight(1f),
+                        textAlign = TextAlign.End,
+                    )
+                }
+            }
+            InnerCard(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
+                val djUrl = LivePlaybackPolicy.djImageUrl(status?.dj?.image)
+                StationMedia(
+                    url = djUrl,
+                    autoplay = true,
+                    contentDescription = status?.dj?.name,
+                    modifier = Modifier.size(160.dp),
+                    placeholder = painterResource(R.drawable.mystery_dj),
+                    error = painterResource(R.drawable.mystery_dj),
+                    contentScale = ContentScale.Crop,
                 )
                 Text(
-                    if (progress?.known == true) {
-                        "${formatClock(progress.elapsedSecs)} / ${formatClock(progress.durationSecs)}"
-                    } else {
-                        ""
-                    },
-                    color = t.muted,
-                    modifier = Modifier.weight(1f),
-                    textAlign = TextAlign.End,
+                    status?.dj?.name.orEmpty(),
+                    color = t.text,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.padding(top = 8.dp),
                 )
             }
-            val djUrl = LivePlaybackPolicy.djImageUrl(status?.dj?.image)
-            StationMedia(
-                url = djUrl,
-                autoplay = true,
-                contentDescription = status?.dj?.name,
-                modifier = Modifier
-                    .padding(top = 12.dp)
-                    .size(160.dp),
-                placeholder = painterResource(R.drawable.mystery_dj),
-                error = painterResource(R.drawable.mystery_dj),
-                contentScale = ContentScale.Crop,
-            )
-            Text(
-                status?.dj?.name.orEmpty(),
-                color = t.text,
-                textAlign = TextAlign.Center,
-                modifier = Modifier.padding(top = 8.dp),
-            )
             val next = when {
                 status == null -> ""
                 status.isAfk -> status.queue.firstOrNull()?.let { "${it.artist} - ${it.title}" }.orEmpty()
                 else -> "???"
             }
             val prev = status?.lp?.firstOrNull()?.let { "${it.artist} - ${it.title}" }.orEmpty()
-            Text(
-                "Next",
-                color = t.muted,
-                textAlign = TextAlign.Center,
-                modifier = Modifier.fillMaxWidth().padding(top = 12.dp),
-            )
-            Text(
-                next,
-                color = t.text,
-                textAlign = TextAlign.Center,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-                modifier = Modifier.fillMaxWidth(),
-            )
-            Text(
-                "Last played",
-                color = t.muted,
-                textAlign = TextAlign.Center,
-                modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
-            )
-            Text(
-                prev,
-                color = t.text,
-                textAlign = TextAlign.Center,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-                modifier = Modifier.fillMaxWidth(),
-            )
+            InnerCard(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
+                Text(
+                    "Next",
+                    color = t.muted,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+                Text(
+                    next,
+                    color = t.text,
+                    textAlign = TextAlign.Center,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+            }
+            InnerCard(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
+                Text(
+                    "Last played",
+                    color = t.muted,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+                Text(
+                    prev,
+                    color = t.text,
+                    textAlign = TextAlign.Center,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+            }
             val thread = status?.thread.orEmpty()
             if (showThread && status != null && threadIsVisible(status.isAfk, thread)) {
-                ThreadLine(ui, thread, status.isAfk)
+                InnerCard {
+                    ThreadLine(ui, thread, status.isAfk)
+                }
             }
             ui.faveError?.let { msg ->
                 val fade = remember(msg) { Animatable(1f) }
@@ -286,7 +315,7 @@ private fun ThreadLine(ui: UiState, thread: String, isAfk: Boolean) {
         fun open() {
             ctx.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(embed)))
         }
-        Box(Modifier.padding(top = 12.dp)) {
+        Box {
             StationMedia(
                 url = embed,
                 autoplay = true,
@@ -322,7 +351,6 @@ private fun ThreadLine(ui: UiState, thread: String, isAfk: Boolean) {
             link,
             color = t.link,
             modifier = Modifier
-                .padding(top = 12.dp)
                 .clickable {
                     ctx.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(link)))
                 },

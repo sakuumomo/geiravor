@@ -5,6 +5,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.hoverable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsHoveredAsState
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -67,9 +68,13 @@ fun SettingsScreen(ui: UiState, core: RadioCore, secrets: SecretsStore) {
             onSelect = { ui.settingsSection = sections[it] },
         )
         Spacer(Modifier.height(12.dp))
-        Column(Modifier.verticalScroll(rememberScrollState()).fillMaxWidth()) {
+        Column(
+            Modifier.verticalScroll(rememberScrollState()).fillMaxWidth(),
+            verticalArrangement = Arrangement.spacedBy(InnerSection.GAP_DP.dp),
+        ) {
             when (ui.settingsSection) {
                 SettingsSection.General -> {
+                    InnerCard {
                     FlagRow("Auto-start on plug", ui.autoStartPlug) {
                         ui.autoStartPlug = it
                         ui.setFlag(core, Prefs.AUTOSTART_PLUG, it)
@@ -81,7 +86,9 @@ fun SettingsScreen(ui: UiState, core: RadioCore, secrets: SecretsStore) {
                     FlagRow("Opt out of holiday themes", ui.holidayOptOut) {
                         ui.setHolidayOptOut(core, it)
                     }
-                    Text("Theme", color = t.muted, modifier = Modifier.padding(top = 12.dp, bottom = 4.dp))
+                    }
+                    InnerCard {
+                    Text("Theme", color = t.muted, modifier = Modifier.padding(bottom = 4.dp))
                     ThemePack.entries.forEach { pack ->
                         val label = when (pack) {
                             ThemePack.DEFAULT_DARK -> "Default"
@@ -112,19 +119,24 @@ fun SettingsScreen(ui: UiState, core: RadioCore, secrets: SecretsStore) {
                             Text(label, color = t.text)
                         }
                     }
+                    }
+                    InnerCard {
                     Text(
                         "Geiravor ${BuildConfig.VERSION_NAME}\nBased on r/a/dio’s Valkyrie.",
                         color = t.muted,
-                        modifier = Modifier.padding(top = 16.dp),
                     )
+                    }
                 }
                 SettingsSection.Auto -> {
+                    InnerCard {
                     FlagRow("Auto-start in vehicle", ui.autoStartVehicle) {
                         ui.autoStartVehicle = it
                         ui.setFlag(core, Prefs.AUTOSTART_VEHICLE, it)
                     }
+                    }
                 }
                 SettingsSection.Connection -> {
+                    InnerCard {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         RadioButton(
                             selected = ui.profile == IrcProfile.RIZON,
@@ -153,6 +165,8 @@ fun SettingsScreen(ui: UiState, core: RadioCore, secrets: SecretsStore) {
                         ui.listNick = it
                         ui.setPref(core, Prefs.LIST_NICK, it)
                     }
+                    }
+                    InnerCard {
                     if (ui.profile == IrcProfile.BOUNCER) {
                         PrefField("Host *", ui.bouncerHost) {
                             ui.bouncerHost = it
@@ -174,6 +188,8 @@ fun SettingsScreen(ui: UiState, core: RadioCore, secrets: SecretsStore) {
                     } else {
                         SecretField("NickServ password", secrets, SecretKeys.NICKSERV)
                     }
+                    }
+                    InnerCard {
                     PrefField("SASL username", ui.saslUser) {
                         ui.saslUser = it
                         ui.setPref(core, Prefs.SASL_USER, it)
@@ -206,6 +222,8 @@ fun SettingsScreen(ui: UiState, core: RadioCore, secrets: SecretsStore) {
                         multiline = true,
                         clearConfirm = true,
                     )
+                    }
+                    InnerCard {
                     Button(
                         onClick = {
                             val cfg = ui.faveConfig(secrets)
@@ -221,8 +239,10 @@ fun SettingsScreen(ui: UiState, core: RadioCore, secrets: SecretsStore) {
                         colors = ButtonDefaults.buttonColors(containerColor = t.accent),
                     ) { Text("Test connection") }
                     ui.probeText?.let { Text(it, color = t.muted, modifier = Modifier.padding(top = 8.dp)) }
+                    }
                 }
                 SettingsSection.Alerts -> {
+                    InnerCard {
                     FlagRow("Alarm", ui.alarmOn) {
                         ui.alarmOn = it
                         ui.setFlag(core, Prefs.ALARM_ON, it)
@@ -249,6 +269,8 @@ fun SettingsScreen(ui: UiState, core: RadioCore, secrets: SecretsStore) {
                         ui.alarm24h = it
                         ui.setFlag(core, Prefs.ALARM_24H, it)
                     }
+                    }
+                    InnerCard {
                     FlagRow("Snooze", ui.snoozeOn) {
                         ui.snoozeOn = it
                         ui.setFlag(core, Prefs.SNOOZE_ON, it)
@@ -259,6 +281,8 @@ fun SettingsScreen(ui: UiState, core: RadioCore, secrets: SecretsStore) {
                         ui.setPref(core, Prefs.SNOOZE_HOURS, h)
                         ui.setPref(core, Prefs.SNOOZE_MINUTES, m)
                     }
+                    }
+                    InnerCard {
                     FlagRow("Sleep timer", ui.sleepOn) {
                         ui.sleepOn = it
                         ui.setFlag(core, Prefs.SLEEP_ON, it)
@@ -271,6 +295,8 @@ fun SettingsScreen(ui: UiState, core: RadioCore, secrets: SecretsStore) {
                         ui.setPref(core, Prefs.SLEEP_MINUTES, m)
                         if (ui.sleepOn) armSleep(ctx, ui)
                     }
+                    }
+                    InnerCard {
                     FlagRow("DJ online notifier", ui.djNotifier) {
                         ui.djNotifier = it
                         ui.setFlag(core, Prefs.DJ_NOTIFIER, it)
@@ -287,6 +313,7 @@ fun SettingsScreen(ui: UiState, core: RadioCore, secrets: SecretsStore) {
                         color = t.muted,
                         modifier = Modifier.padding(top = 8.dp),
                     )
+                    }
                 }
             }
         }

@@ -8,7 +8,7 @@ Phone sections: **General | Auto | Connection**. Alarm / snooze / sleep / DJ not
 
 | Key | Storage | Default | UI |
 |---|---|---|---|
-| Player gain | prefs | **0.8** (site volume 80) | Now playing slider 0–100; same gain on Auto |
+| Player gain | prefs | **0.8** (site volume 80) | Now playing slider 0–100 and mute; same gain on Auto |
 | Auto-start on plug | prefs | **false** | Settings → General (wired headset); Auto browse Settings |
 | Auto-start in vehicle | prefs | **false** | Settings → Auto (Android Auto / car mode); Auto browse Settings |
 | Favorites nick | prefs | empty | Favorites tab; public list (`GET /faves?nick=`); empty → Connection nick |

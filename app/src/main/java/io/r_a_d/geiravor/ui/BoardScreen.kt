@@ -108,7 +108,7 @@ private fun NewsListPane(ui: UiState, core: RadioCore) {
     val t = LocalTokens.current
     Column(Modifier.fillMaxSize()) {
         BoxWithConstraints(Modifier.weight(1f).fillMaxWidth()) {
-            val measured = (maxHeight / 72.dp).toInt().coerceAtLeast(1).toUInt()
+            val measured = (maxHeight / InnerSection.NEWS_ROW_DP.dp).toInt().coerceAtLeast(1).toUInt()
             val fit = lockPaneFit(measured, ui.newsFit) { ui.newsFit = it }
             LaunchedEffect(fit, ui.newsPage) {
                 ui.offMain {
@@ -119,7 +119,7 @@ private fun NewsListPane(ui: UiState, core: RadioCore) {
                 }
             }
             val cards = ui.news?.cards.orEmpty()
-            Column {
+            Column(verticalArrangement = Arrangement.spacedBy(InnerSection.GAP_DP.dp)) {
                 cards.forEach { card ->
                     NewsCardRow(card) {
                         ui.offMain {
@@ -146,7 +146,7 @@ private fun NewsListPane(ui: UiState, core: RadioCore) {
 @Composable
 private fun NewsCardRow(card: NewsCard, onClick: () -> Unit) {
     val t = LocalTokens.current
-    Column(Modifier.fillMaxWidth().clickable(onClick = onClick).padding(vertical = 6.dp)) {
+    Column(innerRowModifier().clickable(onClick = onClick)) {
         Text(card.title, color = t.text, maxLines = 1)
         Row {
             Text(card.author, color = rolePaint(card.role, t), maxLines = 1)
@@ -196,9 +196,11 @@ private fun ArticlePane(ui: UiState, core: RadioCore) {
                 contentPadding = PaddingValues(top = 40.dp),
             ) {
                 item {
-                    Text(article.title, color = t.text)
-                    Text(article.author, color = rolePaint(article.role, t))
-                    NewsHtml(article.body, onJump = { jump(it) })
+                    InnerCard {
+                        Text(article.title, color = t.text)
+                        Text(article.author, color = rolePaint(article.role, t))
+                        NewsHtml(article.body, onJump = { jump(it) })
+                    }
                 }
                 items(article.comments, key = { it.id }) { c ->
                     val color = when (c.role) {
@@ -207,7 +209,7 @@ private fun ArticlePane(ui: UiState, core: RadioCore) {
                         RoleColor.DEV -> t.red
                         RoleColor.NONE -> t.text
                     }
-                    Column(Modifier.fillMaxWidth().padding(top = 12.dp)) {
+                    InnerCard(Modifier.padding(top = InnerSection.GAP_DP.dp)) {
                         Row(Modifier.fillMaxWidth()) {
                             Text(
                                 c.author,
@@ -278,10 +280,13 @@ private fun ArticlePane(ui: UiState, core: RadioCore) {
 private fun SchedulePane(ui: UiState) {
     val t = LocalTokens.current
     val today = LocalDate.now().dayOfWeek
-    Column(Modifier.verticalScroll(rememberScrollState()).fillMaxWidth()) {
+    Column(
+        Modifier.verticalScroll(rememberScrollState()).fillMaxWidth(),
+        verticalArrangement = Arrangement.spacedBy(InnerSection.GAP_DP.dp),
+    ) {
         ui.schedule.forEach { day ->
             val highlight = weekdayToday(day, today)
-            Row(Modifier.fillMaxWidth().padding(vertical = 8.dp), verticalAlignment = Alignment.Top) {
+            Row(innerRowModifier(), verticalAlignment = Alignment.Top) {
                 Box(
                     Modifier
                         .padding(end = 8.dp)
@@ -388,7 +393,10 @@ private fun StaffGroupBlock(group: StaffGroup, columns: Int) {
             Row(Modifier.fillMaxWidth()) {
                 row.forEach { card ->
                     Column(
-                        Modifier.weight(1f).padding(4.dp),
+                        Modifier
+                            .weight(1f)
+                            .padding(4.dp)
+                            .then(innerChrome()),
                         horizontalAlignment = Alignment.CenterHorizontally,
                     ) {
                         if (card.image.isNotBlank()) {

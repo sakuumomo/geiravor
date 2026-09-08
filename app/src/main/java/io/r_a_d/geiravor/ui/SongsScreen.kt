@@ -22,6 +22,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
@@ -105,12 +106,12 @@ private fun RequestPane(ui: UiState, core: RadioCore) {
         )
         ui.requestText?.let { Text(it, color = if (it.contains("Thank", true)) t.green else t.red) }
         BoxWithConstraints(Modifier.weight(1f).fillMaxWidth()) {
-            val measured = (maxHeight / 56.dp).toInt().coerceAtLeast(1).toUInt()
+            val measured = (maxHeight / InnerSection.SONG_ROW_DP.dp).toInt().coerceAtLeast(1).toUInt()
             fit = lockPaneFit(measured, ui.searchFit) { ui.searchFit = it }
             LaunchedEffect(fit) {
                 if (ui.query.isNotBlank() && ui.search != null) go(ui.search?.currentPage ?: 1u)
             }
-            Column {
+            Column(verticalArrangement = Arrangement.spacedBy(InnerSection.GAP_DP.dp)) {
                 val tracks = ui.search?.tracks.orEmpty()
                 tracks.forEach { track ->
                     SearchRow(ui, core, track, afk && ui.canRequest && track.requestable)
@@ -131,7 +132,7 @@ private fun RequestPane(ui: UiState, core: RadioCore) {
 @Composable
 private fun SearchRow(ui: UiState, core: RadioCore, track: SearchTrack, can: Boolean) {
     val t = LocalTokens.current
-    Row(Modifier.fillMaxWidth().padding(vertical = 4.dp), horizontalArrangement = Arrangement.SpaceBetween) {
+    Row(innerRowModifier(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
         Column(Modifier.weight(1f)) {
             Text(
                 if (track.artist.isBlank()) track.title else "${track.artist} - ${track.title}",
@@ -206,12 +207,12 @@ private fun FavoritesPane(ui: UiState, core: RadioCore) {
         )
         ui.requestText?.let { Text(it, color = t.red) }
         BoxWithConstraints(Modifier.weight(1f).fillMaxWidth()) {
-            val measured = (maxHeight / 56.dp).toInt().coerceAtLeast(1).toUInt()
+            val measured = (maxHeight / InnerSection.SONG_ROW_DP.dp).toInt().coerceAtLeast(1).toUInt()
             fit = lockPaneFit(measured, ui.faveFit) { ui.faveFit = it }
             LaunchedEffect(ui.songsSection, ui.nick, fit) {
                 if (ui.songsSection == SongsSection.Favorites) load(ui.favePage)
             }
-            Column {
+            Column(verticalArrangement = Arrangement.spacedBy(InnerSection.GAP_DP.dp)) {
                 val rows = ui.faveRows
                 rows.forEach { row ->
                     FaveRowView(
@@ -273,7 +274,11 @@ private fun FavoritesPane(ui: UiState, core: RadioCore) {
 @Composable
 private fun FaveRowView(ui: UiState, core: RadioCore, row: FaveRow, can: Boolean) {
     val t = LocalTokens.current
-    Row(Modifier.fillMaxWidth().padding(vertical = 4.dp), horizontalArrangement = Arrangement.SpaceBetween) {
+    Row(
+        innerRowModifier(),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
         Text(
             if (row.artist.isBlank()) row.title else "${row.artist} - ${row.title}",
             color = t.text,
@@ -301,7 +306,7 @@ private fun SongList(
     text: androidx.compose.ui.graphics.Color,
     rel: (ListEntry) -> String,
 ) {
-    Column(Modifier.fillMaxWidth()) {
+    Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(InnerSection.GAP_DP.dp)) {
         rows.forEach { e ->
             val title = buildString {
                 if (e.isRequest) append("/r/ ")
@@ -311,13 +316,14 @@ private fun SongList(
                 }
                 append(e.title)
             }
-            Text(
-                title,
-                color = if (e.isRequest) requestBlue else text,
-                maxLines = 1,
-                modifier = Modifier.padding(vertical = 4.dp),
-            )
-            Text(rel(e), color = muted, modifier = Modifier.padding(bottom = 8.dp))
+            Column(innerRowModifier()) {
+                Text(
+                    title,
+                    color = if (e.isRequest) requestBlue else text,
+                    maxLines = 1,
+                )
+                Text(rel(e), color = muted)
+            }
         }
         if (rows.isEmpty()) {
             Text("Nothing here yet.", color = muted)

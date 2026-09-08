@@ -1,6 +1,7 @@
 package io.r_a_d.geiravor.ui
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -91,6 +92,7 @@ fun PagerBar(page: UInt, last: UInt, onPage: (UInt) -> Unit) {
                             t.surface.copy(alpha = if (t.glass) 0.8f else 1f),
                             RoundedCornerShape(6.dp),
                         )
+                        .border(InnerSection.BORDER_DP.dp, t.border, RoundedCornerShape(6.dp))
                         .clickable { jump = true; jumpText = "" }
                         .padding(horizontal = 10.dp, vertical = 6.dp),
                     contentAlignment = Alignment.Center,
@@ -99,14 +101,16 @@ fun PagerBar(page: UInt, last: UInt, onPage: (UInt) -> Unit) {
                 }
                 is PagerSlot.Page -> {
                     val on = slot.n == page
+                    val shape = RoundedCornerShape(6.dp)
                     Box(
                         Modifier
                             .widthIn(min = slotDp)
                             .background(
                                 if (on) t.highlight.copy(alpha = if (t.glass) 0.92f else 0.35f)
                                 else t.surface.copy(alpha = if (t.glass) 0.8f else 1f),
-                                RoundedCornerShape(6.dp),
+                                shape,
                             )
+                            .border(InnerSection.BORDER_DP.dp, t.border, shape)
                             .clickable { onPage(slot.n) }
                             .padding(horizontal = 6.dp, vertical = 6.dp),
                         contentAlignment = Alignment.Center,

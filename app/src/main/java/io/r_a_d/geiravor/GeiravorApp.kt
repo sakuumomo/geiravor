@@ -9,6 +9,7 @@ import io.r_a_d.geiravor.alert.AlarmScheduler
 import io.r_a_d.geiravor.alert.StationWatch
 import io.r_a_d.geiravor.compat.addGifDecoder
 import io.r_a_d.geiravor.notify.Alerts
+import io.r_a_d.geiravor.playback.PlaybackNotice
 import io.r_a_d.geiravor.settings.SecretsStore
 import io.r_a_d.geiravor.ui.UiState
 import uniffi.geiravor_core.RadioCore
@@ -34,6 +35,7 @@ class GeiravorApp : Application(), ImageLoaderFactory {
         secrets = SecretsStore(this)
         stillImages = ImageLoader.Builder(this).build()
         Alerts.ensureChannel(this)
+        PlaybackNotice.ensureChannel(this)
         core.addListener(object : StatusListener {
             override fun onStatus(status: Status, streamDown: Boolean, playing: Boolean) {
                 val nicks = ui.membershipNicks()

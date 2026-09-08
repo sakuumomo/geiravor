@@ -31,6 +31,9 @@ object LivePlaybackPolicy {
     fun unmuteGain(lastNonZero: Float): Float =
         if (lastNonZero > 0f) lastNonZero else DEFAULT_GAIN
 
+    fun nextGainAfterMute(current: Float, lastNonZero: Float): Float =
+        if (current > 0f) 0f else unmuteGain(lastNonZero)
+
     fun mediaButtonSpecs(heartFilled: Boolean): List<MediaButtonSpec> =
         listOf(
             MediaButtonSpec(MUTE, "Mute", CommandButton.ICON_VOLUME_OFF, CommandButton.SLOT_BACK),

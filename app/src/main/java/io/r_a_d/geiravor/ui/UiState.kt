@@ -37,6 +37,7 @@ class UiState {
     var userPick by mutableStateOf(ThemePack.DEFAULT_DARK)
     var holidayOptOut by mutableStateOf(false)
     var gain by mutableFloatStateOf(0.8f)
+    var lastGain by mutableFloatStateOf(0.8f)
     var autoStartPlug by mutableStateOf(false)
     var autoStartVehicle by mutableStateOf(false)
     var listNick by mutableStateOf("")
@@ -143,6 +144,7 @@ class UiState {
                 holidayOptOut = opt
                 pack = decided
                 gain = g
+                lastGain = if (g > 0f) g else 0.8f
                 autoStartPlug = plug
                 autoStartVehicle = vehicle
                 listNick = list

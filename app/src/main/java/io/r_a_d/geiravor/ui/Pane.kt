@@ -35,6 +35,46 @@ import androidx.compose.ui.unit.dp
 import io.r_a_d.geiravor.compat.canBlur
 import io.r_a_d.geiravor.theme.LocalTokens
 
+/** Inner blocks: 1.dp border, pad, no second frost. `docs/spec/ui.md`. */
+object InnerSection {
+    const val GAP_DP = 8
+    const val PAD_DP = 12
+    const val ROW_PAD_DP = 8
+    const val BORDER_DP = 1
+    const val SONG_ROW_DP = 68
+    const val NEWS_ROW_DP = 88
+}
+
+@Composable
+fun InnerCard(
+    modifier: Modifier = Modifier,
+    horizontalAlignment: Alignment.Horizontal = Alignment.Start,
+    content: @Composable ColumnScope.() -> Unit,
+) {
+    val t = LocalTokens.current
+    val shape = RoundedCornerShape(6.dp)
+    Column(
+        modifier
+            .fillMaxWidth()
+            .border(InnerSection.BORDER_DP.dp, t.border, shape)
+            .padding(InnerSection.PAD_DP.dp),
+        horizontalAlignment = horizontalAlignment,
+        content = content,
+    )
+}
+
+@Composable
+fun innerChrome(): Modifier {
+    val t = LocalTokens.current
+    val shape = RoundedCornerShape(6.dp)
+    return Modifier
+        .border(InnerSection.BORDER_DP.dp, t.border, shape)
+        .padding(horizontal = InnerSection.ROW_PAD_DP.dp, vertical = 6.dp)
+}
+
+@Composable
+fun innerRowModifier(): Modifier = Modifier.fillMaxWidth().then(innerChrome())
+
 /**
  * Hug panes wrap height and sit at the top of the tab. `wrapContentHeight()`
  * defaults to [Alignment.CenterVertically] and must not sit inside `fillMaxSize`.

@@ -27,6 +27,8 @@ import android.os.Looper
 import io.r_a_d.geiravor.BuildConfig
 import io.r_a_d.geiravor.GeiravorApp
 import io.r_a_d.geiravor.MainActivity
+import io.r_a_d.geiravor.R
+import io.r_a_d.geiravor.compat.startMediaPlaybackForeground
 import io.r_a_d.geiravor.ui.Prefs
 import io.r_a_d.geiravor.ui.tapFave
 import uniffi.geiravor_core.Status
@@ -46,7 +48,7 @@ class PlaybackService : MediaLibraryService() {
     private val reconnectHandler = Handler(Looper.getMainLooper())
     private val reconnectLive = Runnable {
         if (LivePlaybackPolicy.shouldReconnect(player.playWhenReady)) {
-            live.playLive()
+            playLiveNow()
         }
     }
     private val sleepTick = object : Runnable {
@@ -67,6 +69,7 @@ class PlaybackService : MediaLibraryService() {
 
     override fun onCreate() {
         super.onCreate()
+        PlaybackNotice.ensureChannel(this)
         setShowNotificationForIdlePlayer(
             MediaSessionService.SHOW_NOTIFICATION_FOR_IDLE_PLAYER_ALWAYS,
         )
@@ -150,9 +153,13 @@ class PlaybackService : MediaLibraryService() {
     override fun onGetSession(controllerInfo: MediaSession.ControllerInfo): MediaLibrarySession? =
         session
 
+    override fun onUpdateNotification(session: MediaSession, startInForegroundRequired: Boolean) {
+        super.onUpdateNotification(session, startInForegroundRequired || player.playWhenReady)
+    }
+
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         when (intent?.action) {
-            ACTION_PLAY -> live.playLive()
+            ACTION_PLAY -> playLiveNow()
             ACTION_STOP -> {
                 cancelReconnect()
                 cancelSleep(restore = true)
@@ -160,7 +167,7 @@ class PlaybackService : MediaLibraryService() {
             }
             ACTION_ALARM -> {
                 alarmRing = true
-                live.playLive()
+                playLiveNow()
             }
             ACTION_SLEEP -> {
                 val mins = intent.getIntExtra(EXTRA_SLEEP_MIN, 30).coerceIn(1, 12 * 60)
@@ -168,7 +175,7 @@ class PlaybackService : MediaLibraryService() {
             }
             ACTION_GAIN -> {
                 val g = intent.getFloatExtra(EXTRA_GAIN, lastGain).coerceIn(0f, 1f)
-                lastGain = g
+                if (g > 0f) lastGain = g
                 if (sleepAt == 0L || sleepAt - System.currentTimeMillis() > 15_000L) {
                     player.volume = g
                 }
@@ -193,6 +200,15 @@ class PlaybackService : MediaLibraryService() {
         if (player.mediaItemCount == 0) {
             player.setMediaItem(MediaItem.fromUri(LivePlaybackPolicy.STREAM_URL))
         }
+    }
+
+    private fun playLiveNow() {
+        PlaybackNotice.ensureChannel(this)
+        val meta = player.mediaMetadata
+        val title = meta.displayTitle ?: meta.title ?: getString(R.string.app_name)
+        val text = NowPlayingMeta.dj(meta).ifBlank { getString(R.string.playback_connecting) }
+        startMediaPlaybackForeground(PlaybackNotice.ID, PlaybackNotice.connecting(this, title, text))
+        live.playLive()
     }
 
     private fun applyStatus(status: Status) {
@@ -328,7 +344,7 @@ class PlaybackService : MediaLibraryService() {
             val playerCommands = LivePlaybackPolicy.playerCommands()
             val app = application as GeiravorApp
             if (app.ui.autoStartVehicle) {
-                live.playLive()
+                playLiveNow()
             }
             app.ui.offMain {
                 app.ui.membershipNicks().forEach { nick ->
@@ -449,7 +465,7 @@ class PlaybackService : MediaLibraryService() {
         ): ListenableFuture<MediaSession.MediaItemsWithStartPosition> {
             ensureLiveItem()
             if ((application as GeiravorApp).ui.autoStartVehicle) {
-                live.playLive()
+                playLiveNow()
             } else {
                 live.skipNextPlay = true
             }

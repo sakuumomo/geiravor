@@ -64,6 +64,9 @@ class LivePlaybackPolicyTest {
         assertEquals(1f, LivePlaybackPolicy.stepGain(0.99f, LivePlaybackPolicy.VOL_STEP), 0.0001f)
         assertEquals(0.8f, LivePlaybackPolicy.unmuteGain(0f), 0.0001f)
         assertEquals(0.4f, LivePlaybackPolicy.unmuteGain(0.4f), 0.0001f)
+        assertEquals(0f, LivePlaybackPolicy.nextGainAfterMute(0.8f, 0.8f), 0.0001f)
+        assertEquals(0.4f, LivePlaybackPolicy.nextGainAfterMute(0f, 0.4f), 0.0001f)
+        assertEquals(0.8f, LivePlaybackPolicy.nextGainAfterMute(0f, 0f), 0.0001f)
     }
 
     @Test
