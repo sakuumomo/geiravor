@@ -109,10 +109,29 @@ pub fn trim_faves_overlap(prev: &[FaveRow], last: Vec<FaveRow>) -> Vec<FaveRow> 
         .collect()
 }
 
-/// Faves JSON has no `requestable`. Gray Request using lastrequested vs now.
+/// Valkyrie `CalculateRequestDelay`. Seconds, count capped at 30.
+pub fn request_delay_secs(request_count: i64) -> i64 {
+    let n = request_count.min(30);
+    let x = n as f64;
+    let dur = if (0..=7).contains(&n) {
+        -11057.0 * x * x + 172954.0 * x + 81720.0
+    } else {
+        599955.0 * (0.0372 * x).exp() + 0.5
+    };
+    (dur / 2.0) as i64
+}
+
+/// Faves JSON has no `requestable`. Gray Request using station delay
+/// (`requestcount` vs `lastplayed` / `lastrequested`, now = snapshot `current`).
 #[uniffi::export]
-pub fn fave_requestable(lastrequested: i64, now: i64) -> bool {
-    lastrequested <= 0 || now.saturating_sub(lastrequested) >= 2 * 3600
+pub fn fave_requestable(lastrequested: i64, lastplayed: i64, requestcount: i64, now: i64) -> bool {
+    let delay = request_delay_secs(requestcount);
+    if delay <= 0 {
+        return false;
+    }
+    let played_ok = lastplayed <= 0 || now.saturating_sub(lastplayed) >= delay;
+    let requested_ok = lastrequested <= 0 || now.saturating_sub(lastrequested) >= delay;
+    played_ok && requested_ok
 }
 
 #[cfg(test)]
@@ -149,5 +168,27 @@ mod tests {
         let trimmed = trim_faves_overlap(&prev, last);
         assert_eq!(trimmed.len(), 1);
         assert_eq!(trimmed[0].tracks_id, 99);
+    }
+
+    #[test]
+    fn delay_matches_valkyrie_zero_and_cap() {
+        assert_eq!(request_delay_secs(0), 40860);
+        assert_eq!(request_delay_secs(30), request_delay_secs(99));
+        assert!(request_delay_secs(8) > request_delay_secs(7));
+    }
+
+    #[test]
+    fn never_played_is_requestable() {
+        assert!(fave_requestable(0, 0, 0, 1_700_000_000));
+    }
+
+    #[test]
+    fn lastplayed_or_lastrequested_can_block() {
+        let now = 1_700_000_000i64;
+        let delay = request_delay_secs(3);
+        assert!(!fave_requestable(0, now - 10, 3, now));
+        assert!(!fave_requestable(now - 10, 0, 3, now));
+        assert!(fave_requestable(0, now - delay, 3, now));
+        assert!(fave_requestable(now - delay, now - delay, 3, now));
     }
 }

@@ -5,6 +5,7 @@ import android.app.NotificationManager
 import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
+import android.graphics.Bitmap
 import androidx.core.app.NotificationCompat
 import io.r_a_d.geiravor.MainActivity
 import io.r_a_d.geiravor.R
@@ -23,7 +24,13 @@ object Alerts {
         )
     }
 
-    fun show(context: Context, id: Int, body: String, alarmActions: Boolean = false) {
+    fun show(
+        context: Context,
+        id: Int,
+        body: String,
+        alarmActions: Boolean = false,
+        largeIcon: Bitmap? = null,
+    ) {
         ensureChannel(context)
         val open = PendingIntent.getActivity(
             context,
@@ -37,6 +44,9 @@ object Alerts {
             .setContentText(body)
             .setContentIntent(open)
             .setAutoCancel(!alarmActions)
+        if (largeIcon != null) {
+            b.setLargeIcon(largeIcon)
+        }
         if (alarmActions) {
             b.setCategory(NotificationCompat.CATEGORY_ALARM)
                 .setOngoing(true)

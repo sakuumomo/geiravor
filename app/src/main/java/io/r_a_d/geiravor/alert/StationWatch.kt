@@ -8,9 +8,12 @@ import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.WorkManager
 import androidx.work.Worker
 import androidx.work.WorkerParameters
+import android.os.Handler
+import android.os.Looper
 import io.r_a_d.geiravor.GeiravorApp
+import io.r_a_d.geiravor.compat.loadCoilStill
 import io.r_a_d.geiravor.notify.Alerts
-import io.r_a_d.geiravor.ui.Prefs
+import io.r_a_d.geiravor.playback.LivePlaybackPolicy
 import uniffi.geiravor_core.Status
 import uniffi.geiravor_core.djNotice
 import uniffi.geiravor_core.faveOnAirKey
@@ -48,7 +51,13 @@ object StationWatch {
             val n = djNotice(prev, next, streamDown, firstDj)
             firstDj = false
             if (n != null) {
-                Alerts.show(context, Alerts.ID_DJ, n.body)
+                val url = LivePlaybackPolicy.djImageUrl(next.dj.image)
+                Thread({
+                    val art = loadCoilStill(context, url)
+                    Handler(Looper.getMainLooper()).post {
+                        Alerts.show(context, Alerts.ID_DJ, n.body, largeIcon = art)
+                    }
+                }, "geiravor-dj-art").start()
             }
         }
         if (faveOn) {

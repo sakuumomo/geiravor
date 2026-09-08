@@ -125,6 +125,7 @@ class PlaybackService : MediaLibraryService() {
         lastSongsSig = AutoBrowse.songsSignature(core().snapshot())
         session = MediaLibrarySession.Builder(this, live, Callbacks())
             .setId("geiravor")
+            .setBitmapLoader(CoilStillBitmapLoader(this))
             .setSessionActivity(
                 PendingIntent.getActivity(
                     this,

@@ -217,7 +217,12 @@ private fun FavoritesPane(ui: UiState, core: RadioCore) {
                         ui,
                         core,
                         row,
-                        afk && ui.canRequest && faveRequestable(row.lastrequested, now),
+                        afk && ui.canRequest && faveRequestable(
+                            row.lastrequested,
+                            row.lastplayed,
+                            row.requestcount,
+                            now,
+                        ),
                     )
                 }
                 if (rows.isEmpty()) {
@@ -237,7 +242,14 @@ private fun FavoritesPane(ui: UiState, core: RadioCore) {
                             all += runCatching { core.fetchFaves(nick, p) }.getOrDefault(emptyList())
                             p++
                         }
-                        val pick = all.filter { it.tracksId > 0 && faveRequestable(it.lastrequested, now) }
+                        val pick = all.filter {
+                            it.tracksId > 0 && faveRequestable(
+                                it.lastrequested,
+                                it.lastplayed,
+                                it.requestcount,
+                                now,
+                            )
+                        }
                             .randomOrNull()
                         val r = if (pick == null) {
                             null

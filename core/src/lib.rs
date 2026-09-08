@@ -35,7 +35,7 @@ pub use alert::{ALERT_MAX_MINUTES, ALERT_MIN_MINUTES, alert_duration_minutes};
 pub use error::ApiError;
 pub use faves::{
     FavePage, FaveRow, fave_requestable, faves_html_last_page, faves_html_url, faves_json_url,
-    parse_faves_json, trim_faves_overlap,
+    parse_faves_json, request_delay_secs, trim_faves_overlap,
 };
 pub use html::{extract_csrf, path_encode};
 pub use irc::{

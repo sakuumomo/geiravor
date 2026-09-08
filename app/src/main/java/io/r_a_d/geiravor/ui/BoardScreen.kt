@@ -2,6 +2,9 @@ package io.r_a_d.geiravor.ui
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.hoverable
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsHoveredAsState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -38,12 +41,12 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.graphics.Color
 import io.r_a_d.geiravor.compat.evictNewsImages
 import io.r_a_d.geiravor.theme.LocalTokens
 import io.r_a_d.geiravor.theme.Tokens
@@ -217,13 +220,22 @@ private fun ArticlePane(ui: UiState, core: RadioCore) {
                     NewsHtml(c.body, onJump = { jump(it) })
                 }
             }
+            val filmHover = remember { MutableInteractionSource() }
+            val filmHovered by filmHover.collectIsHoveredAsState()
             Text(
                 "← News",
                 color = t.link,
                 modifier = Modifier
                     .align(Alignment.TopStart)
                     .clip(RoundedCornerShape(6.dp))
-                    .background(t.surface)
+                    .hoverable(filmHover)
+                    .background(
+                        when {
+                            filmHovered -> t.highlight.copy(alpha = if (t.glass) 0.28f else 0.16f)
+                            t.glass -> Color.Black.copy(alpha = 0.5f)
+                            else -> t.surface
+                        },
+                    )
                     .clickable { ui.article = null }
                     .padding(horizontal = 10.dp, vertical = 6.dp),
             )
