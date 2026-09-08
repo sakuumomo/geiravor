@@ -6,6 +6,7 @@
 uniffi::setup_scaffolding!();
 
 mod error;
+mod irc;
 mod net;
 mod parse;
 mod poll;
@@ -20,6 +21,11 @@ pub const VERSION: &str = env!("CARGO_PKG_VERSION");
 pub const USER_AGENT: &str = concat!("Geiravor/", env!("CARGO_PKG_VERSION"));
 
 pub use error::ApiError;
+pub use irc::{
+    DEFAULT_BOUNCER_PORT, FaveConfig, FaveKind, FaveResult, IrcError, IrcProfile, RIZON_HOST,
+    RIZON_PORT, TapSnapshot, TlsIrc, attach_nick, certificate_fingerprint_sha256, connect_irc,
+    irc_nick, nick_is_empty, run_add_fave, run_probe, tcp_connect_timeout,
+};
 pub use net::{Coalescer, HttpClient, ReqwestClient};
 pub use parse::{
     API_URL, DJ_IMAGE_BASE, Dj, ListEntry, MAX_BODY, STREAM_URL, SongProgress, Status, check_bound,

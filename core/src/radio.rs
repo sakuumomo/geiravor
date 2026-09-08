@@ -5,6 +5,10 @@ use std::thread;
 use std::time::Duration;
 
 use crate::error::ApiError;
+use crate::irc::{
+    FaveConfig, FaveResult, IrcProfile, RIZON_HOST, RIZON_PORT, TapSnapshot, attach_nick,
+    connect_irc, irc_nick, nick_is_empty, run_add_fave, with_retries,
+};
 use crate::net::{Coalescer, HttpClient, ReqwestClient};
 use crate::parse::{API_URL, Status, parse_status, parse_status_str};
 use crate::poll::poll_interval;
@@ -25,6 +29,7 @@ struct Inner<C: HttpClient> {
     failures: Mutex<u32>,
     listeners: Mutex<Vec<Box<dyn StatusListener>>>,
     poller_started: Mutex<bool>,
+    fave_busy: Mutex<bool>,
 }
 
 /// Named UniFFI surface. Kotlin must not call this on the main thread for GET/sqlite.
@@ -55,6 +60,7 @@ impl RadioCore {
                 failures: Mutex::new(0),
                 listeners: Mutex::new(Vec::new()),
                 poller_started: Mutex::new(false),
+                fave_busy: Mutex::new(false),
             }),
         }))
     }
@@ -143,9 +149,90 @@ impl RadioCore {
             .spawn(move || poll_loop(inner));
         tracing::info!("poller start");
     }
+
+    /// IRC add/remove fave. Empty nick is a no-op. Worker-thread only.
+    pub fn add_fave(&self, cfg: FaveConfig, unfave: bool, catalog_id: i64) -> FaveResult {
+        {
+            let mut busy = self.inner.fave_busy.lock().expect("fave");
+            if *busy {
+                return FaveResult::failed("in flight");
+            }
+            *busy = true;
+        }
+        let result = self.add_fave_inner(cfg, unfave, catalog_id);
+        *self.inner.fave_busy.lock().expect("fave") = false;
+        result
+    }
 }
 
 impl RadioCore {
+    fn add_fave_inner(&self, cfg: FaveConfig, unfave: bool, catalog_id: i64) -> FaveResult {
+        if nick_is_empty(irc_nick(&cfg)) {
+            return FaveResult::noop();
+        }
+        let tap = match self.snapshot() {
+            Some(s) => TapSnapshot {
+                is_afk: s.is_afk,
+                track_id: s.track_id,
+                np: s.np,
+            },
+            None => match self.fetch_status() {
+                Ok(s) => TapSnapshot {
+                    is_afk: s.is_afk,
+                    track_id: s.track_id,
+                    np: s.np,
+                },
+                Err(e) => return FaveResult::failed(e.to_string()),
+            },
+        };
+        let (host, port, insecure) = match cfg.profile {
+            IrcProfile::Rizon => (RIZON_HOST.to_string(), RIZON_PORT, false),
+            IrcProfile::Bouncer => {
+                let host = cfg.bouncer_host.clone();
+                let port = if cfg.bouncer_port == 0 {
+                    crate::irc::DEFAULT_BOUNCER_PORT
+                } else {
+                    cfg.bouncer_port
+                };
+                (host, port, cfg.allow_insecure_tls)
+            }
+        };
+        let expected = match cfg.profile {
+            IrcProfile::Rizon => irc_nick(&cfg).to_string(),
+            IrcProfile::Bouncer => attach_nick(),
+        };
+        let catalog = if catalog_id > 0 {
+            Some(catalog_id)
+        } else {
+            None
+        };
+        let latest = || {
+            self.snapshot()
+                .map(|s| s.np)
+                .unwrap_or_else(|| tap.np.clone())
+        };
+        let outcome = with_retries(|| {
+            let mut conn = connect_irc(
+                &host,
+                port,
+                insecure,
+                &cfg.client_cert_pem,
+                &cfg.client_key_pem,
+                &cfg.tls_fingerprint,
+            )?;
+            let r = run_add_fave(&mut conn, &cfg, &tap, latest, &expected, unfave, catalog)?;
+            if matches!(cfg.profile, IrcProfile::Rizon) {
+                let _ = conn.write_line("QUIT :Geiravor");
+            }
+            let _ = conn.close_notify();
+            Ok(r)
+        });
+        match outcome {
+            Ok(r) => r,
+            Err(e) => FaveResult::failed(e.to_string()),
+        }
+    }
+
     fn apply_bytes(&self, bytes: &[u8]) -> Result<Status, ApiError> {
         let status = parse_status(bytes)?;
         let json = String::from_utf8_lossy(bytes).into_owned();
