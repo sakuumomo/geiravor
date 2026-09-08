@@ -22,9 +22,10 @@ import com.google.common.util.concurrent.Futures
 import com.google.common.util.concurrent.ListenableFuture
 import android.os.Handler
 import android.os.Looper
+import io.r_a_d.geiravor.BuildConfig
 import io.r_a_d.geiravor.GeiravorApp
-import uniffi.geiravor_core.FaveConfig
-import uniffi.geiravor_core.IrcProfile
+import io.r_a_d.geiravor.ui.Prefs
+import io.r_a_d.geiravor.ui.tapFave
 import uniffi.geiravor_core.Status
 import uniffi.geiravor_core.StatusListener
 
@@ -37,6 +38,7 @@ class PlaybackService : MediaLibraryService() {
     private var alarmRing = false
     private var fallback: android.media.MediaPlayer? = null
     private var sleepAt = 0L
+    private var lastSongsSig = ""
     private val sleepHandler = Handler(Looper.getMainLooper())
     private val reconnectHandler = Handler(Looper.getMainLooper())
     private val reconnectLive = Runnable {
@@ -117,9 +119,12 @@ class PlaybackService : MediaLibraryService() {
         })
         live = LiveStationPlayer(player)
         ensureLiveItem()
+        lastSongsSig = AutoBrowse.songsSignature(core().snapshot())
         session = MediaLibrarySession.Builder(this, live, Callbacks())
             .setId("geiravor")
             .build()
+        refreshButtons()
+        (application as GeiravorApp).heartPaint = { refreshButtons() }
         core().addListener(Listener())
         core().snapshot()?.let { applyStatus(it) }
     }
@@ -155,6 +160,7 @@ class PlaybackService : MediaLibraryService() {
     }
 
     override fun onDestroy() {
+        (application as GeiravorApp).heartPaint = null
         cancelReconnect()
         cancelSleep(restore = false)
         fallback?.release()
@@ -225,7 +231,68 @@ class PlaybackService : MediaLibraryService() {
 
     private inner class Listener : StatusListener {
         override fun onStatus(status: Status, streamDown: Boolean, playing: Boolean) {
-            Handler(Looper.getMainLooper()).post { applyStatus(status) }
+            Handler(Looper.getMainLooper()).post {
+                applyStatus(status)
+                refreshButtons()
+                val sig = AutoBrowse.songsSignature(status)
+                if (sig != lastSongsSig) {
+                    lastSongsSig = sig
+                    val flags = autoFlags()
+                    session?.notifyChildrenChanged(
+                        AutoBrowse.SONGS,
+                        AutoBrowse.children(AutoBrowse.SONGS, status, flags).size,
+                        null,
+                    )
+                    session?.notifyChildrenChanged(
+                        AutoBrowse.LAST,
+                        AutoBrowse.children(AutoBrowse.LAST, status, flags).size,
+                        null,
+                    )
+                    session?.notifyChildrenChanged(
+                        AutoBrowse.QUEUE,
+                        AutoBrowse.children(AutoBrowse.QUEUE, status, flags).size,
+                        null,
+                    )
+                }
+            }
+        }
+    }
+
+    private fun autoFlags() = AutoBrowse.Flags(
+        vehicle = (application as GeiravorApp).ui.autoStartVehicle,
+        plug = (application as GeiravorApp).ui.autoStartPlug,
+        version = BuildConfig.VERSION_NAME,
+    )
+
+    private fun toggleSetting(id: String) {
+        val app = application as GeiravorApp
+        when (id) {
+            AutoBrowse.VEHICLE -> {
+                app.ui.autoStartVehicle = !app.ui.autoStartVehicle
+                app.ui.setFlag(app.core, Prefs.AUTOSTART_VEHICLE, app.ui.autoStartVehicle)
+            }
+            AutoBrowse.PLUG -> {
+                app.ui.autoStartPlug = !app.ui.autoStartPlug
+                app.ui.setFlag(app.core, Prefs.AUTOSTART_PLUG, app.ui.autoStartPlug)
+            }
+        }
+        session?.notifyChildrenChanged(AutoBrowse.SETTINGS, 3, null)
+    }
+
+    private fun refreshButtons() {
+        session?.setMediaButtonPreferences(
+            LivePlaybackPolicy.mediaButtons((application as GeiravorApp).ui.heartFilled),
+        )
+    }
+
+    private fun setPlayerGain(g: Float, persist: Boolean) {
+        val v = g.coerceIn(0f, 1f)
+        player.volume = v
+        if (v > 0f) lastGain = v
+        if (persist) {
+            val app = application as GeiravorApp
+            app.ui.gain = v
+            app.ui.setPref(app.core, Prefs.GAIN, v.toString())
         }
     }
 
@@ -240,6 +307,7 @@ class PlaybackService : MediaLibraryService() {
             if (app.ui.autoStartVehicle) {
                 live.playLive()
             }
+            refreshButtons()
             return MediaSession.ConnectionResult.AcceptedResultBuilder(session)
                 .setAvailableSessionCommands(sessionCommands)
                 .setAvailablePlayerCommands(playerCommands)
@@ -255,33 +323,29 @@ class PlaybackService : MediaLibraryService() {
             when (customCommand.customAction) {
                 LivePlaybackPolicy.FAVE -> {
                     val app = application as GeiravorApp
-                    Thread {
-                        val snap = core().snapshot()
-                        val unfave = snap?.let { s ->
-                            runCatching {
-                                core().membershipHas(
-                                    app.ui.listNickOrConnection(),
-                                    if (s.isAfk) s.trackId else 0,
-                                    s.np,
-                                )
-                            }.getOrDefault(false)
-                        } ?: false
-                        val id = snap?.let { if (it.isAfk) it.trackId else 0L } ?: 0L
-                        core().addFave(app.ui.faveConfig(app.secrets), unfave, id)
-                    }.start()
+                    tapFave(app.ui, app.core, app.secrets) { refreshButtons() }
                 }
                 LivePlaybackPolicy.MUTE -> {
                     if (player.volume > 0f) {
                         lastGain = player.volume
-                        player.volume = 0f
+                        setPlayerGain(0f, persist = true)
                     } else {
-                        player.volume = lastGain.coerceAtLeast(LivePlaybackPolicy.DEFAULT_GAIN)
+                        setPlayerGain(
+                            LivePlaybackPolicy.unmuteGain(lastGain),
+                            persist = true,
+                        )
                     }
                 }
                 LivePlaybackPolicy.VOL_UP ->
-                    player.volume = (player.volume + 0.05f).coerceAtMost(1f)
+                    setPlayerGain(
+                        LivePlaybackPolicy.stepGain(player.volume, LivePlaybackPolicy.VOL_STEP),
+                        persist = true,
+                    )
                 LivePlaybackPolicy.VOL_DOWN ->
-                    player.volume = (player.volume - 0.05f).coerceAtLeast(0f)
+                    setPlayerGain(
+                        LivePlaybackPolicy.stepGain(player.volume, -LivePlaybackPolicy.VOL_STEP),
+                        persist = true,
+                    )
             }
             return Futures.immediateFuture(SessionResult(SessionResult.RESULT_SUCCESS))
         }
@@ -311,8 +375,44 @@ class PlaybackService : MediaLibraryService() {
             pageSize: Int,
             params: MediaLibraryService.LibraryParams?,
         ): ListenableFuture<LibraryResult<ImmutableList<MediaItem>>> {
-            val kids = AutoBrowse.children(parentId, core().snapshot())
+            val kids = AutoBrowse.children(parentId, core().snapshot(), autoFlags())
             return Futures.immediateFuture(LibraryResult.ofItemList(kids, params))
+        }
+
+        override fun onGetItem(
+            session: MediaLibrarySession,
+            browser: MediaSession.ControllerInfo,
+            mediaId: String,
+        ): ListenableFuture<LibraryResult<MediaItem>> {
+            if (AutoBrowse.isLiveId(mediaId) || mediaId == player.currentMediaItem?.mediaId) {
+                ensureLiveItem()
+                val item = player.currentMediaItem
+                    ?: MediaItem.fromUri(LivePlaybackPolicy.STREAM_URL)
+                return Futures.immediateFuture(LibraryResult.ofItem(item, null))
+            }
+            val found = AutoBrowse.item(mediaId, core().snapshot(), autoFlags())
+            return if (found != null) {
+                Futures.immediateFuture(LibraryResult.ofItem(found, null))
+            } else {
+                Futures.immediateFuture(LibraryResult.ofError(LibraryResult.RESULT_ERROR_BAD_VALUE))
+            }
+        }
+
+        override fun onAddMediaItems(
+            session: MediaSession,
+            controller: MediaSession.ControllerInfo,
+            mediaItems: MutableList<MediaItem>,
+        ): ListenableFuture<MutableList<MediaItem>> {
+            val id = mediaItems.firstOrNull()?.mediaId.orEmpty()
+            if (AutoBrowse.isSettingsToggle(id) || id == AutoBrowse.ABOUT) {
+                if (AutoBrowse.isSettingsToggle(id)) toggleSetting(id)
+                if (!player.isPlaying) live.skipNextPlay = true
+                ensureLiveItem()
+                val current = player.currentMediaItem
+                    ?: MediaItem.fromUri(LivePlaybackPolicy.STREAM_URL)
+                return Futures.immediateFuture(mutableListOf(current))
+            }
+            return super.onAddMediaItems(session, controller, mediaItems)
         }
 
         override fun onPlaybackResumption(
@@ -322,6 +422,8 @@ class PlaybackService : MediaLibraryService() {
             ensureLiveItem()
             if ((application as GeiravorApp).ui.autoStartVehicle) {
                 live.playLive()
+            } else {
+                live.skipNextPlay = true
             }
             return Futures.immediateFuture(
                 MediaSession.MediaItemsWithStartPosition(

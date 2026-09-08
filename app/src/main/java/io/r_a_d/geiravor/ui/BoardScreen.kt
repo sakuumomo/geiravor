@@ -6,14 +6,18 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
@@ -35,14 +39,19 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.unit.dp
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.graphics.Color
 import io.r_a_d.geiravor.compat.evictNewsImages
 import io.r_a_d.geiravor.theme.LocalTokens
+import io.r_a_d.geiravor.theme.Tokens
 import uniffi.geiravor_core.NewsCard
 import uniffi.geiravor_core.RadioCore
 import uniffi.geiravor_core.RoleColor
 import uniffi.geiravor_core.ScheduleDay
+import uniffi.geiravor_core.StaffGroup
 import java.time.DayOfWeek
 import java.time.LocalDate
 
@@ -301,41 +310,85 @@ private fun weekdayToday(day: ScheduleDay, today: DayOfWeek): Boolean =
 @Composable
 private fun StaffPane(ui: UiState) {
     val t = LocalTokens.current
+    val sw = LocalConfiguration.current.smallestScreenWidthDp
+    val wide = StaffLayout.sideBySide(sw)
     Column(Modifier.verticalScroll(rememberScrollState()).fillMaxWidth()) {
-        ui.staff.forEach { group ->
-            Text(
-                group.label,
-                color = t.text,
-                modifier = Modifier.fillMaxWidth().padding(top = 8.dp, bottom = 4.dp),
-            )
-            val color = when (group.role) {
-                RoleColor.STAFF -> t.green
-                RoleColor.DJ -> t.blue
-                RoleColor.DEV -> t.red
-                RoleColor.NONE -> t.text
-            }
-            group.cards.chunked(2).forEach { row ->
-                Row(Modifier.fillMaxWidth()) {
-                    row.forEach { card ->
-                        Column(Modifier.weight(1f).padding(4.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-                            if (card.image.isNotBlank()) {
-                                StationMedia(
-                                    url = card.image,
-                                    autoplay = true,
-                                    contentDescription = card.name,
-                                    modifier = Modifier.size(96.dp).clip(RoundedCornerShape(6.dp)),
-                                    contentScale = ContentScale.Crop,
-                                )
-                            }
-                            Text(card.name, color = color)
-                        }
-                    }
-                    if (row.size == 1) Spacer(Modifier.weight(1f))
+        val staff = ui.staff.getOrNull(0)
+        val dev = ui.staff.getOrNull(1)
+        val rest = ui.staff.drop(2)
+        if (wide && staff != null && dev != null) {
+            Row(Modifier.fillMaxWidth().height(IntrinsicSize.Min)) {
+                Box(Modifier.weight(1f)) {
+                    StaffGroupBlock(staff, StaffLayout.columns(staff.role, sw))
+                }
+                Box(
+                    Modifier
+                        .padding(horizontal = 8.dp)
+                        .width(2.dp)
+                        .fillMaxHeight()
+                        .background(t.border),
+                )
+                Box(Modifier.weight(1f)) {
+                    StaffGroupBlock(dev, StaffLayout.columns(dev.role, sw))
                 }
             }
+            rest.forEach { StaffGroupBlock(it, StaffLayout.columns(it.role, sw)) }
+        } else {
+            ui.staff.forEach { StaffGroupBlock(it, StaffLayout.columns(it.role, sw)) }
         }
         if (ui.staff.isEmpty()) {
             Text("Staff loads when you open this tab.", color = t.muted)
         }
     }
 }
+
+@Composable
+private fun StaffGroupBlock(group: StaffGroup, columns: Int) {
+    val t = LocalTokens.current
+    val color = staffRoleColor(group.role, t)
+    Column(Modifier.fillMaxWidth()) {
+        Text(
+            group.label,
+            color = t.text,
+            textAlign = TextAlign.Center,
+            modifier = Modifier.fillMaxWidth().padding(top = 8.dp, bottom = 4.dp),
+        )
+        Box(Modifier.fillMaxWidth().height(2.dp).background(t.border))
+        Spacer(Modifier.height(8.dp))
+        group.cards.chunked(columns).forEach { row ->
+            Row(Modifier.fillMaxWidth()) {
+                row.forEach { card ->
+                    Column(
+                        Modifier.weight(1f).padding(4.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                    ) {
+                        if (card.image.isNotBlank()) {
+                            StationMedia(
+                                url = card.image,
+                                autoplay = true,
+                                contentDescription = card.name,
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .aspectRatio(1f)
+                                    .clip(RoundedCornerShape(6.dp)),
+                                contentScale = ContentScale.Crop,
+                            )
+                        }
+                        Text(card.name, color = color, textAlign = TextAlign.Center)
+                    }
+                }
+                repeat(columns - row.size) {
+                    Spacer(Modifier.weight(1f))
+                }
+            }
+        }
+    }
+}
+
+private fun staffRoleColor(role: RoleColor, t: Tokens): Color =
+    when (role) {
+        RoleColor.STAFF -> t.green
+        RoleColor.DJ -> t.blue
+        RoleColor.DEV -> t.red
+        RoleColor.NONE -> t.text
+    }

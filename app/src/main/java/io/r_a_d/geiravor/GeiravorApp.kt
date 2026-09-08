@@ -24,6 +24,7 @@ class GeiravorApp : Application(), ImageLoaderFactory {
     lateinit var stillImages: ImageLoader
         private set
     val ui = UiState()
+    var heartPaint: (() -> Unit)? = null
 
     override fun onCreate() {
         super.onCreate()

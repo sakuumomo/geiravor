@@ -180,11 +180,17 @@ private fun TabBody(
     }
 }
 
-fun tapFave(ui: UiState, core: RadioCore, secrets: SecretsStore) {
+fun tapFave(
+    ui: UiState,
+    core: RadioCore,
+    secrets: SecretsStore,
+    onHeart: () -> Unit = {},
+) {
     if (ui.faveBusy) return
     ui.faveBusy = true
     val was = ui.heartFilled
     ui.heartFilled = !was
+    onHeart()
     val cfg = ui.faveConfig(secrets)
     val catalog = ui.status?.let { if (it.isAfk) it.trackId else 0L } ?: 0L
     Thread({
@@ -208,6 +214,7 @@ fun tapFave(ui: UiState, core: RadioCore, secrets: SecretsStore) {
                     ui.faveError = result.message.ifBlank { "Fave failed" }
                 }
             }
+            onHeart()
         }
     }, "geiravor-fave").start()
 }

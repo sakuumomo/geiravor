@@ -36,7 +36,9 @@ class MainActivity : ComponentActivity() {
                     app.ui.setPref(app.core, Prefs.GAIN, g.toString())
                     startService(PlaybackService.gainIntent(this@MainActivity, g))
                 },
-                onFave = { tapFave(app.ui, app.core, app.secrets) },
+                onFave = {
+                    tapFave(app.ui, app.core, app.secrets) { app.heartPaint?.invoke() }
+                },
             )
         }
     }
