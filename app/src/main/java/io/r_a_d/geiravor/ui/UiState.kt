@@ -56,6 +56,7 @@ class UiState {
     var sleepOn by mutableStateOf(false)
     var sleepMinutes by mutableStateOf("30")
     var alertError by mutableStateOf<String?>(null)
+    var probeText by mutableStateOf<String?>(null)
     var heartFilled by mutableStateOf(false)
     var faveBusy by mutableStateOf(false)
     var faveError by mutableStateOf<String?>(null)

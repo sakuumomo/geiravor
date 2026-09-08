@@ -22,8 +22,15 @@ import androidx.compose.material3.NavigationBarItemDefaults
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.layout.LayoutCoordinates
+import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalConfiguration
@@ -77,7 +84,16 @@ fun GeiravorRoot(
                     ui.tab = BottomTab.Songs
                 }
             }
-            Box(Modifier.fillMaxSize().background(if (t.wallpaper == null) t.background else Color.Transparent)) {
+            var rootCoords by remember { mutableStateOf<LayoutCoordinates?>(null) }
+            CompositionLocalProvider(
+                LocalWallpaperRoot provides WallpaperRoot(rootCoords, rootCoords?.size ?: androidx.compose.ui.unit.IntSize.Zero),
+            ) {
+            Box(
+                Modifier
+                    .fillMaxSize()
+                    .background(if (t.wallpaper == null) t.background else Color.Transparent)
+                    .onGloballyPositioned { rootCoords = it },
+            ) {
                 t.wallpaper?.let { res ->
                     Image(
                         painterResource(res),
@@ -140,6 +156,7 @@ fun GeiravorRoot(
                         }
                     }
                 }
+            }
             }
         }
     }

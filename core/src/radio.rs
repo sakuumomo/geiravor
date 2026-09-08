@@ -13,7 +13,7 @@ use crate::faves::{
 use crate::html::extract_csrf;
 use crate::irc::{
     FaveConfig, FaveResult, IrcProfile, RIZON_HOST, RIZON_PORT, TapSnapshot, attach_nick,
-    connect_irc, irc_nick, nick_is_empty, run_add_fave, with_retries,
+    connect_irc, irc_nick, nick_is_empty, run_add_fave, run_probe, with_retries,
 };
 use crate::net::{Coalescer, HttpClient, ReqwestClient};
 use crate::news::{
@@ -424,6 +424,51 @@ impl RadioCore {
             .store
             .put_if_changed(&format!("membership:{nick}"), &raw)?;
         Ok(())
+    }
+
+    /// Handshake only. Returns `SHA-256 …` of the server cert. Worker-thread only.
+    pub fn probe(&self, cfg: FaveConfig) -> Result<String, ApiError> {
+        if nick_is_empty(irc_nick(&cfg)) {
+            return Err(ApiError::Decode {
+                detail: "empty nick".into(),
+            });
+        }
+        let (host, port, insecure) = match cfg.profile {
+            IrcProfile::Rizon => (RIZON_HOST.to_string(), RIZON_PORT, false),
+            IrcProfile::Bouncer => {
+                let host = cfg.bouncer_host.clone();
+                let port = if cfg.bouncer_port == 0 {
+                    crate::irc::DEFAULT_BOUNCER_PORT
+                } else {
+                    cfg.bouncer_port
+                };
+                (host, port, cfg.allow_insecure_tls)
+            }
+        };
+        let expected = match cfg.profile {
+            IrcProfile::Rizon => irc_nick(&cfg).to_string(),
+            IrcProfile::Bouncer => attach_nick(),
+        };
+        let fp = with_retries(|| {
+            let mut conn = connect_irc(
+                &host,
+                port,
+                insecure,
+                &cfg.client_cert_pem,
+                &cfg.client_key_pem,
+                &cfg.tls_fingerprint,
+            )?;
+            let fp = run_probe(&mut conn, &cfg, &expected)?;
+            if matches!(cfg.profile, IrcProfile::Rizon) {
+                let _ = conn.write_line("QUIT :Geiravor");
+            }
+            let _ = conn.close_notify();
+            Ok(fp)
+        })
+        .map_err(|e| ApiError::Network {
+            detail: e.to_string(),
+        })?;
+        Ok(format!("SHA-256 {fp}"))
     }
 
     /// IRC add/remove fave. Empty nick is a no-op. Worker-thread only.

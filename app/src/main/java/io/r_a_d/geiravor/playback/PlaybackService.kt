@@ -156,17 +156,11 @@ class PlaybackService : MediaLibraryService() {
         val fetched = (application as GeiravorApp).ui.fetchedAt
         val progress = uniffi.geiravor_core.songProgressAt(status, now, fetched)
         val duration = if (progress.known) progress.durationSecs * 1000 else C.TIME_UNSET
-        val artist = status.artist.trim()
-        val dj = status.dj.name.trim()
-        val line2 = when {
-            artist.isEmpty() -> dj
-            dj.isEmpty() -> artist
-            else -> "$artist | $dj"
-        }
+        val line2 = ShadeLine.fitForShade(this, status.artist, status.dj.name)
         val meta = MediaMetadata.Builder()
             .setTitle(status.title.ifBlank { status.np })
             .setArtist(line2)
-            .setAlbumArtist(dj)
+            .setAlbumArtist(status.dj.name)
             .setDurationMs(duration)
             .setArtworkUri(
                 LivePlaybackPolicy.djImageUrl(status.dj.image)?.let { android.net.Uri.parse(it) },

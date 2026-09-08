@@ -7,7 +7,7 @@ use std::thread;
 use std::time::Duration;
 
 use geiravor_core::{
-    FaveConfig, FaveKind, IrcProfile, RadioCore, TapSnapshot, connect_irc, run_add_fave,
+    FaveConfig, FaveKind, IrcProfile, RadioCore, TapSnapshot, connect_irc, run_add_fave, run_probe,
 };
 use rustls::pki_types::{CertificateDer, PrivateKeyDer, PrivatePkcs8KeyDer};
 use rustls::{ServerConfig, ServerConnection, StreamOwned};
@@ -193,6 +193,36 @@ fn bouncer_afk_unfave_id_over_insecure_tls_no_quit() {
     assert!(got.iter().any(|l| l == "PRIVMSG Hanyuu-sama :.unfave 42"));
     assert!(!got.iter().any(|l| l.contains(".fave 42")));
     assert!(!got.iter().any(|l| l.starts_with("QUIT")));
+}
+
+#[test]
+fn probe_is_handshake_only_no_fave() {
+    let (port, server) = serve_script(vec![
+        (true, String::new()),
+        (true, ":irc 001 geiravor-test :welcome".into()),
+    ]);
+    let mut conn = connect_irc("127.0.0.1", port, true, "", "", "").expect("tls");
+    let fp = run_probe(&mut conn, &afk_config(true, port), "geiravor-test").expect("probe");
+    let _ = conn.close_notify();
+    assert!(fp.contains(':'), "got {fp}");
+    let got = server.join().expect("server");
+    assert!(
+        !got.iter()
+            .any(|l| l.contains("Hanyuu") || l.contains(".fave"))
+    );
+    assert!(!got.iter().any(|l| l.starts_with("QUIT")));
+}
+
+#[test]
+fn probe_empty_nick_fails_without_irc() {
+    let dir = std::env::temp_dir().join(format!("geiravor-probe-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&dir);
+    let core = RadioCore::new(dir.to_str().unwrap().into()).unwrap();
+    let mut cfg = afk_config(true, 1);
+    cfg.nick.clear();
+    let err = core.probe(cfg).expect_err("empty nick");
+    assert!(err.to_string().contains("empty nick"), "{err}");
+    let _ = std::fs::remove_dir_all(&dir);
 }
 
 #[test]

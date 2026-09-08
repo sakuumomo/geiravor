@@ -1,7 +1,7 @@
 //! News list + article HTML. See `docs/spec/news.md`.
 
 use crate::error::ApiError;
-use crate::html::{between, collapse_ws, decode_entities, strip_tags};
+use crate::html::{between, strip_tags};
 use crate::parse::check_bound;
 
 pub const NEWS_URL: &str = "https://r-a-d.io/news";
@@ -13,6 +13,7 @@ pub struct NewsCard {
     pub author: String,
     pub date: String,
     pub header: String,
+    pub role: RoleColor,
 }
 
 #[derive(Debug, Clone, PartialEq, uniffi::Record)]
@@ -46,6 +47,7 @@ pub struct NewsArticle {
     pub author: String,
     pub body: String,
     pub comments: Vec<NewsComment>,
+    pub role: RoleColor,
 }
 
 pub fn news_list_url(page: u32) -> String {
@@ -84,6 +86,7 @@ pub fn parse_news_list(html: &str, page: u32) -> Result<NewsList, ApiError> {
             .and_then(|s| s.rsplit('>').next())
             .map(strip_tags)
             .unwrap_or_default();
+        let role = role_near(chunk, "page-home-news-author");
         let date = between(chunk, "page-home-news-date", "</time>")
             .map(|s| strip_tags(&s[s.find('>').map(|x| x + 1).unwrap_or(0)..]))
             .unwrap_or_default()
@@ -101,6 +104,7 @@ pub fn parse_news_list(html: &str, page: u32) -> Result<NewsList, ApiError> {
             author,
             date,
             header,
+            role,
         });
     }
     let mut last_page = 1u32;
@@ -150,6 +154,7 @@ pub fn parse_news_article(html: &str, id: i64) -> Result<NewsArticle, ApiError> 
         author,
         body,
         comments,
+        role: role_from(header_span),
     })
 }
 
@@ -161,7 +166,49 @@ fn article_body(raw: &str) -> String {
         s.replace_range(start..end, "");
     }
     let s = s.replace("<strong></strong>", "");
-    collapse_ws(&strip_tags(&s))
+    sanitize_news_html(&s)
+}
+
+/// Keep `p`, `br`, `em`, `strong`, `img` (static.r-a-d.io only), `time`, `a` `#comment-`.
+pub fn sanitize_news_html(raw: &str) -> String {
+    let mut out = String::new();
+    let mut rest = raw;
+    while let Some(lt) = rest.find('<') {
+        out.push_str(&rest[..lt]);
+        rest = &rest[lt..];
+        let Some(gt) = rest.find('>') else {
+            break;
+        };
+        let tag = &rest[..=gt];
+        rest = &rest[gt + 1..];
+        let lower = tag.to_ascii_lowercase();
+        if lower.starts_with("<p")
+            || lower.starts_with("</p")
+            || lower.starts_with("<br")
+            || lower.starts_with("<em")
+            || lower.starts_with("</em")
+            || lower.starts_with("<strong")
+            || lower.starts_with("</strong")
+            || lower.starts_with("<time")
+            || lower.starts_with("</time")
+        {
+            out.push_str(tag);
+        } else if lower.starts_with("<img") {
+            if let Some(src) = crate::html::between(tag, "src=\"", "\"")
+                && allow_news_img(src)
+            {
+                out.push_str(tag);
+            }
+        } else if lower.starts_with("<a ") {
+            if tag.contains("href=\"#comment-") {
+                out.push_str(tag);
+            }
+        } else if lower.starts_with("</a") {
+            out.push_str(tag);
+        }
+    }
+    out.push_str(rest);
+    out
 }
 
 fn parse_comments(html: &str) -> Vec<NewsComment> {
@@ -174,15 +221,7 @@ fn parse_comments(html: &str) -> Vec<NewsComment> {
             continue;
         };
         let chunk = rest.get(..2000).unwrap_or(rest);
-        let role = if chunk.contains("is-color-staff") {
-            RoleColor::Staff
-        } else if chunk.contains("is-color-dj") {
-            RoleColor::Dj
-        } else if chunk.contains("is-color-dev") {
-            RoleColor::Dev
-        } else {
-            RoleColor::None
-        };
+        let role = role_from(chunk);
         let author = between(chunk, "ml-1", "</div>")
             .map(strip_tags)
             .unwrap_or_default();
@@ -190,7 +229,7 @@ fn parse_comments(html: &str) -> Vec<NewsComment> {
             .map(|s| strip_tags(&s[s.find('>').map(|x| x + 1).unwrap_or(0)..]))
             .unwrap_or_default();
         let body = between(chunk, "class=\"p-4\"", "</div>")
-            .map(|s| collapse_ws(&decode_entities(&strip_tags(s))))
+            .map(sanitize_news_html)
             .unwrap_or_default();
         out.push(NewsComment {
             id,
@@ -201,6 +240,31 @@ fn parse_comments(html: &str) -> Vec<NewsComment> {
         });
     }
     out
+}
+
+fn allow_news_img(src: &str) -> bool {
+    src.starts_with("https://static.r-a-d.io/") || src.starts_with("//static.r-a-d.io/")
+}
+
+fn role_from(html: &str) -> RoleColor {
+    if html.contains("is-color-staff") {
+        RoleColor::Staff
+    } else if html.contains("is-color-dj") {
+        RoleColor::Dj
+    } else if html.contains("is-color-dev") {
+        RoleColor::Dev
+    } else {
+        RoleColor::None
+    }
+}
+
+fn role_near(html: &str, marker: &str) -> RoleColor {
+    let Some(i) = html.find(marker) else {
+        return RoleColor::None;
+    };
+    let start = i.saturating_sub(80);
+    let end = (i + marker.len() + 160).min(html.len());
+    role_from(&html[start..end])
 }
 
 #[cfg(test)]
@@ -215,6 +279,7 @@ mod tests {
         assert!(list.cards[0].title.contains("lentines"));
         assert_eq!(list.cards[0].author, "claud");
         assert_eq!(list.cards[0].date, "2026-02-02");
+        assert_eq!(list.cards[0].role, RoleColor::None);
         assert!(list.last_page >= 4);
         assert!(!list.cards[0].header.is_empty());
     }
@@ -227,6 +292,7 @@ mod tests {
         assert!(a.title.contains("lentines"));
         assert!(!a.body.contains("217 days"));
         assert!(a.body.contains("Good evening"));
+        assert_eq!(a.role, RoleColor::None);
         assert!(a.comments.iter().any(|c| c.id == 5282));
         let staff = a.comments.iter().find(|c| c.id == 5279).unwrap();
         assert_eq!(staff.role, RoleColor::Staff);
@@ -239,5 +305,37 @@ mod tests {
         let list = parse_news_list("<html></html>", 9).unwrap();
         assert!(list.cards.is_empty());
         assert_eq!(list.last_page, 8);
+    }
+
+    #[test]
+    fn sanitize_keeps_static_images_drops_the_rest() {
+        let out = sanitize_news_html(
+            r#"<p>Hi</p><img src="https://static.r-a-d.io/x.jpg"><img src="https://evil.example/x.jpg"><script>alert(1)</script>"#,
+        );
+        assert!(out.contains("static.r-a-d.io/x.jpg"));
+        assert!(!out.contains("evil.example"));
+        assert!(!out.contains("script"));
+        assert!(out.contains("<p>Hi</p>"));
+        assert!(sanitize_news_html(r#"<img src="//static.r-a-d.io/y.png">"#).contains("y.png"));
+    }
+
+    #[test]
+    fn list_and_article_bylines_take_role_class() {
+        let list = parse_news_list(
+            r#"<a href="/news/9"><span class="news-title">Hi</span>
+            <span class="page-home-news-author is-color-dj">Hanyuu<time class="page-home-news-date">on 2026-01-01</time></span>
+            <div class="message-body">flavor</div></a>"#,
+            1,
+        )
+        .unwrap();
+        assert_eq!(list.cards[0].role, RoleColor::Dj);
+        let article = parse_news_article(
+            r#"<div class="page-news-single"><div class="message-header"><span class="news-title">T</span>
+            <span class="is-color-staff">claud</span></div>
+            <div class="message-body"><p>Hi</p></div></div>"#,
+            9,
+        )
+        .unwrap();
+        assert_eq!(article.role, RoleColor::Staff);
     }
 }

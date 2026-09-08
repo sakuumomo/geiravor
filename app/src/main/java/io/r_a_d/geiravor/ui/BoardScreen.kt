@@ -1,9 +1,12 @@
 package io.r_a_d.geiravor.ui
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -11,9 +14,14 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.runtime.rememberCoroutineScope
+import kotlinx.coroutines.launch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TextField
@@ -95,7 +103,7 @@ private fun NewsListPane(ui: UiState, core: RadioCore) {
         val cards = ui.news?.cards.orEmpty().take(n)
         Column {
             cards.forEach { card ->
-                NewsCardRow(card, t.text, t.muted) {
+                NewsCardRow(card) {
                     ui.offMain {
                         val cached = runCatching { core.cachedNewsArticle(card.id) }.getOrNull()
                         cached?.let { ui.onMain { ui.article = it } }
@@ -107,83 +115,97 @@ private fun NewsListPane(ui: UiState, core: RadioCore) {
             if (cards.isEmpty()) {
                 Text("News loads from the site.", color = t.muted)
             }
-            val page = ui.news?.page ?: 1u
-            val last = ui.news?.lastPage ?: 1u
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                TextButton(
-                    onClick = {
-                        val p = page - 1u
-                        ui.offMain {
-                            val live = runCatching { core.fetchNewsList(p) }.getOrNull()
-                            ui.onMain { if (live != null) ui.news = live }
-                        }
-                    },
-                    enabled = page > 1u,
-                ) { Text("<") }
-                Text("$page / $last", color = t.muted)
-                TextButton(
-                    onClick = {
-                        val p = page + 1u
-                        ui.offMain {
-                            val live = runCatching { core.fetchNewsList(p) }.getOrNull()
-                            ui.onMain { if (live != null) ui.news = live }
-                        }
-                    },
-                    enabled = page < last,
-                ) { Text(">") }
-            }
+            PagerBar(
+                page = ui.news?.page ?: 1u,
+                last = ui.news?.lastPage ?: 1u,
+                onPage = { p ->
+                    ui.offMain {
+                        val live = runCatching { core.fetchNewsList(p) }.getOrNull()
+                        ui.onMain { if (live != null) ui.news = live }
+                    }
+                },
+            )
         }
     }
 }
 
 @Composable
-private fun NewsCardRow(card: NewsCard, text: androidx.compose.ui.graphics.Color, muted: androidx.compose.ui.graphics.Color, onClick: () -> Unit) {
+private fun NewsCardRow(card: NewsCard, onClick: () -> Unit) {
+    val t = LocalTokens.current
     Column(Modifier.fillMaxWidth().clickable(onClick = onClick).padding(vertical = 6.dp)) {
-        Text(card.title, color = text, maxLines = 1)
-        Text("${card.author} · ${card.date}", color = muted, maxLines = 1)
+        Text(card.title, color = t.text, maxLines = 1)
+        Row {
+            Text(card.author, color = rolePaint(card.role, t), maxLines = 1)
+            Text(" · ${card.date}", color = t.muted, maxLines = 1)
+        }
         if (card.header.isNotBlank()) {
-            Text(card.header, color = muted, maxLines = 2)
+            Text(card.header, color = t.muted, maxLines = 2)
         }
     }
 }
+
+private fun rolePaint(role: RoleColor, t: io.r_a_d.geiravor.theme.Tokens) =
+    when (role) {
+        RoleColor.STAFF -> t.green
+        RoleColor.DJ -> t.blue
+        RoleColor.DEV -> t.red
+        RoleColor.NONE -> t.muted
+    }
 
 @Composable
 private fun ArticlePane(ui: UiState, core: RadioCore) {
     val t = LocalTokens.current
     val article = ui.article ?: return
     var draft by remember { mutableStateOf("") }
+    val listState = rememberLazyListState()
+    val scope = rememberCoroutineScope()
+    fun jump(id: Long) {
+        commentListIndex(article.comments.map { it.id }, id)?.let { idx ->
+            scope.launch { listState.animateScrollToItem(idx) }
+        }
+    }
     Column(Modifier.fillMaxSize()) {
-        Text(
-            "← News",
-            color = t.link,
-            modifier = Modifier
-                .clip(RoundedCornerShape(6.dp))
-                .clickable { ui.article = null }
-                .padding(8.dp),
-        )
-        Column(Modifier.weight(1f).verticalScroll(rememberScrollState())) {
-            Text(article.title, color = t.text, modifier = Modifier.padding(top = 8.dp))
-            Text(article.author, color = t.muted)
-            Text(article.body, color = t.text, modifier = Modifier.padding(vertical = 8.dp))
-            article.comments.forEach { c ->
-                val color = when (c.role) {
-                    RoleColor.STAFF -> t.green
-                    RoleColor.DJ -> t.blue
-                    RoleColor.DEV -> t.red
-                    RoleColor.NONE -> t.text
+        Box(Modifier.weight(1f)) {
+            LazyColumn(
+                Modifier.fillMaxSize(),
+                state = listState,
+                contentPadding = PaddingValues(top = 40.dp),
+            ) {
+                item {
+                    Text(article.title, color = t.text)
+                    Text(article.author, color = rolePaint(article.role, t))
+                    NewsHtml(article.body, onJump = { jump(it) })
                 }
-                Row(Modifier.padding(top = 8.dp)) {
-                    Text("${c.author}  ${c.whenUtc}  ", color = color)
-                    Text(
-                        "#${c.id}",
-                        color = t.link,
-                        modifier = Modifier.clickable {
-                            draft = draft + ">>${c.id}\n"
-                        },
-                    )
+                items(article.comments, key = { it.id }) { c ->
+                    val color = when (c.role) {
+                        RoleColor.STAFF -> t.green
+                        RoleColor.DJ -> t.blue
+                        RoleColor.DEV -> t.red
+                        RoleColor.NONE -> t.text
+                    }
+                    Row(Modifier.padding(top = 8.dp)) {
+                        Text("${c.author}  ${c.whenUtc}  ", color = color)
+                        Text(
+                            "#${c.id}",
+                            color = t.link,
+                            modifier = Modifier.clickable {
+                                draft = draft + ">>${c.id}\n"
+                            },
+                        )
+                    }
+                    NewsHtml(c.body, onJump = { jump(it) })
                 }
-                Text(c.body, color = t.text)
             }
+            Text(
+                "← News",
+                color = t.link,
+                modifier = Modifier
+                    .align(Alignment.TopStart)
+                    .clip(RoundedCornerShape(6.dp))
+                    .background(t.surface)
+                    .clickable { ui.article = null }
+                    .padding(horizontal = 10.dp, vertical = 6.dp),
+            )
         }
         TextField(
             value = draft,

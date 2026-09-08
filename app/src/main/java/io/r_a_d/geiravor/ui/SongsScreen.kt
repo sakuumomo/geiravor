@@ -110,7 +110,7 @@ private fun RequestPane(ui: UiState, core: RadioCore) {
                 }
             }
         }
-        Pager(
+        PagerBar(
             page = ui.search?.currentPage ?: 1u,
             last = ui.search?.lastPage ?: 1u,
             onPage = { go(it) },
@@ -230,7 +230,7 @@ private fun FavoritesPane(ui: UiState, core: RadioCore) {
                 enabled = afk && ui.canRequest && ui.listNickOrConnection().isNotEmpty(),
                 colors = ButtonDefaults.buttonColors(containerColor = t.accent),
             ) { Text("Request random") }
-            Pager(page = ui.favePage, last = ui.faveLast, onPage = { load(it) })
+            PagerBar(page = ui.favePage, last = ui.faveLast, onPage = { load(it) })
         }
     }
 }
@@ -255,16 +255,6 @@ private fun FaveRowView(ui: UiState, core: RadioCore, row: FaveRow, can: Boolean
             enabled = can,
             colors = ButtonDefaults.textButtonColors(contentColor = t.accent),
         ) { Text("Request") }
-    }
-}
-
-@Composable
-private fun Pager(page: UInt, last: UInt, onPage: (UInt) -> Unit) {
-    val t = LocalTokens.current
-    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-        TextButton(onClick = { onPage(page - 1u) }, enabled = page > 1u) { Text("<", color = t.highlight) }
-        Text("$page / $last", color = t.muted)
-        TextButton(onClick = { onPage(page + 1u) }, enabled = page < last) { Text(">", color = t.highlight) }
     }
 }
 

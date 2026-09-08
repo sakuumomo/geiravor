@@ -10,24 +10,36 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.RadioButtonDefaults
 import androidx.compose.material3.Switch
 import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TextField
 import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.Rect
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalTextToolbar
+import androidx.compose.ui.platform.TextToolbar
+import androidx.compose.ui.platform.TextToolbarStatus
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import io.r_a_d.geiravor.BuildConfig
 import io.r_a_d.geiravor.settings.SecretsStore
@@ -154,6 +166,48 @@ fun SettingsScreen(ui: UiState, core: RadioCore, secrets: SecretsStore) {
                         ui.setPref(core, Prefs.SASL_USER, it)
                     }
                     SecretField("SASL password", secrets, SecretKeys.SASL_PASSWORD)
+                    SecretField(
+                        "Client cert PEM",
+                        secrets,
+                        SecretKeys.CLIENT_CERT,
+                        copyCut = true,
+                        multiline = true,
+                        clearConfirm = true,
+                    )
+                    val certFp = remember(secrets.get(SecretKeys.CLIENT_CERT)) {
+                        uniffi.geiravor_core.certificateFingerprintSha256(secrets.get(SecretKeys.CLIENT_CERT))
+                    }
+                    if (certFp.isNotBlank()) {
+                        SelectionContainer {
+                            Text(
+                                "Client cert SHA-256 $certFp",
+                                color = t.muted,
+                                modifier = Modifier.padding(top = 4.dp, bottom = 8.dp),
+                            )
+                        }
+                    }
+                    SecretField(
+                        "Client key PEM",
+                        secrets,
+                        SecretKeys.CLIENT_KEY,
+                        multiline = true,
+                        clearConfirm = true,
+                    )
+                    Button(
+                        onClick = {
+                            val cfg = ui.faveConfig(secrets)
+                            ui.probeText = "Testing…"
+                            ui.offMain {
+                                val out = runCatching { core.probe(cfg) }.fold(
+                                    onSuccess = { it },
+                                    onFailure = { it.message ?: "failed" },
+                                )
+                                ui.onMain { ui.probeText = out }
+                            }
+                        },
+                        colors = ButtonDefaults.buttonColors(containerColor = t.accent),
+                    ) { Text("Test connection") }
+                    ui.probeText?.let { Text(it, color = t.muted, modifier = Modifier.padding(top = 8.dp)) }
                 }
                 SettingsSection.Alerts -> {
                     FlagRow("Alarm", ui.alarmOn) {
@@ -263,29 +317,93 @@ private fun PrefField(
 }
 
 @Composable
-private fun SecretField(label: String, secrets: SecretsStore, key: String) {
+private fun SecretField(
+    label: String,
+    secrets: SecretsStore,
+    key: String,
+    copyCut: Boolean = false,
+    multiline: Boolean = false,
+    clearConfirm: Boolean = false,
+) {
     val t = LocalTokens.current
     var value by remember(key) { mutableStateOf(secrets.get(key)) }
-    TextField(
-        value = value,
-        onValueChange = {
-            value = it
-            secrets.set(key, it)
-        },
-        label = { Text(label) },
-        singleLine = true,
-        visualTransformation = PasswordVisualTransformation(),
-        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(vertical = 4.dp),
-        colors = TextFieldDefaults.colors(
-            focusedTextColor = t.text,
-            unfocusedTextColor = t.text,
-            focusedContainerColor = t.surface,
-            unfocusedContainerColor = t.surface,
-            focusedLabelColor = t.muted,
-            unfocusedLabelColor = t.muted,
-        ),
-    )
+    var confirm by remember { mutableStateOf(false) }
+    if (clearConfirm) {
+        TextButton(onClick = { confirm = true }) { Text("Clear") }
+    }
+    val field = @Composable {
+        TextField(
+            value = value,
+            onValueChange = {
+                value = it
+                secrets.set(key, it)
+            },
+            label = { Text(label) },
+            singleLine = !multiline,
+            minLines = if (multiline) 3 else 1,
+            visualTransformation = if (copyCut && multiline) {
+                VisualTransformation.None
+            } else {
+                PasswordVisualTransformation()
+            },
+            keyboardOptions = KeyboardOptions(
+                keyboardType = if (multiline) KeyboardType.Text else KeyboardType.Password,
+            ),
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(vertical = 4.dp),
+            colors = TextFieldDefaults.colors(
+                focusedTextColor = t.text,
+                unfocusedTextColor = t.text,
+                focusedContainerColor = t.surface,
+                unfocusedContainerColor = t.surface,
+                focusedLabelColor = t.muted,
+                unfocusedLabelColor = t.muted,
+            ),
+        )
+    }
+    if (copyCut) {
+        field()
+    } else {
+        PasteOnlyText { field() }
+    }
+    if (confirm) {
+        AlertDialog(
+            containerColor = if (t.glass) Color(0xFF1A1A1A) else t.surface,
+            onDismissRequest = { confirm = false },
+            title = { Text("Clear $label?") },
+            confirmButton = {
+                TextButton(onClick = {
+                    secrets.set(key, "")
+                    value = ""
+                    confirm = false
+                }) { Text("Clear") }
+            },
+            dismissButton = { TextButton(onClick = { confirm = false }) { Text("Cancel") } },
+        )
+    }
+}
+
+@Composable
+private fun PasteOnlyText(content: @Composable () -> Unit) {
+    val inner = LocalTextToolbar.current
+    val toolbar = remember(inner) { PasteOnlyToolbar(inner) }
+    CompositionLocalProvider(LocalTextToolbar provides toolbar, content = content)
+}
+
+private class PasteOnlyToolbar(private val inner: TextToolbar) : TextToolbar {
+    override val status: TextToolbarStatus
+        get() = inner.status
+
+    override fun hide() = inner.hide()
+
+    override fun showMenu(
+        rect: Rect,
+        onCopyRequested: (() -> Unit)?,
+        onPasteRequested: (() -> Unit)?,
+        onCutRequested: (() -> Unit)?,
+        onSelectAllRequested: (() -> Unit)?,
+    ) {
+        inner.showMenu(rect, null, onPasteRequested, null, onSelectAllRequested)
+    }
 }
