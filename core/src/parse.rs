@@ -199,6 +199,29 @@ fn thread_url(thread: &str) -> String {
     }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, uniffi::Enum)]
+pub enum MediaKind {
+    Still,
+    Gif,
+    Video,
+}
+
+/// Path kind after stripping `?` / `#`. Used for autoplay vs still.
+pub fn media_kind(url: &str) -> MediaKind {
+    let path = url
+        .split(['?', '#'])
+        .next()
+        .unwrap_or(url)
+        .to_ascii_lowercase();
+    if path.ends_with(".mp4") || path.ends_with(".webm") {
+        MediaKind::Video
+    } else if path.ends_with(".gif") {
+        MediaKind::Gif
+    } else {
+        MediaKind::Still
+    }
+}
+
 fn thread_is_media(url: &str) -> bool {
     let path = url
         .split(['?', '#'])
@@ -350,6 +373,11 @@ pub fn thread_link_url_for(is_afk: bool, thread: String) -> String {
 }
 
 #[uniffi::export]
+pub fn media_kind_for(url: String) -> MediaKind {
+    media_kind(&url)
+}
+
+#[uniffi::export]
 pub fn format_clock(secs: i64) -> String {
     let secs = secs.max(0);
     format!("{}:{:02}", secs / 60, secs % 60)
@@ -406,6 +434,20 @@ mod tests {
             "https://static.r-a-d.io/x.gif"
         );
         assert!(thread_link_url(false, "image:https://static.r-a-d.io/x.gif").is_empty());
+    }
+
+    #[test]
+    fn media_kind_from_extension() {
+        assert_eq!(
+            media_kind("https://static.r-a-d.io/x.png"),
+            MediaKind::Still
+        );
+        assert_eq!(
+            media_kind("https://static.r-a-d.io/x.gif?cache=1"),
+            MediaKind::Gif
+        );
+        assert_eq!(media_kind("https://ex.ample/a.webm#t"), MediaKind::Video);
+        assert_eq!(media_kind("https://ex.ample/a.mp4"), MediaKind::Video);
     }
 
     #[test]

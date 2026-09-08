@@ -49,11 +49,11 @@ pub use news::{
 };
 pub use notices::{DjNotice, dj_notice, fave_on_air_key, is_hanyuu};
 pub use parse::{
-    API_URL, DJ_IMAGE_BASE, Dj, HOME_URL, ListEntry, MAX_BODY, STREAM_URL, SongProgress, Status,
-    check_bound, dj_image_url, format_clock, last_paint_chrome, parse_status, parse_status_str,
-    parse_theme_name, relative_last_played, relative_queue, song_progress, song_progress_at,
-    split_np, thread_embed_url, thread_embed_url_for, thread_is_visible, thread_link_url,
-    thread_link_url_for, thread_visible,
+    API_URL, DJ_IMAGE_BASE, Dj, HOME_URL, ListEntry, MAX_BODY, MediaKind, STREAM_URL, SongProgress,
+    Status, check_bound, dj_image_url, format_clock, last_paint_chrome, media_kind, media_kind_for,
+    parse_status, parse_status_str, parse_theme_name, relative_last_played, relative_queue,
+    song_progress, song_progress_at, split_np, thread_embed_url, thread_embed_url_for,
+    thread_is_visible, thread_link_url, thread_link_url_for, thread_visible,
 };
 pub use poll::poll_interval;
 pub use radio::{RadioCore, StatusListener};

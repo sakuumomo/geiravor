@@ -21,6 +21,8 @@ class GeiravorApp : Application(), ImageLoaderFactory {
         private set
     lateinit var secrets: SecretsStore
         private set
+    lateinit var stillImages: ImageLoader
+        private set
     val ui = UiState()
 
     override fun onCreate() {
@@ -29,6 +31,7 @@ class GeiravorApp : Application(), ImageLoaderFactory {
         initLogging(BuildConfig.DEBUG)
         core = RadioCore(filesDir.absolutePath)
         secrets = SecretsStore(this)
+        stillImages = ImageLoader.Builder(this).build()
         Alerts.ensureChannel(this)
         core.addListener(object : StatusListener {
             override fun onStatus(status: Status, streamDown: Boolean, playing: Boolean) {

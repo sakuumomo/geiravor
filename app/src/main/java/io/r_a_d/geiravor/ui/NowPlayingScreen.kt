@@ -45,7 +45,6 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import coil.compose.AsyncImage
 import io.r_a_d.geiravor.R
 import io.r_a_d.geiravor.compat.saveThreadStill
 import io.r_a_d.geiravor.playback.LivePlaybackPolicy
@@ -194,8 +193,9 @@ fun NowPlayingScreen(
                 )
             }
             val djUrl = LivePlaybackPolicy.djImageUrl(status?.dj?.image)
-            AsyncImage(
-                model = djUrl,
+            StationMedia(
+                url = djUrl,
+                autoplay = true,
                 contentDescription = status?.dj?.name,
                 modifier = Modifier
                     .padding(top = 12.dp)
@@ -258,8 +258,9 @@ private fun ThreadLine(ui: UiState, thread: String, isAfk: Boolean) {
             ctx.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(embed)))
         }
         Box(Modifier.padding(top = 12.dp)) {
-            AsyncImage(
-                model = embed,
+            StationMedia(
+                url = embed,
+                autoplay = true,
                 contentDescription = "Thread",
                 modifier = Modifier
                     .fillMaxWidth()

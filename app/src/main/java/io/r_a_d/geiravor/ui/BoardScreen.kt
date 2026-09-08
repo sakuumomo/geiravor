@@ -36,7 +36,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.unit.dp
-import coil.compose.AsyncImage
 import io.r_a_d.geiravor.theme.LocalTokens
 import uniffi.geiravor_core.NewsCard
 import uniffi.geiravor_core.RadioCore
@@ -241,8 +240,9 @@ private fun SchedulePane(ui: UiState) {
             val highlight = weekdayToday(day, today)
             Row(Modifier.fillMaxWidth().padding(vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
                 if (day.image.isNotBlank()) {
-                    AsyncImage(
-                        model = day.image,
+                    StationMedia(
+                        url = day.image,
+                        autoplay = true,
                         contentDescription = day.owner,
                         modifier = Modifier.size(48.dp).clip(RoundedCornerShape(6.dp)).padding(end = 8.dp),
                         contentScale = ContentScale.Crop,
@@ -307,8 +307,9 @@ private fun StaffPane(ui: UiState) {
                     row.forEach { card ->
                         Column(Modifier.weight(1f).padding(4.dp), horizontalAlignment = Alignment.CenterHorizontally) {
                             if (card.image.isNotBlank()) {
-                                AsyncImage(
-                                    model = card.image,
+                                StationMedia(
+                                    url = card.image,
+                                    autoplay = true,
                                     contentDescription = card.name,
                                     modifier = Modifier.size(96.dp).clip(RoundedCornerShape(6.dp)),
                                     contentScale = ContentScale.Crop,

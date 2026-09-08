@@ -15,7 +15,6 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.text.HtmlCompat
-import coil.compose.AsyncImage
 import io.r_a_d.geiravor.theme.LocalTokens
 import java.time.Instant
 import java.time.ZoneId
@@ -112,8 +111,9 @@ fun NewsHtml(html: String, onJump: (Long) -> Unit) {
     val blocks = remember(html) { newsBlocks(html) }
     blocks.forEach { block ->
         when (block) {
-            is NewsBlock.Image -> AsyncImage(
-                model = block.url,
+            is NewsBlock.Image -> StationMedia(
+                url = block.url,
+                autoplay = false,
                 contentDescription = null,
                 modifier = Modifier
                     .fillMaxWidth()
