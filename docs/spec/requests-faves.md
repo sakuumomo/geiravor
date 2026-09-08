@@ -1,0 +1,151 @@
+# Requests and favorites
+
+UI noun is **Favorites**. Verb / Auto command is **Fave**. Do not label anything **Faves**. Add-fave is **not** an HTTP method.
+
+## Search
+
+`GET https://r-a-d.io/api/search/{query}?page=`
+
+Query is a **path** segment: percent-encode. Default page size 20.
+
+Response: `{ total, per_page, current_page, last_page, from, to, data: [{ artist, title, id, lastplayed, lastrequested, requestable }] }`.
+
+`id` is `TrackID` for `POST /request/{id}`. `artist` / `title` are already split (do not run `np` split).
+
+The site navbar uses HTML `GET /v1/search` — the app does not.
+
+## Can-request
+
+`GET https://r-a-d.io/api/can-request` → `{"Main":{"requests":true}}` with capital **`Main`**. Do not reuse the `/api` lowercase `main` decoder blindly.
+
+Keyed on client IP. Carrier NAT shares cooldown. Empty/false `requests` means the AFK streamer is off or the IP is cooling down.
+
+Also honor `main.requesting` / `isafkstream` from the snapshot: no requests during a live DJ.
+
+## Request
+
+`POST https://r-a-d.io/request/{TrackID}`
+
+Production uses **gorilla csrf**. CSRF is **not** skipped on `/request`. There is no JSON token endpoint. Do not copy an old app’s `<form` scraper. Do not GET `/v1/search` (navbar HTML).
+
+**Token source (spiked 2026-08-26 against live r-a-d.io):**
+
+| Piece | Where |
+|---|---|
+| Cookie `_gorilla_csrf` | `Set-Cookie` on almost every GET, including `GET /api` (HttpOnly; Secure; SameSite=Lax; 7 days). Cookie jar already on the process-wide client. The cookie value is **not** the header token. |
+| Header `X-CSRF-Token` | **Not** returned on `GET /api`, `/`, `/help`, `/news`. Live HTML embeds `<input type="hidden" name="gorilla.csrf.Token" value="…">`. Cheapest page that has it: **`GET https://r-a-d.io/search`** (as of the spike, that input sits in an HTML comment; extract the attributes, do not parse the document). |
+
+Bootstrap: `GET /search` on the **same** HTTP client as the later POST so the jar’s cookie matches that page’s token. Then `POST https://r-a-d.io/request/{TrackID}` with cookie (jar) + `X-CSRF-Token: <extracted>`. A compatibility shim also accepts JSON `{ "_token": "..." }`; send the header. On CSRF 403, GET `/search` again and retry once.
+
+Extract is a one-field look for `name="gorilla.csrf.Token"` then `value="…"` — not a general HTML client, not a WebView.
+
+JSON error/success keys: `success` or `error` strings (song cooldown, user cooldown, requests disabled).
+
+This CSRF path is **request only**. There is no `POST /faves`.
+
+## Favorites list
+
+No site login. User types their public **Rizon** nick.
+
+`GET https://r-a-d.io/faves?nick=&page=&dl=true` → array of `{ tracks_id, meta, lastrequested, lastplayed, requestcount }` with nulls. `meta` is `"Artist - Title"`. Page size 100. Unknown nick → `[]`, not an error.
+
+Last page is **not** in that JSON. `GET https://r-a-d.io/faves?nick=` (HTML, no `dl`) has pagination links; take the max `/faves?…page=` (ignore `/v1/request?…page=`). Past-last JSON `page=` **clamps** to the last page instead of `[]`. Probe fingerprints only if the HTML parse is 1 and page 1 was full.
+
+The last JSON page is a full 100 when leftover is short: Valkyrie slides that window so it overlaps the previous page. Drop any row already on the previous page; the last page is leftover only. If that leaves nothing, the last page was a clamp — `last_page` is the previous page.
+
+Search **listing** stays off disk. Process RAM holds fetched search/faves server pages so paging the same query/nick does not GET again (UI page 1 still re-GETs after showing RAM). **Committed** faves listing (Favorites nick and Connection nick — one copy when they are the same) is disk + RAM: hydrate into RAM at process start, show that cache first when opening a page, GET, write the page only if the payload changed, then keep RAM. Peeks stay HTTP + RAM. After page 1, GET the leftover last server page so UI last page is the true leftover count — do **not** assume the last JSON page is 100. If leftover trim drops `last_page`, GET that new last before painting the pager. **Membership** (`tracks_id` + `meta`) is disk + RAM for the nicks the user **typed and committed**: Favorites tab nick (IME Done, or the last nick whose `/faves` GET succeeded — “remember nick”) and Settings → Connection nick. Heart / catalog match those nicks so a fave is detected before the list GET. After a successful IRC fave/unfave, GET `/faves` for those nicks (IRC nick first) and set the heart from that plus the in-process overlay — a successful **fave** still fills if the GET has not caught up. Do not let a membership poll that started before the tap unfill it. Revalidate on start and after a successful fave/unfave. Persist membership **and** committed listing pages **only if the rows actually changed**. A typed nick that is not the remembered one is a peek (GET that list only, no membership or listing write) until IME Done or a successful `/faves` GET for that same typed nick; then it **replaces** the remembered Favorites nick. Do not remember the Connection fallback when the field is empty. A failed GET does not replace the remembered nick. Changing a committed nick drops the previous nick’s membership and listing pages (unless it is still the other committed field). Request random GETs live on tap.
+
+Persist nick. Empty nick → empty list, not a crash. **Settings → Connection nick**, if nonempty, is the IRC nick for fave/unfave (direct-Rizon `NICK`, SASL username default, favorites overlay). The Favorites tab nick is only the public list (`GET /faves?nick=`). Empty connection nick falls back to the Favorites tab nick. Empty Favorites nick falls back to Connection nick for that list, heart, overlay, and membership — Hanyuu records `e.Source.Name`, which is the IRC nick. Empty both → empty list, IRC no-op. The IRC nick must match the nick Hanyuu will attribute (the bouncer’s existing Rizon nick when using a bouncer). Revalidate after a successful fave/unfave must not drop the in-process overlay until the GET for that nick actually includes (or omits) the song.
+
+## Add-fave (IRC)
+
+The station records a favorite when an identified Rizon nick `PRIVMSG`s `Hanyuu-sama`. Hanyuu does **not** special-case live DJ vs AFK for these commands:
+
+| Command | Effect |
+|---|---|
+| `.fave` | Current on-air, via status metadata → catalog song |
+| `.fave last` | Station last-played |
+| `.fave <id>` | That catalog `trackid` |
+| `.unfave` / `.unfave last` / `.unfave <id>` | Matching removes |
+
+Replies **name** the song, e.g. `Added 'Artist - Title' to your favorites.` / already-favorited / unknown ID / removed. Strip IRC color codes before matching. The named title is for accuracy (match the tap snapshot), not a phone banner. Heart fill/outline is the success feedback on phone, shade, and Auto. A failed or no-op attempt must not change the heart: no fill on a failed fave, no outline on a failed unfave. Show failures and empty-nick on the phone as red text; fade that out when now-playing `np` changes. Auto must not rewrite now-playing metadata.
+
+The heart is a **toggle** shared by phone, the shade, and Auto. Toggle fill **on tap** (optimistic) so a slow mobile round-trip does not look like a miss; revert on failure or no-op. One in-flight fave — ignore further taps until it finishes. If the current song is already a favorite and a catalog `trackid` is known (AFK snapshot id, or a matching `/faves` row id — never leftover live-DJ `trackid`), send `.unfave {id}`. Fill/outline every surface together. Without a catalog id, unfave is not offered.
+
+This is **not** an IRC client: no channel UI, no JOIN, no chat log, no native Quassel. SASL is only for this short-lived fave session (`PLAIN` password and/or `EXTERNAL` with a TLS client certificate).
+
+Fave while paused is allowed (Hanyuu faves station state, not local playback). Snapshot **at tap**: `isafkstream`, `trackid`, `np`. Empty/whitespace nick → no connect, no-op on Auto. Last paint is restored into the domain at process start so a tap before the first poll still has a snapshot. If that store is empty, GET `/api` once for the tap; after `001` still do not extra-GET.
+
+One in-flight fave. Worker thread — never the `/api` poller, never the Android main thread. After `001`, sample the process-wide latest snapshot already in the domain (no extra GET). Heart / catalog match use the Favorites (list) nick; IRC uses Connection nick (fallback to list nick). On `Timeout` / `Network` / TLS drop, retry the whole session up to two extra times. Do not retry nick-in-use, nick mismatch, SASL, unknown id, or accuracy failure. TCP still tries every resolved address, IPv6 first then IPv4; do not wait the full connect timeout on an address when others remain (cellular IPv6 often black-holes). Persist membership from the stored nicks, not empty composition defaults.
+
+### Accuracy — AFK (`isafkstream` at tap, `trackid > 0`)
+
+Send `.fave {trackid}`. No delay, no `.fave last`, no unfave loop. Already-favorited for that title is success. If a live DJ takes over during the handshake, still send that ID. AFK with `trackid == 0` uses the live-DJ machine.
+
+### Accuracy — live DJ (`isafkstream == false` at tap)
+
+Never use `trackid` (it can be leftover AFK). One session; correct in-place; then tear down.
+
+1. Intended `np` from the tap snapshot (normalized).
+2. After `001` (+ identify on direct Rizon), read latest `np`.
+3. If it still matches intended → `.fave`. If it changed → `.fave last`.
+4. Hanyuu’s named song vs intended `np`. Match, including already-favorited of the intended title → success. Not-in-DB / unknown → fail, nothing to undo.
+5. Mismatch: undo only if the reply was **Added**. Do not `.unfave` an already-favorited wrong title. If the first command was `.fave` and Added the wrong current: `.unfave` then `.fave last`. If that is also Added-wrong: `.unfave last` and fail. If we already started with `.fave last` and it was wrong: `.unfave last` if Added, then fail. No `.fave last last`.
+
+`.fave last` is the live DJ’s last played song (station last-played), not leftover AFK.
+
+### Direct Rizon
+
+`irc.rizon.net:6697`, TLS, rustls + webpki-roots, **always verify**. `NICK <public nick>`, `USER geiravor 0 * :Geiravor`, optional `PRIVMSG NickServ :IDENTIFY <password>` (wait ~5s; invalid → fail; no reply → continue). After the fave machine: `QUIT :Geiravor` then close. `432`/`433`/`436`/`437` (erroneous, in use, collision, unavailable) → fail visibly (do not ghost / `NICK nick_`). After `001`, the assigned nick must be the `NICK` we sent (public nick on direct Rizon; `geiravor-<short>` on a bouncer). If the server renamed us (`nick_`, Guest, …) or sent `NICK` to a different name, fail visibly and do **not** `PRIVMSG` Hanyuu. Listing someone else’s `/faves` over HTTP is still allowed.
+
+### Generic bouncer (ZNC / soju / similar)
+
+TLS required. Optional server `PASS` (e.g. ZNC `user/network:pass` as an opaque string). Host + port (default 6697). Do not special-case ZNC vs soju. Not Quassel.
+
+The bouncer is **already** on Rizon with its nick (NickServ already done). Least possible traffic:
+
+- `PASS` if set (bouncer auth only).
+- Handshake `NICK geiravor-<short>` / `USER geiravor 0 * :Geiravor` to the **bouncer** (client id, not the public fave nick). Never `NICK` after `001` (that would rename the Rizon session). Never send the public nick as `NICK` here.
+- No NickServ `IDENTIFY`.
+- No `QUIT`, no `*status` / BouncerServ, no JOIN.
+- `PRIVMSG Hanyuu-sama` only, then **orderly client detach**: TLS `close_notify` + TCP FIN. Not a RST/drop (ping-timeout would block a Fave ~30s later). The bouncer’s Rizon link stays up. A second fave is a new client attach.
+
+**Allow insecure TLS** toggle (default **off**, not a secret): bouncer IRC only, so a self-signed cert works. Label it as insecure. Do not offer this for r-a-d.io HTTP or `irc.rizon.net`.
+
+**TLS fingerprint** (not a secret): SHA-256 of the server certificate DER, colon-hex. Empty → any certificate that otherwise verifies (or insecure). Nonempty → every IRC connect (fave and Test connection) must present that exact cert; compare hex case-insensitively, ignore colons/spaces. **Test connection** reports the bouncer’s fingerprint as `SHA-256 …` so it can be pasted into this field. Client TLS session resumption is off so each connect sends the same client certificate (CertFP). A **client cert SHA-256** (from the PEM, first `CERTIFICATE`) is shown under the cert field and may be copied.
+
+### SASL (optional)
+
+Either, both, or neither. Client cert PEM nonempty → **EXTERNAL** (preferred, even if a SASL password is also set). Else password nonempty → **PLAIN**. Do not send PLAIN while a client cert is offered: many bouncers reject PLAIN when they see a TLS client certificate. The cert is always offered as mTLS when present. Clear the PEM to use SASL password.
+
+1. If SASL is configured, `CAP LS 302` after optional `PASS`, then `NICK` / `USER`.
+2. `CAP REQ :sasl` only if `sasl` is in `LS`. Otherwise fail visibly; do not `PRIVMSG` Hanyuu.
+3. **PLAIN:** `AUTHENTICATE PLAIN` then the base64 of `\0username\0password`. Username is the SASL username field, or the public nick if that field is empty. Never log the token.
+4. **EXTERNAL:** `AUTHENTICATE EXTERNAL` then `AUTHENTICATE +`. Requires a parseable client cert+key PEM.
+5. `903` → `CAP END`. `904`/`905`/`902`/`906`/`907` → fail. Invalid PEM → fail before connect.
+
+Rizon NickServ `IDENTIFY` is only when SASL was not used. Bouncer still never sends NickServ.
+
+Client cert PEM may be one blob (`CERTIFICATE` + `PRIVATE KEY`) or cert + separate key field.
+
+### Secrets
+
+NickServ password, bouncer `PASS`, SASL password, client cert PEM, client key PEM: encrypted storage. Never log them, never log `IDENTIFY` / `PASS` / `AUTHENTICATE` payloads. Nick, host, port, profile, insecure-TLS flag, SASL username, TLS fingerprint: ordinary prefs. Domain takes secrets in memory for the call only.
+
+Password fields and the client **key** PEM do not offer copy or cut (paste-in is allowed so a value can be entered). Client **cert** PEM may be copied. Each PEM field has **Clear** above it; confirm before wiping the stored value.
+
+### Tests
+
+Local only: scripted IO and a localhost TLS listener that speaks 001 / PING / Hanyuu NOTICE. Do not open `irc.rizon.net` or r-a-d.io in CI. Cover AFK `.fave {id}`, AFK `.unfave {id}`, live-DJ last/Added-only unfave, bouncer no-QUIT / no-NICK-after-001 / orderly close, self-signed fails unless the toggle is on, `001`/`NICK` rename (`nick_`) does not fave, SASL PLAIN payload, SASL EXTERNAL, PEM prefers EXTERNAL over PLAIN, SASL missing from `CAP LS` does not fave. A **Test connection** control on Settings → Connection runs handshake only (no `.fave`); it uses the on-device secrets and must not log them. Success includes the server certificate SHA-256. TCP tries every resolved address, **IPv6 first, IPv4 if that fails**; remaining addresses use a short connect timeout so a black-holed IPv6 does not block cellular. Host may include `:port`; that hostname is used for TLS SNI. Cover fingerprint pin (empty accepts; mismatch fails even with insecure TLS).
+
+## UI
+
+Search results + favorites can request when `requestable` / AFK. Show server error strings. Cooldown from can-request + snapshot. Faves JSON has no `requestable`; gray the Request button like search using the station delay (`requestcount` vs `lastplayed` / `lastrequested`, now = snapshot `current`).
+
+**Request random** (Favorites tab): one tap picks uniformly among catalog favorites (`tracks_id` present) that pass that same cooldown, across **all** pages (GET live on tap). Then the same `POST /request/{id}`. Disable when nick is empty or requests are off. If none are requestable, show that — do not POST. Not on Auto.
+
+Search and favorites paginate like news: **no list scroll**. Fill the pane with as many rows as fit in **normal viewing** (phone portrait, or the tablet two-pane; rotation must not change the count). UI pages slice a flat index over the server pages (search 20 / faves 100), stitching the next server page when a window crosses a boundary so only the true last leftover is short. Bottom bar, last page > 1: previous `<` and next `>` stay pinned at the bar edges; first page, a sliding window of nearby pages, `...` (jump-to-page), last page sit in the middle. Page numbers use a width for the last page’s digit count so 9→10 does not shift prev/next — measure that slot from the pager typeface (widest digit × count), not a dp-per-character guess. Jump-to-page accepts at most that many digits. Search `last_page` / `total` are in the JSON. A past-last search `page=` can be `total: 0` / empty — do not store it or treat it as last. UI last page is leftover of `total` (or `(last_page-1)*20 + last page length` once that page is loaded). A last UI window must not request a server page past `last_page`. Faves last page: HTML pagination (above), leftover-trimmed against the previous JSON page. Load server page 1 and that leftover last page before showing how many UI pages exist. Clamp faves windows to that leftover last too.
+
+Process RAM holds fetched server pages for the current query/nick. Show RAM first. **UI page 1 always re-GETs** the covering server page(s) after that. Other UI pages GET only on a RAM miss. Leaving Request/Favorites in the same process keeps RAM; a successful Fave or unfave drops that nick’s RAM and re-GETs. Returning restores the last query/nick and UI page immediately from RAM, then follows the GET rules above. Overlay still applies on GET (new catalog fave at the top of server page 1; unfave removed from the current server page).
+
+Favorites tab keeps the public nick field (list + IRC `NICK`). IRC connection (Rizon vs Bouncer, NickServ, host/port/`PASS`, Allow insecure TLS, SASL username/password, client cert/key PEM) lives on **Settings → Connection**, not this tab.
