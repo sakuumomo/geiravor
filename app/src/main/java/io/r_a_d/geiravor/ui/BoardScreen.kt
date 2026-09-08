@@ -172,7 +172,16 @@ private fun ArticlePane(ui: UiState, core: RadioCore) {
                     RoleColor.DEV -> t.red
                     RoleColor.NONE -> t.text
                 }
-                Text("${c.author}  ${c.whenUtc}  #${c.id}", color = color, modifier = Modifier.padding(top = 8.dp))
+                Row(Modifier.padding(top = 8.dp)) {
+                    Text("${c.author}  ${c.whenUtc}  ", color = color)
+                    Text(
+                        "#${c.id}",
+                        color = t.link,
+                        modifier = Modifier.clickable {
+                            draft = draft + ">>${c.id}\n"
+                        },
+                    )
+                }
                 Text(c.body, color = t.text)
             }
         }
@@ -221,7 +230,18 @@ private fun SchedulePane(ui: UiState) {
                         day.weekday + if (day.owner.isNotBlank()) " · ${day.owner}" else "",
                         color = if (highlight) t.highlight else t.text,
                     )
-                    Text(day.body, color = t.muted)
+                    val body = if (ui.scheduleLocal) {
+                        ScheduleTimes.rewrite(
+                            day.body,
+                            day.weekday,
+                            uniffi.geiravor_core.estZoneId(),
+                            java.util.TimeZone.getDefault().id,
+                            java.time.Instant.now().epochSecond,
+                        )
+                    } else {
+                        day.body
+                    }
+                    Text(body, color = t.muted)
                 }
             }
         }

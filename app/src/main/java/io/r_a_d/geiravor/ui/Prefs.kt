@@ -17,6 +17,13 @@ object Prefs {
     const val SCHEDULE_LOCAL = "schedule_local"
     const val DJ_NOTIFIER = "dj_notifier"
     const val FAVE_PLAYING = "fave_playing"
+    const val ALARM_ON = "alarm_on"
+    const val ALARM_HOUR = "alarm_hour"
+    const val ALARM_MINUTE = "alarm_minute"
+    const val SNOOZE_ON = "snooze_on"
+    const val SNOOZE_MINUTES = "snooze_minutes"
+    const val SLEEP_ON = "sleep_on"
+    const val SLEEP_MINUTES = "sleep_minutes"
 }
 
 object SecretKeys {

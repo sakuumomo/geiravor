@@ -9,8 +9,10 @@ mod error;
 mod faves;
 mod html;
 mod irc;
+mod log_init;
 mod net;
 mod news;
+mod notices;
 mod parse;
 mod poll;
 mod radio;
@@ -38,11 +40,13 @@ pub use irc::{
     RIZON_PORT, TapSnapshot, TlsIrc, attach_nick, certificate_fingerprint_sha256, connect_irc,
     irc_nick, nick_is_empty, run_add_fave, run_probe, tcp_connect_timeout,
 };
+pub use log_init::init_logging;
 pub use net::{Coalescer, HttpClient, ReqwestClient};
 pub use news::{
     NewsArticle, NewsCard, NewsComment, NewsList, RoleColor, news_article_url, news_list_url,
     parse_news_article, parse_news_list,
 };
+pub use notices::{DjNotice, dj_notice, fave_on_air_key, is_hanyuu};
 pub use parse::{
     API_URL, DJ_IMAGE_BASE, Dj, HOME_URL, ListEntry, MAX_BODY, STREAM_URL, SongProgress, Status,
     check_bound, dj_image_url, format_clock, last_paint_chrome, parse_status, parse_status_str,

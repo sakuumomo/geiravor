@@ -52,6 +52,17 @@
             android:exported="false">
             <intent-filter>
                 <action android:name="android.media.AUDIO_BECOMING_NOISY" />
+                <action android:name="android.intent.action.HEADSET_PLUG" />
+            </intent-filter>
+        </receiver>
+
+        <receiver
+            android:name=".alert.AlarmReceiver"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="io.r_a_d.geiravor.ALARM_FIRE" />
+                <action android:name="io.r_a_d.geiravor.ALARM_SNOOZE" />
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
             </intent-filter>
         </receiver>
 

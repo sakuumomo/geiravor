@@ -7,9 +7,11 @@ import androidx.media3.common.AudioAttributes
 import androidx.media3.common.C
 import androidx.media3.common.MediaItem
 import androidx.media3.common.MediaMetadata
+import androidx.media3.common.Metadata
 import androidx.media3.common.Player
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.exoplayer.ExoPlayer
+import androidx.media3.extractor.metadata.icy.IcyInfo
 import androidx.media3.session.LibraryResult
 import androidx.media3.session.MediaLibraryService
 import androidx.media3.session.MediaSession
@@ -32,6 +34,25 @@ class PlaybackService : MediaLibraryService() {
     private lateinit var live: LiveStationPlayer
     private var session: MediaLibrarySession? = null
     private var lastGain = LivePlaybackPolicy.DEFAULT_GAIN
+    private var alarmRing = false
+    private var fallback: android.media.MediaPlayer? = null
+    private var sleepAt = 0L
+    private val sleepHandler = Handler(Looper.getMainLooper())
+    private val sleepTick = object : Runnable {
+        override fun run() {
+            if (sleepAt == 0L) return
+            val left = sleepAt - System.currentTimeMillis()
+            if (left <= 0L) {
+                cancelSleep(restore = true)
+                live.pauseStops()
+                return
+            }
+            if (left <= 15_000L) {
+                player.volume = lastGain * (left / 15_000f)
+            }
+            sleepHandler.postDelayed(this, 250)
+        }
+    }
 
     override fun onCreate() {
         super.onCreate()
@@ -51,10 +72,28 @@ class PlaybackService : MediaLibraryService() {
         player.addListener(object : Player.Listener {
             override fun onIsPlayingChanged(isPlaying: Boolean) {
                 core().setPlaying(isPlaying)
+                if (isPlaying) {
+                    alarmRing = false
+                    fallback?.release()
+                    fallback = null
+                } else {
+                    cancelSleep(restore = true)
+                }
             }
 
             override fun onPlayerError(error: androidx.media3.common.PlaybackException) {
                 core().setPlayerError()
+                if (alarmRing) playFallback()
+            }
+
+            override fun onMetadata(metadata: Metadata) {
+                var icy = false
+                for (i in 0 until metadata.length()) {
+                    if (metadata.get(i) is IcyInfo) icy = true
+                }
+                if (icy) {
+                    Thread({ runCatching { core().fetchStatus() } }, "geiravor-icy").start()
+                }
             }
         })
         live = LiveStationPlayer(player)
@@ -72,17 +111,32 @@ class PlaybackService : MediaLibraryService() {
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         when (intent?.action) {
             ACTION_PLAY -> live.playLive()
-            ACTION_STOP -> live.pauseStops()
+            ACTION_STOP -> {
+                cancelSleep(restore = true)
+                live.pauseStops()
+            }
+            ACTION_ALARM -> {
+                alarmRing = true
+                live.playLive()
+            }
+            ACTION_SLEEP -> {
+                val mins = intent.getIntExtra(EXTRA_SLEEP_MIN, 30).coerceIn(1, 12 * 60)
+                armSleep(mins * 60_000L)
+            }
             ACTION_GAIN -> {
                 val g = intent.getFloatExtra(EXTRA_GAIN, lastGain).coerceIn(0f, 1f)
                 lastGain = g
-                player.volume = g
+                if (sleepAt == 0L || sleepAt - System.currentTimeMillis() > 15_000L) {
+                    player.volume = g
+                }
             }
         }
         return super.onStartCommand(intent, flags, startId)
     }
 
     override fun onDestroy() {
+        cancelSleep(restore = false)
+        fallback?.release()
         session?.release()
         player.release()
         super.onDestroy()
@@ -98,18 +152,50 @@ class PlaybackService : MediaLibraryService() {
 
     private fun applyStatus(status: Status) {
         val item = player.currentMediaItem ?: return
+        val now = System.currentTimeMillis() / 1000
+        val fetched = (application as GeiravorApp).ui.fetchedAt
+        val progress = uniffi.geiravor_core.songProgressAt(status, now, fetched)
+        val duration = if (progress.known) progress.durationSecs * 1000 else C.TIME_UNSET
+        val artist = status.artist.trim()
+        val dj = status.dj.name.trim()
+        val line2 = when {
+            artist.isEmpty() -> dj
+            dj.isEmpty() -> artist
+            else -> "$artist | $dj"
+        }
         val meta = MediaMetadata.Builder()
             .setTitle(status.title.ifBlank { status.np })
-            .setArtist(status.artist)
-            .setAlbumArtist(status.dj.name)
+            .setArtist(line2)
+            .setAlbumArtist(dj)
+            .setDurationMs(duration)
             .setArtworkUri(
                 LivePlaybackPolicy.djImageUrl(status.dj.image)?.let { android.net.Uri.parse(it) },
             )
             .build()
-        player.replaceMediaItem(
-            0,
-            item.buildUpon().setMediaMetadata(meta).build(),
-        )
+        val built = item.buildUpon().setMediaMetadata(meta)
+        if (!progress.known) {
+            built.setLiveConfiguration(MediaItem.LiveConfiguration.Builder().build())
+        }
+        player.replaceMediaItem(0, built.build())
+    }
+
+    private fun playFallback() {
+        fallback?.release()
+        fallback = android.media.MediaPlayer.create(this, io.r_a_d.geiravor.R.raw.alarm_fallback)
+        fallback?.isLooping = true
+        fallback?.start()
+    }
+
+    private fun armSleep(ms: Long) {
+        sleepAt = System.currentTimeMillis() + ms
+        sleepHandler.removeCallbacks(sleepTick)
+        sleepHandler.post(sleepTick)
+    }
+
+    private fun cancelSleep(restore: Boolean) {
+        sleepAt = 0L
+        sleepHandler.removeCallbacks(sleepTick)
+        if (restore) player.volume = lastGain
     }
 
     private inner class Listener : StatusListener {
@@ -125,6 +211,10 @@ class PlaybackService : MediaLibraryService() {
         ): MediaSession.ConnectionResult {
             val sessionCommands = LivePlaybackPolicy.sessionCommands()
             val playerCommands = LivePlaybackPolicy.playerCommands()
+            val app = application as GeiravorApp
+            if (app.ui.autoStartVehicle) {
+                live.playLive()
+            }
             return MediaSession.ConnectionResult.AcceptedResultBuilder(session)
                 .setAvailableSessionCommands(sessionCommands)
                 .setAvailablePlayerCommands(playerCommands)
@@ -139,26 +229,20 @@ class PlaybackService : MediaLibraryService() {
         ): ListenableFuture<SessionResult> {
             when (customCommand.customAction) {
                 LivePlaybackPolicy.FAVE -> {
+                    val app = application as GeiravorApp
                     Thread {
-                        core().addFave(
-                            FaveConfig(
-                                nick = "",
-                                listNick = "",
-                                profile = IrcProfile.RIZON,
-                                nickservPassword = "",
-                                bouncerHost = "",
-                                bouncerPort = 6697.toUShort(),
-                                bouncerPass = "",
-                                allowInsecureTls = false,
-                                saslUsername = "",
-                                saslPassword = "",
-                                clientCertPem = "",
-                                clientKeyPem = "",
-                                tlsFingerprint = "",
-                            ),
-                            false,
-                            0,
-                        )
+                        val snap = core().snapshot()
+                        val unfave = snap?.let { s ->
+                            runCatching {
+                                core().membershipHas(
+                                    app.ui.listNickOrConnection(),
+                                    if (s.isAfk) s.trackId else 0,
+                                    s.np,
+                                )
+                            }.getOrDefault(false)
+                        } ?: false
+                        val id = snap?.let { if (it.isAfk) it.trackId else 0L } ?: 0L
+                        core().addFave(app.ui.faveConfig(app.secrets), unfave, id)
                     }.start()
                 }
                 LivePlaybackPolicy.MUTE -> {
@@ -211,6 +295,9 @@ class PlaybackService : MediaLibraryService() {
             controller: MediaSession.ControllerInfo,
         ): ListenableFuture<MediaSession.MediaItemsWithStartPosition> {
             ensureLiveItem()
+            if ((application as GeiravorApp).ui.autoStartVehicle) {
+                live.playLive()
+            }
             return Futures.immediateFuture(
                 MediaSession.MediaItemsWithStartPosition(
                     listOf(player.currentMediaItem ?: MediaItem.fromUri(LivePlaybackPolicy.STREAM_URL)),
@@ -225,13 +312,24 @@ class PlaybackService : MediaLibraryService() {
         const val ACTION_PLAY = "io.r_a_d.geiravor.PLAY"
         const val ACTION_STOP = "io.r_a_d.geiravor.STOP"
         const val ACTION_GAIN = "io.r_a_d.geiravor.GAIN"
+        const val ACTION_ALARM = "io.r_a_d.geiravor.ALARM"
+        const val ACTION_SLEEP = "io.r_a_d.geiravor.SLEEP"
         const val EXTRA_GAIN = "gain"
+        const val EXTRA_SLEEP_MIN = "sleep_min"
 
         fun playIntent(context: Context): Intent =
             Intent(context, PlaybackService::class.java).setAction(ACTION_PLAY)
 
         fun stopIntent(context: Context): Intent =
             Intent(context, PlaybackService::class.java).setAction(ACTION_STOP)
+
+        fun alarmIntent(context: Context): Intent =
+            Intent(context, PlaybackService::class.java).setAction(ACTION_ALARM)
+
+        fun sleepIntent(context: Context, minutes: Int): Intent =
+            Intent(context, PlaybackService::class.java)
+                .setAction(ACTION_SLEEP)
+                .putExtra(EXTRA_SLEEP_MIN, minutes)
 
         fun gainIntent(context: Context, gain: Float): Intent =
             Intent(context, PlaybackService::class.java)

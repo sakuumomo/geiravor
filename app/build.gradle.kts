@@ -75,6 +75,7 @@ dependencies {
     implementation(libs.jna) { artifact { type = "aar" } }
     implementation(libs.androidx.media3.exoplayer)
     implementation(libs.androidx.media3.session)
+    implementation(libs.androidx.media3.extractor)
     implementation(libs.coil.compose)
     implementation(libs.coil.gif)
     implementation(libs.androidx.security.crypto)

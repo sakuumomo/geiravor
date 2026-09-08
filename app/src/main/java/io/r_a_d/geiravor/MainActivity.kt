@@ -15,7 +15,6 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
-        Notifications.requestIfNeeded(this, 1)
         val app = application as GeiravorApp
         setContent {
             GeiravorRoot(
@@ -23,6 +22,7 @@ class MainActivity : ComponentActivity() {
                 core = app.core,
                 secrets = app.secrets,
                 onPlay = {
+                    Notifications.requestIfNeeded(this@MainActivity, 1)
                     ContextCompat.startForegroundService(
                         this@MainActivity,
                         PlaybackService.playIntent(this@MainActivity),

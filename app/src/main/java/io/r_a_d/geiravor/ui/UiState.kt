@@ -48,6 +48,14 @@ class UiState {
     var scheduleLocal by mutableStateOf(false)
     var djNotifier by mutableStateOf(false)
     var favePlaying by mutableStateOf(false)
+    var alarmOn by mutableStateOf(false)
+    var alarmHour by mutableStateOf("7")
+    var alarmMinute by mutableStateOf("0")
+    var snoozeOn by mutableStateOf(true)
+    var snoozeMinutes by mutableStateOf("10")
+    var sleepOn by mutableStateOf(false)
+    var sleepMinutes by mutableStateOf("30")
+    var alertError by mutableStateOf<String?>(null)
     var heartFilled by mutableStateOf(false)
     var faveBusy by mutableStateOf(false)
     var faveError by mutableStateOf<String?>(null)
@@ -101,6 +109,13 @@ class UiState {
             val local = flag(Prefs.SCHEDULE_LOCAL)
             val djN = flag(Prefs.DJ_NOTIFIER)
             val faveP = flag(Prefs.FAVE_PLAYING)
+            val alarm = flag(Prefs.ALARM_ON)
+            val ah = core.pref(Prefs.ALARM_HOUR).ifBlank { "7" }
+            val amn = core.pref(Prefs.ALARM_MINUTE).ifBlank { "0" }
+            val snOn = core.pref(Prefs.SNOOZE_ON).let { it.isEmpty() || it == "1" }
+            val snMin = core.pref(Prefs.SNOOZE_MINUTES).ifBlank { "10" }
+            val slOn = flag(Prefs.SLEEP_ON)
+            val slMin = core.pref(Prefs.SLEEP_MINUTES).ifBlank { "30" }
             secrets.get(SecretKeys.NICKSERV)
             main.post {
                 userPick = pick
@@ -120,6 +135,13 @@ class UiState {
                 scheduleLocal = local
                 djNotifier = djN
                 favePlaying = faveP
+                alarmOn = alarm
+                alarmHour = ah
+                alarmMinute = amn
+                snoozeOn = snOn
+                snoozeMinutes = snMin
+                sleepOn = slOn
+                sleepMinutes = slMin
                 applyStatus(snap, streamDown, playing)
             }
         }

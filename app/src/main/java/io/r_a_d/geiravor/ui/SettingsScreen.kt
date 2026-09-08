@@ -25,6 +25,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
@@ -38,6 +39,7 @@ import uniffi.geiravor_core.ThemePack
 @Composable
 fun SettingsScreen(ui: UiState, core: RadioCore, secrets: SecretsStore) {
     val t = LocalTokens.current
+    val ctx = LocalContext.current
     val sections = SettingsSection.entries
     Pane(Modifier.fillMaxSize(), hug = false) {
         SectionTabs(
@@ -154,16 +156,57 @@ fun SettingsScreen(ui: UiState, core: RadioCore, secrets: SecretsStore) {
                     SecretField("SASL password", secrets, SecretKeys.SASL_PASSWORD)
                 }
                 SettingsSection.Alerts -> {
+                    FlagRow("Alarm", ui.alarmOn) {
+                        ui.alarmOn = it
+                        ui.setFlag(core, Prefs.ALARM_ON, it)
+                        io.r_a_d.geiravor.alert.AlarmScheduler.schedule(
+                            ctx,
+                            core,
+                        ) { msg -> ui.alertError = msg }
+                    }
+                    PrefField("Alarm hour (0–23)", ui.alarmHour, KeyboardType.Number) {
+                        ui.alarmHour = it
+                        ui.setPref(core, Prefs.ALARM_HOUR, it)
+                    }
+                    PrefField("Alarm minute (0–59)", ui.alarmMinute, KeyboardType.Number) {
+                        ui.alarmMinute = it
+                        ui.setPref(core, Prefs.ALARM_MINUTE, it)
+                    }
+                    FlagRow("Snooze", ui.snoozeOn) {
+                        ui.snoozeOn = it
+                        ui.setFlag(core, Prefs.SNOOZE_ON, it)
+                    }
+                    PrefField("Snooze minutes", ui.snoozeMinutes, KeyboardType.Number) {
+                        ui.snoozeMinutes = it
+                        ui.setPref(core, Prefs.SNOOZE_MINUTES, it)
+                    }
+                    FlagRow("Sleep timer", ui.sleepOn) {
+                        ui.sleepOn = it
+                        ui.setFlag(core, Prefs.SLEEP_ON, it)
+                        if (it) {
+                            val mins = ui.sleepMinutes.toIntOrNull()?.coerceIn(1, 12 * 60) ?: 30
+                            ctx.startService(
+                                io.r_a_d.geiravor.playback.PlaybackService.sleepIntent(ctx, mins),
+                            )
+                        }
+                    }
+                    PrefField("Sleep minutes", ui.sleepMinutes, KeyboardType.Number) {
+                        ui.sleepMinutes = it
+                        ui.setPref(core, Prefs.SLEEP_MINUTES, it)
+                    }
                     FlagRow("DJ online notifier", ui.djNotifier) {
                         ui.djNotifier = it
                         ui.setFlag(core, Prefs.DJ_NOTIFIER, it)
+                        io.r_a_d.geiravor.alert.StationWatch.sync(ctx, it, ui.favePlaying)
                     }
                     FlagRow("Fave currently playing", ui.favePlaying) {
                         ui.favePlaying = it
                         ui.setFlag(core, Prefs.FAVE_PLAYING, it)
+                        io.r_a_d.geiravor.alert.StationWatch.sync(ctx, ui.djNotifier, it)
                     }
+                    ui.alertError?.let { Text(it, color = t.red) }
                     Text(
-                        "Alarm and sleep use the same play/stop path. Battery cost applies when a notifier is on.",
+                        "Alarm and sleep use the same play/stop path. Notifiers share a 15-minute network check and cost battery. Permission denied is shown here — not skipped.",
                         color = t.muted,
                         modifier = Modifier.padding(top = 8.dp),
                     )
