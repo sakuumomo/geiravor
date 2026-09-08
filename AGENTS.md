@@ -5,7 +5,7 @@ Spec-first Android client for [r-a-d.io](https://r-a-d.io). Rewrite toward 1.0.0
 ## Source of truth
 
 1. `docs/spec/` — product (listener). Live `https://r-a-d.io` and `GET https://r-a-d.io/api` beat examples when the world has moved.
-2. `docs/architecture.md`, `docs/build.md`, `docs/testing.md`, `docs/compat.md` — repo (when those files exist).
+2. `docs/architecture.md`, `docs/build.md`, `docs/testing.md`, `docs/compat.md` — repo.
 3. This file — how to work.
 
 Do not implement a feature that is not in a spec. Do not port or copy another Android radio app. Do not copy implementation out of `legacy/0.3` (assets and LICENSE are allowed). Do not consume `/v1/sse`. Pause on a live stream **stops**. Empty nick = fave no-op. Do not GET the Icecast URL in tests. Do not live-`.fave` unless the human asked.
