@@ -2,6 +2,8 @@ package io.r_a_d.geiravor.ui
 
 import android.content.Intent
 import android.net.Uri
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -38,6 +40,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
@@ -236,8 +239,22 @@ fun NowPlayingScreen(
             if (showThread && status != null && threadIsVisible(status.isAfk, thread)) {
                 ThreadLine(ui, thread, status.isAfk)
             }
-            ui.faveError?.let {
-                Text(it, color = t.red, modifier = Modifier.padding(top = 8.dp))
+            ui.faveError?.let { msg ->
+                val fade = remember(msg) { Animatable(1f) }
+                LaunchedEffect(ui.faveErrorFading, msg) {
+                    if (ui.faveErrorFading) {
+                        fade.animateTo(0f, animationSpec = tween(800))
+                        ui.faveError = null
+                        ui.faveErrorFading = false
+                    } else {
+                        fade.snapTo(1f)
+                    }
+                }
+                Text(
+                    msg,
+                    color = t.red,
+                    modifier = Modifier.padding(top = 8.dp).alpha(fade.value),
+                )
             }
             if (ui.streamDown) {
                 Text("Stream down", color = t.red, modifier = Modifier.padding(top = 8.dp))

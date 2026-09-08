@@ -192,13 +192,19 @@ fun tapFave(ui: UiState, core: RadioCore, secrets: SecretsStore) {
         android.os.Handler(android.os.Looper.getMainLooper()).post {
             ui.faveBusy = false
             when (result.kind) {
-                FaveKind.SUCCESS -> ui.heartFilled = result.favorited
+                FaveKind.SUCCESS -> {
+                    ui.heartFilled = result.favorited
+                    ui.faveError = null
+                    ui.faveErrorFading = false
+                }
                 FaveKind.NOOP -> {
                     ui.heartFilled = was
+                    ui.faveErrorFading = false
                     ui.faveError = if (result.message.isBlank()) "Set a nick in Settings" else result.message
                 }
                 FaveKind.FAILED -> {
                     ui.heartFilled = was
+                    ui.faveErrorFading = false
                     ui.faveError = result.message.ifBlank { "Fave failed" }
                 }
             }

@@ -15,3 +15,4 @@ User-visible changes to **this** tree. 0.3.0 history lives on `legacy/0.3`.
 - Holiday theme sniff reuses news/schedule/staff HTML, GETs `/` at most hourly until the live pack matches, and Board section labels come from domain constants.
 - GIF and muted looping video autoplay on DJ, schedule, staff, and thread; news article images stay still.
 - Coil drops news image files when those URLs leave the article body or comments.
+- Fave failure text fades out when `np` changes instead of vanishing.

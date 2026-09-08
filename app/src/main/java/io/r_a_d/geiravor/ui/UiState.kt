@@ -62,6 +62,7 @@ class UiState {
     var heartFilled by mutableStateOf(false)
     var faveBusy by mutableStateOf(false)
     var faveError by mutableStateOf<String?>(null)
+    var faveErrorFading by mutableStateOf(false)
     var tab by mutableStateOf(BottomTab.NowPlaying)
     var songsSection by mutableStateOf(SongsSection.LastPlayed)
     var boardSection by mutableStateOf(BoardSection.News)
@@ -153,8 +154,8 @@ class UiState {
     }
 
     fun applyStatus(next: Status?, down: Boolean, isPlaying: Boolean) {
-        if (status?.np != next?.np) {
-            faveError = null
+        if (FaveError.shouldFade(faveError, status?.np, next?.np)) {
+            faveErrorFading = true
         }
         status = next
         streamDown = down
