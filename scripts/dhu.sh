@@ -57,15 +57,16 @@ IP="${IP:-192.168.240.112}"
 echo "adb connect ${IP}:5555"
 "$ADB" connect "${IP}:5555" || true
 "$ADB" devices
-if "$ADB" devices | grep -q unauthorized; then
+SERIAL="${IP}:5555"
+if "$ADB" devices | grep -F "$SERIAL" | grep -q unauthorized; then
   echo "Waydroid adb is unauthorized. Accept the debugging prompt in the Waydroid window, then re-run." >&2
   exit 1
 fi
 
-echo "Waiting for Head Unit Server on ${IP}:5277 (Android Auto → ⋮ → Start head unit server)…"
+echo "Waiting for Head Unit Server on ${SERIAL} (Android Auto → ⋮ → Start head unit server)…"
 ok=0
 for _ in $(seq 1 20); do
-  if "$ADB" shell ss -ltn 2>/dev/null | grep -q ':5277'; then
+  if "$ADB" -s "$SERIAL" shell ss -ltn 2>/dev/null | grep -q ':5277'; then
     ok=1
     break
   fi
