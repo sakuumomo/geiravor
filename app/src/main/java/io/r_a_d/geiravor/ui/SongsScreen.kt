@@ -105,7 +105,8 @@ private fun RequestPane(ui: UiState, core: RadioCore) {
         )
         ui.requestText?.let { Text(it, color = if (it.contains("Thank", true)) t.green else t.red) }
         BoxWithConstraints(Modifier.weight(1f).fillMaxWidth()) {
-            fit = (maxHeight / 56.dp).toInt().coerceAtLeast(1).toUInt()
+            val measured = (maxHeight / 56.dp).toInt().coerceAtLeast(1).toUInt()
+            fit = lockPaneFit(measured, ui.searchFit) { ui.searchFit = it }
             LaunchedEffect(fit) {
                 if (ui.query.isNotBlank() && ui.search != null) go(ui.search?.currentPage ?: 1u)
             }
@@ -206,7 +207,8 @@ private fun FavoritesPane(ui: UiState, core: RadioCore) {
         )
         ui.requestText?.let { Text(it, color = t.red) }
         BoxWithConstraints(Modifier.weight(1f).fillMaxWidth()) {
-            fit = (maxHeight / 56.dp).toInt().coerceAtLeast(1).toUInt()
+            val measured = (maxHeight / 56.dp).toInt().coerceAtLeast(1).toUInt()
+            fit = lockPaneFit(measured, ui.faveFit) { ui.faveFit = it }
             LaunchedEffect(ui.listNick, ui.nick, fit) { load(ui.favePage) }
             Column {
                 val rows = ui.faveRows

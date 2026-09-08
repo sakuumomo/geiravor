@@ -52,7 +52,8 @@ pub use parse::{
     API_URL, DJ_IMAGE_BASE, Dj, HOME_URL, ListEntry, MAX_BODY, STREAM_URL, SongProgress, Status,
     check_bound, dj_image_url, format_clock, last_paint_chrome, parse_status, parse_status_str,
     parse_theme_name, relative_last_played, relative_queue, song_progress, song_progress_at,
-    split_np, thread_is_visible, thread_visible,
+    split_np, thread_embed_url, thread_embed_url_for, thread_is_visible, thread_link_url,
+    thread_link_url_for, thread_visible,
 };
 pub use poll::poll_interval;
 pub use radio::{RadioCore, StatusListener};

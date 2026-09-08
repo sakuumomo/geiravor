@@ -1,6 +1,10 @@
 package io.r_a_d.geiravor.ui
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.hoverable
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsHoveredAsState
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -83,9 +87,16 @@ fun SettingsScreen(ui: UiState, core: RadioCore, secrets: SecretsStore) {
                             ThemePack.HALLOWEEN -> "Halloween"
                             ThemePack.NEW_YEARS -> "New Years"
                         }
+                        val hover = remember(pack) { MutableInteractionSource() }
+                        val hovered by hover.collectIsHoveredAsState()
                         Row(
                             Modifier
                                 .fillMaxWidth()
+                                .hoverable(hover)
+                                .background(
+                                    if (hovered) t.highlight.copy(alpha = if (t.glass) 0.28f else 0.16f)
+                                    else Color.Transparent,
+                                )
                                 .clickable { ui.setThemePick(core, pack) }
                                 .padding(vertical = 4.dp),
                             verticalAlignment = Alignment.CenterVertically,

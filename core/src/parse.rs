@@ -190,6 +190,59 @@ pub fn thread_visible(is_afk: bool, thread: &str) -> bool {
     !t.is_empty() && t != "none"
 }
 
+fn thread_url(thread: &str) -> String {
+    let t = thread.trim();
+    if t.len() >= 6 && t[..6].eq_ignore_ascii_case("image:") {
+        t[6..].trim().to_string()
+    } else {
+        t.to_string()
+    }
+}
+
+fn thread_is_media(url: &str) -> bool {
+    let path = url
+        .split(['?', '#'])
+        .next()
+        .unwrap_or(url)
+        .to_ascii_lowercase();
+    path.ends_with(".gif")
+        || path.ends_with(".png")
+        || path.ends_with(".jpg")
+        || path.ends_with(".jpeg")
+        || path.ends_with(".webp")
+        || path.ends_with(".mp4")
+        || path.ends_with(".webm")
+}
+
+/// Embed URL (`image:` or media path). Empty if this thread is a browser link or hidden.
+pub fn thread_embed_url(is_afk: bool, thread: &str) -> String {
+    if !thread_visible(is_afk, thread) {
+        return String::new();
+    }
+    let url = thread_url(thread);
+    if thread_is_media(&url) {
+        url
+    } else {
+        String::new()
+    }
+}
+
+/// Browser link. Empty if this thread is an embed or hidden.
+pub fn thread_link_url(is_afk: bool, thread: &str) -> String {
+    if !thread_visible(is_afk, thread) {
+        return String::new();
+    }
+    let url = thread_url(thread);
+    if thread_is_media(&url) {
+        return String::new();
+    }
+    if url.starts_with("https://") || url.starts_with("http://") {
+        url
+    } else {
+        String::new()
+    }
+}
+
 /// AFK progress. Live DJ or `end <= start` → unknown.
 pub fn song_progress(status: &Status, local_now_secs: i64, local_at_fetch: i64) -> SongProgress {
     if !status.is_afk {
@@ -285,6 +338,16 @@ pub fn thread_is_visible(is_afk: bool, thread: String) -> bool {
 }
 
 #[uniffi::export]
+pub fn thread_embed_url_for(is_afk: bool, thread: String) -> String {
+    thread_embed_url(is_afk, &thread)
+}
+
+#[uniffi::export]
+pub fn thread_link_url_for(is_afk: bool, thread: String) -> String {
+    thread_link_url(is_afk, &thread)
+}
+
+#[uniffi::export]
 pub fn format_clock(secs: i64) -> String {
     let secs = secs.max(0);
     format!("{}:{:02}", secs / 60, secs % 60)
@@ -326,6 +389,24 @@ mod tests {
             dj_image_url("18-e0177611a37081b5.png").as_deref(),
             Some("https://r-a-d.io/api/dj-image/18-e0177611a37081b5.png")
         );
+    }
+
+    #[test]
+    fn thread_image_prefix_is_embed() {
+        assert_eq!(
+            thread_embed_url(false, "image:https://static.r-a-d.io/x.gif"),
+            "https://static.r-a-d.io/x.gif"
+        );
+        assert!(thread_link_url(false, "image:https://static.r-a-d.io/x.gif").is_empty());
+    }
+
+    #[test]
+    fn thread_http_page_is_browser_link() {
+        let u = "https://boards.4chan.org/a/thread/1";
+        assert!(thread_embed_url(false, u).is_empty());
+        assert_eq!(thread_link_url(false, u), u);
+        assert!(thread_embed_url(true, u).is_empty());
+        assert!(thread_link_url(true, u).is_empty());
     }
 
     #[test]

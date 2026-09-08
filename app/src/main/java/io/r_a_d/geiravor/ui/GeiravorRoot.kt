@@ -144,7 +144,7 @@ fun GeiravorRoot(
                     if (twoPane) {
                         Row(body) {
                             Box(Modifier.weight(1f).fillMaxHeight()) {
-                                NowPlayingScreen(ui, onPlay, onStop, onGain, onFave)
+                                NowPlayingScreen(ui, onPlay, onStop, onGain, onFave, showThread = false)
                             }
                             Box(Modifier.weight(1f).fillMaxHeight()) {
                                 TabBody(ui, core, secrets, onPlay, onStop, onGain, onFave)
@@ -173,7 +173,7 @@ private fun TabBody(
     onFave: () -> Unit,
 ) {
     when (ui.tab) {
-        BottomTab.NowPlaying -> NowPlayingScreen(ui, onPlay, onStop, onGain, onFave)
+        BottomTab.NowPlaying -> NowPlayingScreen(ui, onPlay, onStop, onGain, onFave, showThread = true)
         BottomTab.Songs -> SongsScreen(ui, core)
         BottomTab.Board -> BoardScreen(ui, core)
         BottomTab.Settings -> SettingsScreen(ui, core, secrets)

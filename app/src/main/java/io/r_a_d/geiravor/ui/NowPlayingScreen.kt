@@ -3,8 +3,10 @@ package io.r_a_d.geiravor.ui
 import android.content.Intent
 import android.net.Uri
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -12,12 +14,15 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.wrapContentWidth
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Stop
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
@@ -28,10 +33,12 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableLongStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
@@ -40,12 +47,15 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
 import io.r_a_d.geiravor.R
+import io.r_a_d.geiravor.compat.saveThreadStill
 import io.r_a_d.geiravor.playback.LivePlaybackPolicy
 import io.r_a_d.geiravor.theme.LocalTokens
 import kotlinx.coroutines.delay
 import uniffi.geiravor_core.formatClock
 import uniffi.geiravor_core.songProgressAt
+import uniffi.geiravor_core.threadEmbedUrlFor
 import uniffi.geiravor_core.threadIsVisible
+import uniffi.geiravor_core.threadLinkUrlFor
 
 @Composable
 fun NowPlayingScreen(
@@ -54,6 +64,7 @@ fun NowPlayingScreen(
     onStop: () -> Unit,
     onGain: (Float) -> Unit,
     onFave: () -> Unit,
+    showThread: Boolean = true,
 ) {
     val t = LocalTokens.current
     val status = ui.status
@@ -72,14 +83,26 @@ fun NowPlayingScreen(
                 .verticalScroll(rememberScrollState()),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
-            Image(
-                painterResource(R.drawable.logotitle_2),
-                contentDescription = "r/a/dio",
-                modifier = Modifier
-                    .height(36.dp)
-                    .padding(bottom = 12.dp),
-                contentScale = ContentScale.Fit,
-            )
+            val logoShape = RoundedCornerShape(6.dp)
+            Box(
+                Modifier
+                    .padding(bottom = 12.dp)
+                    .wrapContentWidth()
+                    .clip(logoShape)
+                    .then(
+                        if (t.wallpaper != null) Modifier
+                            .background(t.surface, logoShape)
+                            .padding(horizontal = 10.dp, vertical = 6.dp)
+                        else Modifier,
+                    ),
+            ) {
+                Image(
+                    painterResource(R.drawable.logotitle_2),
+                    contentDescription = "r/a/dio",
+                    modifier = Modifier.height(36.dp),
+                    contentScale = ContentScale.Fit,
+                )
+            }
             Row(
                 Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically,
@@ -210,8 +233,8 @@ fun NowPlayingScreen(
                 modifier = Modifier.fillMaxWidth(),
             )
             val thread = status?.thread.orEmpty()
-            if (status != null && threadIsVisible(status.isAfk, thread)) {
-                ThreadLine(thread)
+            if (showThread && status != null && threadIsVisible(status.isAfk, thread)) {
+                ThreadLine(ui, thread, status.isAfk)
             }
             ui.faveError?.let {
                 Text(it, color = t.red, modifier = Modifier.padding(top = 8.dp))
@@ -224,38 +247,54 @@ fun NowPlayingScreen(
 }
 
 @Composable
-private fun ThreadLine(thread: String) {
+private fun ThreadLine(ui: UiState, thread: String, isAfk: Boolean) {
     val t = LocalTokens.current
     val ctx = LocalContext.current
-    val trimmed = thread.trim()
-    val image = when {
-        trimmed.startsWith("image:", ignoreCase = true) ->
-            trimmed.removePrefix("image:").removePrefix("IMAGE:").trim()
-        trimmed.lowercase().let {
-            it.endsWith(".gif") || it.endsWith(".png") || it.endsWith(".jpg") ||
-                it.endsWith(".jpeg") || it.endsWith(".webp") || it.endsWith(".mp4") ||
-                it.endsWith(".webm")
-        } -> trimmed
-        else -> null
-    }
-    if (image != null) {
-        AsyncImage(
-            model = image,
-            contentDescription = "Thread",
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(top = 12.dp)
-                .height(180.dp),
-            contentScale = ContentScale.Fit,
-        )
-    } else {
+    val embed = threadEmbedUrlFor(isAfk, thread)
+    val link = threadLinkUrlFor(isAfk, thread)
+    if (embed.isNotEmpty()) {
+        var menu by remember { mutableStateOf(false) }
+        fun open() {
+            ctx.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(embed)))
+        }
+        Box(Modifier.padding(top = 12.dp)) {
+            AsyncImage(
+                model = embed,
+                contentDescription = "Thread",
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(180.dp)
+                    .combinedClickable(
+                        onClick = { open() },
+                        onLongClick = { menu = true },
+                    ),
+                contentScale = ContentScale.Fit,
+            )
+            DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
+                DropdownMenuItem(
+                    text = { Text("Save") },
+                    onClick = {
+                        menu = false
+                        ui.offMain { saveThreadStill(ctx, embed) }
+                    },
+                )
+                DropdownMenuItem(
+                    text = { Text("Open") },
+                    onClick = {
+                        menu = false
+                        open()
+                    },
+                )
+            }
+        }
+    } else if (link.isNotEmpty()) {
         Text(
-            trimmed,
+            link,
             color = t.link,
             modifier = Modifier
                 .padding(top = 12.dp)
                 .clickable {
-                    ctx.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(trimmed)))
+                    ctx.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(link)))
                 },
         )
     }

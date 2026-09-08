@@ -95,7 +95,8 @@ private fun NewsListPane(ui: UiState, core: RadioCore) {
     val t = LocalTokens.current
     Column(Modifier.fillMaxSize()) {
         BoxWithConstraints(Modifier.weight(1f).fillMaxWidth()) {
-            val fit = (maxHeight / 72.dp).toInt().coerceAtLeast(1).toUInt()
+            val measured = (maxHeight / 72.dp).toInt().coerceAtLeast(1).toUInt()
+            val fit = lockPaneFit(measured, ui.newsFit) { ui.newsFit = it }
             LaunchedEffect(fit, ui.newsPage) {
                 ui.offMain {
                     val cached = runCatching { core.cachedNewsWindow(ui.newsPage, fit) }.getOrNull()
