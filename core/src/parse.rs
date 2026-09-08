@@ -12,6 +12,7 @@ pub const MAX_BODY: usize = 2 * 1024 * 1024;
 pub const API_URL: &str = "https://r-a-d.io/api";
 pub const STREAM_URL: &str = "https://stream.r-a-d.io/main.mp3";
 pub const DJ_IMAGE_BASE: &str = "https://r-a-d.io/api/dj-image/";
+pub const HOME_URL: &str = "https://r-a-d.io/";
 
 /// Snapshot used by the UI, Auto, and fave. Extra JSON keys are ignored.
 #[derive(Debug, Clone, PartialEq, uniffi::Record)]
@@ -216,6 +217,7 @@ pub fn song_progress(status: &Status, local_now_secs: i64, local_at_fetch: i64) 
 }
 
 /// Last-played relative label vs snapshot `current`.
+#[uniffi::export]
 pub fn relative_last_played(current: i64, timestamp: i64) -> String {
     let mins = (current - timestamp) / 60;
     if mins < 1 {
@@ -228,6 +230,7 @@ pub fn relative_last_played(current: i64, timestamp: i64) -> String {
 }
 
 /// Queue relative label vs snapshot `current`.
+#[uniffi::export]
 pub fn relative_queue(current: i64, timestamp: i64) -> String {
     let mins = (timestamp - current) / 60;
     if mins <= 0 {
@@ -271,6 +274,22 @@ pub fn last_paint_chrome(status: &Status) -> String {
     .to_string()
 }
 
+#[uniffi::export]
+pub fn song_progress_at(status: Status, local_now_secs: i64, local_at_fetch: i64) -> SongProgress {
+    song_progress(&status, local_now_secs, local_at_fetch)
+}
+
+#[uniffi::export]
+pub fn thread_is_visible(is_afk: bool, thread: String) -> bool {
+    thread_visible(is_afk, &thread)
+}
+
+#[uniffi::export]
+pub fn format_clock(secs: i64) -> String {
+    let secs = secs.max(0);
+    format!("{}:{:02}", secs / 60, secs % 60)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -307,5 +326,11 @@ mod tests {
             dj_image_url("18-e0177611a37081b5.png").as_deref(),
             Some("https://r-a-d.io/api/dj-image/18-e0177611a37081b5.png")
         );
+    }
+
+    #[test]
+    fn clock_mm_ss() {
+        assert_eq!(format_clock(0), "0:00");
+        assert_eq!(format_clock(125), "2:05");
     }
 }

@@ -13,6 +13,7 @@ mod poll;
 mod radio;
 mod reducer;
 mod store;
+mod theme;
 
 /// Cargo package version (`X.Y.Z`). Identical to `versionName` and the User-Agent suffix.
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");
@@ -28,14 +29,19 @@ pub use irc::{
 };
 pub use net::{Coalescer, HttpClient, ReqwestClient};
 pub use parse::{
-    API_URL, DJ_IMAGE_BASE, Dj, ListEntry, MAX_BODY, STREAM_URL, SongProgress, Status, check_bound,
-    dj_image_url, last_paint_chrome, parse_status, parse_status_str, parse_theme_name,
-    relative_last_played, relative_queue, song_progress, split_np, thread_visible,
+    API_URL, DJ_IMAGE_BASE, Dj, HOME_URL, ListEntry, MAX_BODY, STREAM_URL, SongProgress, Status,
+    check_bound, dj_image_url, format_clock, last_paint_chrome, parse_status, parse_status_str,
+    parse_theme_name, relative_last_played, relative_queue, song_progress, song_progress_at,
+    split_np, thread_is_visible, thread_visible,
 };
 pub use poll::poll_interval;
 pub use radio::{RadioCore, StatusListener};
 pub use reducer::{NowPlayingEvent, NowPlayingState, reduce};
 pub use store::{Store, payload_changed};
+pub use theme::{
+    ThemePack, decide_theme, holiday_window, theme_pack_from_pref, theme_pack_is_night,
+    theme_pack_pref,
+};
 
 #[cfg(test)]
 mod tests {

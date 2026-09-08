@@ -46,6 +46,7 @@ class PlaybackService : MediaLibraryService() {
             .setHandleAudioBecomingNoisy(true)
             .setWakeMode(C.WAKE_MODE_NETWORK)
             .build()
+        lastGain = (application as GeiravorApp).ui.gain
         player.volume = lastGain
         player.addListener(object : Player.Listener {
             override fun onIsPlayingChanged(isPlaying: Boolean) {
@@ -72,6 +73,11 @@ class PlaybackService : MediaLibraryService() {
         when (intent?.action) {
             ACTION_PLAY -> live.playLive()
             ACTION_STOP -> live.pauseStops()
+            ACTION_GAIN -> {
+                val g = intent.getFloatExtra(EXTRA_GAIN, lastGain).coerceIn(0f, 1f)
+                lastGain = g
+                player.volume = g
+            }
         }
         return super.onStartCommand(intent, flags, startId)
     }
@@ -218,11 +224,18 @@ class PlaybackService : MediaLibraryService() {
     companion object {
         const val ACTION_PLAY = "io.r_a_d.geiravor.PLAY"
         const val ACTION_STOP = "io.r_a_d.geiravor.STOP"
+        const val ACTION_GAIN = "io.r_a_d.geiravor.GAIN"
+        const val EXTRA_GAIN = "gain"
 
         fun playIntent(context: Context): Intent =
             Intent(context, PlaybackService::class.java).setAction(ACTION_PLAY)
 
         fun stopIntent(context: Context): Intent =
             Intent(context, PlaybackService::class.java).setAction(ACTION_STOP)
+
+        fun gainIntent(context: Context, gain: Float): Intent =
+            Intent(context, PlaybackService::class.java)
+                .setAction(ACTION_GAIN)
+                .putExtra(EXTRA_GAIN, gain)
     }
 }

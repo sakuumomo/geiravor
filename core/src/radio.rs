@@ -10,7 +10,7 @@ use crate::irc::{
     connect_irc, irc_nick, nick_is_empty, run_add_fave, with_retries,
 };
 use crate::net::{Coalescer, HttpClient, ReqwestClient};
-use crate::parse::{API_URL, Status, parse_status, parse_status_str};
+use crate::parse::{API_URL, HOME_URL, Status, parse_status, parse_status_str, parse_theme_name};
 use crate::poll::poll_interval;
 use crate::reducer::{NowPlayingEvent, NowPlayingState, reduce};
 use crate::store::Store;
@@ -148,6 +148,24 @@ impl RadioCore {
             .name("geiravor-poll".into())
             .spawn(move || poll_loop(inner));
         tracing::info!("poller start");
+    }
+
+    /// Non-secret pref. Empty string if missing. Not the main thread.
+    pub fn pref(&self, key: String) -> Result<String, ApiError> {
+        Ok(self.inner.store.get(&key)?.unwrap_or_default())
+    }
+
+    /// Persist a non-secret pref only if the value changed. Not the main thread.
+    pub fn set_pref(&self, key: String, value: String) -> Result<(), ApiError> {
+        self.inner.store.put_if_changed(&key, &value)?;
+        Ok(())
+    }
+
+    /// `GET /` and read `/assets/{name}/css/`. Not the main thread. Not every poll.
+    pub fn sniff_theme(&self) -> Result<Option<String>, ApiError> {
+        let bytes = self.inner.http.get(HOME_URL)?;
+        let text = String::from_utf8_lossy(&bytes);
+        Ok(parse_theme_name(&text))
     }
 
     /// IRC add/remove fave. Empty nick is a no-op. Worker-thread only.
@@ -314,6 +332,10 @@ mod tests {
         let live = include_str!("../tests/fixtures/api_live_dj.json");
         core.restore_snapshot(live.into()).unwrap();
         assert_eq!(core.snapshot().unwrap().np, first);
+        core.set_pref("gain".into(), "0.5".into()).unwrap();
+        assert_eq!(core.pref("gain".into()).unwrap(), "0.5");
+        core.set_pref("gain".into(), "0.5".into()).unwrap();
+        assert_eq!(core.pref("gain".into()).unwrap(), "0.5");
         let _ = std::fs::remove_dir_all(&dir);
     }
 }
