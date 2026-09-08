@@ -87,6 +87,43 @@ pub fn theme_pack_is_night(pack: ThemePack) -> bool {
     pack.night()
 }
 
+/// Hourly GET `/` when the window is open but the site is not on that holiday yet.
+pub const SNIFF_INTERVAL_SECS: i64 = 3600;
+
+/// Whether a dedicated `GET /` is allowed. Try cached news/schedule/staff HTML first.
+#[uniffi::export]
+pub fn should_sniff_home(
+    opt_out: bool,
+    month: u8,
+    day: u8,
+    now_epoch: i64,
+    last_sniff_epoch: i64,
+    seen_window_holiday: bool,
+    process_start: bool,
+) -> bool {
+    if opt_out || holiday_window(month, day).is_none() {
+        return false;
+    }
+    if process_start {
+        return true;
+    }
+    if seen_window_holiday {
+        return false;
+    }
+    last_sniff_epoch == 0 || now_epoch.saturating_sub(last_sniff_epoch) >= SNIFF_INTERVAL_SECS
+}
+
+/// Sniffed `/assets/{name}/` is the holiday pack for this device-local window.
+#[uniffi::export]
+pub fn sniffed_matches_window(month: u8, day: u8, sniffed: String) -> bool {
+    match holiday_window(month, day) {
+        Some(ThemePack::Christmas) => sniffed.trim() == "christmas",
+        Some(ThemePack::Halloween) => sniffed.trim() == "halloween",
+        Some(ThemePack::NewYears) => sniffed.trim() == "newyears",
+        _ => false,
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -159,5 +196,18 @@ mod tests {
         assert_eq!(ThemePack::parse("halloween"), ThemePack::Halloween);
         assert!(ThemePack::Halloween.night());
         assert!(!ThemePack::DefaultLight.night());
+    }
+
+    #[test]
+    fn sniff_home_rules() {
+        assert!(!should_sniff_home(true, 12, 25, 100, 0, false, true));
+        assert!(!should_sniff_home(false, 6, 1, 100, 0, false, true));
+        assert!(should_sniff_home(false, 12, 25, 100, 0, false, true));
+        assert!(should_sniff_home(false, 12, 25, 100, 0, true, true));
+        assert!(!should_sniff_home(false, 12, 25, 100, 10, true, false));
+        assert!(!should_sniff_home(false, 12, 25, 100, 90, false, false));
+        assert!(should_sniff_home(false, 12, 25, 3700, 1, false, false));
+        assert!(sniffed_matches_window(12, 25, "christmas".into()));
+        assert!(!sniffed_matches_window(12, 25, "default-dark".into()));
     }
 }

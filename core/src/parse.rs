@@ -298,17 +298,19 @@ pub fn relative_queue(current: i64, timestamp: i64) -> String {
 /// Theme pack name from `href="/assets/{name}/css/…"`. First stylesheet wins.
 pub fn parse_theme_name(html: &str) -> Option<String> {
     check_bound(html.as_bytes()).ok()?;
-    let marker = "/assets/";
-    let css = "/css/";
-    let i = html.find(marker)?;
-    let rest = &html[i + marker.len()..];
-    let j = rest.find(css)?;
-    let name = &rest[..j];
-    if name.is_empty() || name.contains('/') {
-        None
-    } else {
-        Some(name.to_string())
+    let mut rest = html;
+    while let Some(i) = rest.find("/assets/") {
+        rest = &rest[i + 8..];
+        let Some(j) = rest.find("/css/") else {
+            continue;
+        };
+        let name = &rest[..j];
+        if !name.is_empty() && !name.contains('/') {
+            return Some(name.to_string());
+        }
+        rest = &rest[j + 5..];
     }
+    None
 }
 
 /// Last-paint chrome: ignore `current` and `listeners` (they tick every poll).
@@ -380,6 +382,12 @@ mod tests {
     fn theme_name_from_assets() {
         let html = r#"<link href="/assets/christmas/css/bulma.min.css">"#;
         assert_eq!(parse_theme_name(html).as_deref(), Some("christmas"));
+    }
+
+    #[test]
+    fn theme_name_skips_non_css_assets() {
+        let html = include_str!("../tests/fixtures/news_list.html");
+        assert_eq!(parse_theme_name(html).as_deref(), Some("default-dark"));
     }
 
     #[test]

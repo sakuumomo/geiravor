@@ -24,6 +24,8 @@ object Prefs {
     const val SNOOZE_MINUTES = "snooze_minutes"
     const val SLEEP_ON = "sleep_on"
     const val SLEEP_MINUTES = "sleep_minutes"
+    const val SNIFF_AT = "sniff_at"
+    const val SNIFF_SEEN = "sniff_seen"
 }
 
 object SecretKeys {

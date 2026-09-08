@@ -18,10 +18,18 @@ enum class SongsSection(val label: String) {
     Favorites("Favorites"),
 }
 
-enum class BoardSection(val label: String) {
-    News("News"),
-    Schedule("Schedule"),
-    Staff("Staff"),
+enum class BoardSection {
+    News,
+    Schedule,
+    Staff,
+    ;
+
+    val label: String
+        get() = when (this) {
+            News -> uniffi.geiravor_core.boardNewsLabel()
+            Schedule -> uniffi.geiravor_core.boardScheduleLabel()
+            Staff -> uniffi.geiravor_core.boardStaffLabel()
+        }
 }
 
 enum class SettingsSection(val label: String) {

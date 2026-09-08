@@ -5,6 +5,12 @@ use crate::html::{between, strip_tags};
 use crate::parse::check_bound;
 
 pub const NEWS_URL: &str = "https://r-a-d.io/news";
+pub const BOARD_NEWS_LABEL: &str = "News";
+
+#[uniffi::export]
+pub fn board_news_label() -> String {
+    BOARD_NEWS_LABEL.to_string()
+}
 
 #[derive(Debug, Clone, PartialEq, uniffi::Record)]
 pub struct NewsCard {

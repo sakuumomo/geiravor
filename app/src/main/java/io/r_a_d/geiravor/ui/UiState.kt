@@ -21,6 +21,8 @@ import uniffi.geiravor_core.Status
 import uniffi.geiravor_core.ThemePack
 import uniffi.geiravor_core.decideTheme
 import uniffi.geiravor_core.holidayWindow
+import uniffi.geiravor_core.shouldSniffHome
+import uniffi.geiravor_core.sniffedMatchesWindow
 import uniffi.geiravor_core.themePackFromPref
 import uniffi.geiravor_core.themePackPref
 import java.util.Calendar
@@ -95,10 +97,7 @@ class UiState {
             val cal = Calendar.getInstance()
             val month = (cal.get(Calendar.MONTH) + 1).toUByte()
             val day = cal.get(Calendar.DAY_OF_MONTH).toUByte()
-            var sniffed: String? = null
-            if (!opt && holidayWindow(month, day) != null) {
-                sniffed = runCatching { core.sniffTheme() }.getOrNull()
-            }
+            val sniffed = sniffName(core, opt, month, day, processStart = true)
             val decided = decideTheme(pick, opt, month, day, sniffed)
             val snap = core.snapshot()
             val plug = flag(Prefs.AUTOSTART_PLUG)
@@ -219,12 +218,36 @@ class UiState {
             val cal = Calendar.getInstance()
             val month = (cal.get(Calendar.MONTH) + 1).toUByte()
             val day = cal.get(Calendar.DAY_OF_MONTH).toUByte()
-            var sniffed: String? = null
-            if (!holidayOptOut && holidayWindow(month, day) != null) {
-                sniffed = runCatching { core.sniffTheme() }.getOrNull()
-            }
+            val sniffed = sniffName(core, holidayOptOut, month, day, processStart = false)
             val decided = decideTheme(userPick, holidayOptOut, month, day, sniffed)
             main.post { pack = decided }
         }
+    }
+
+    private fun sniffName(
+        core: RadioCore,
+        optOut: Boolean,
+        month: UByte,
+        day: UByte,
+        processStart: Boolean,
+    ): String? {
+        if (optOut || holidayWindow(month, day) == null) return null
+        val cached = runCatching { core.cachedThemeName() }.getOrNull()
+        if (cached != null && sniffedMatchesWindow(month, day, cached)) {
+            core.setPref(Prefs.SNIFF_SEEN, cached)
+            if (!processStart) return cached
+        }
+        val now = System.currentTimeMillis() / 1000
+        val last = core.pref(Prefs.SNIFF_AT).toLongOrNull() ?: 0L
+        val seen = holidayWindow(month, day)?.let { themePackPref(it) } == core.pref(Prefs.SNIFF_SEEN)
+        val getHome = shouldSniffHome(optOut, month, day, now, last, seen, processStart)
+        if (!getHome) return cached
+        val live = runCatching { core.sniffTheme() }.getOrNull()
+        core.setPref(Prefs.SNIFF_AT, now.toString())
+        val name = live ?: cached
+        if (name != null && sniffedMatchesWindow(month, day, name)) {
+            core.setPref(Prefs.SNIFF_SEEN, name)
+        }
+        return name
     }
 }

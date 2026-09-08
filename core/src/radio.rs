@@ -189,6 +189,18 @@ impl RadioCore {
         Ok(parse_theme_name(&text))
     }
 
+    /// Theme name from news/schedule/staff HTML already on disk. No GET.
+    pub fn cached_theme_name(&self) -> Result<Option<String>, ApiError> {
+        for key in ["news:list:1", "schedule", "staff"] {
+            if let Some(html) = self.inner.store.get(key)?
+                && let Some(name) = parse_theme_name(&html)
+            {
+                return Ok(Some(name));
+            }
+        }
+        Ok(None)
+    }
+
     pub fn cached_news_list(&self, page: u32) -> Result<NewsList, ApiError> {
         let page = page.max(1);
         match self.inner.store.get(&format!("news:list:{page}"))? {

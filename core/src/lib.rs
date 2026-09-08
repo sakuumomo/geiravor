@@ -44,8 +44,8 @@ pub use irc::{
 pub use log_init::init_logging;
 pub use net::{Coalescer, HttpClient, ReqwestClient};
 pub use news::{
-    NewsArticle, NewsCard, NewsComment, NewsList, RoleColor, news_article_url, news_list_url,
-    parse_news_article, parse_news_list,
+    BOARD_NEWS_LABEL, NewsArticle, NewsCard, NewsComment, NewsList, RoleColor, board_news_label,
+    news_article_url, news_list_url, parse_news_article, parse_news_list,
 };
 pub use notices::{DjNotice, dj_notice, fave_on_air_key, is_hanyuu};
 pub use parse::{
@@ -58,16 +58,21 @@ pub use parse::{
 pub use poll::poll_interval;
 pub use radio::{RadioCore, StatusListener};
 pub use reducer::{NowPlayingEvent, NowPlayingState, reduce};
-pub use schedule::{EST_ZONE, SCHEDULE_URL, ScheduleDay, WEEKDAYS, est_zone_id, parse_schedule};
+pub use schedule::{
+    BOARD_SCHEDULE_LABEL, EST_ZONE, SCHEDULE_URL, ScheduleDay, WEEKDAYS, board_schedule_label,
+    est_zone_id, parse_schedule,
+};
 pub use search::{
     CAN_REQUEST_URL, RequestResult, SEARCH_HTML_URL, SearchPage, SearchTrack, parse_can_request,
     parse_request_body, parse_search, request_url, search_url,
 };
-pub use staff::{STAFF_URL, StaffCard, StaffGroup, parse_staff};
+pub use staff::{
+    BOARD_STAFF_LABEL, STAFF_URL, StaffCard, StaffGroup, board_staff_label, parse_staff,
+};
 pub use store::{Store, payload_changed};
 pub use theme::{
-    ThemePack, decide_theme, holiday_window, theme_pack_from_pref, theme_pack_is_night,
-    theme_pack_pref,
+    SNIFF_INTERVAL_SECS, ThemePack, decide_theme, holiday_window, should_sniff_home,
+    sniffed_matches_window, theme_pack_from_pref, theme_pack_is_night, theme_pack_pref,
 };
 pub use window::{
     FAVES_SERVER_SIZE, NEWS_SERVER_SIZE, SEARCH_SERVER_SIZE, ServerSpan, catalog_total,

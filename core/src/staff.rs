@@ -6,6 +6,15 @@ use crate::news::RoleColor;
 use crate::parse::{DJ_IMAGE_BASE, check_bound};
 
 pub const STAFF_URL: &str = "https://r-a-d.io/staff";
+pub const BOARD_STAFF_LABEL: &str = "Staff";
+pub const STAFF_GROUP_STAFF: &str = "Staff";
+pub const STAFF_GROUP_DEV: &str = "Developers";
+pub const STAFF_GROUP_DJ: &str = "DJs";
+
+#[uniffi::export]
+pub fn board_staff_label() -> String {
+    BOARD_STAFF_LABEL.to_string()
+}
 
 #[derive(Debug, Clone, PartialEq, uniffi::Record)]
 pub struct StaffCard {
@@ -29,17 +38,17 @@ pub fn parse_staff(html: &str) -> Result<Vec<StaffGroup>, ApiError> {
     Ok(vec![
         StaffGroup {
             role: RoleColor::Staff,
-            label: "Staff".into(),
+            label: STAFF_GROUP_STAFF.into(),
             cards: cards(staff, RoleColor::Staff),
         },
         StaffGroup {
             role: RoleColor::Dev,
-            label: "Developers".into(),
+            label: STAFF_GROUP_DEV.into(),
             cards: cards(dev, RoleColor::Dev),
         },
         StaffGroup {
             role: RoleColor::Dj,
-            label: "DJs".into(),
+            label: STAFF_GROUP_DJ.into(),
             cards: cards(dj, RoleColor::Dj),
         },
     ])

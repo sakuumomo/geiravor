@@ -6,6 +6,12 @@ use crate::parse::{DJ_IMAGE_BASE, check_bound};
 
 pub const SCHEDULE_URL: &str = "https://r-a-d.io/schedule";
 pub const EST_ZONE: &str = "America/New_York";
+pub const BOARD_SCHEDULE_LABEL: &str = "Schedule";
+
+#[uniffi::export]
+pub fn board_schedule_label() -> String {
+    BOARD_SCHEDULE_LABEL.to_string()
+}
 
 pub const WEEKDAYS: [&str; 7] = [
     "Monday",

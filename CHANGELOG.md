@@ -12,3 +12,4 @@ User-visible changes to **this** tree. 0.3.0 history lives on `legacy/0.3`.
 - News HTML + Coil images, `>>id` jump, local `data-dur` times, and role colors; shade ellipsize keeps `| DJ`; pager with `…` jump; Test connection; PEM Clear confirm; holiday frost aligned to the page wallpaper.
 - News, Request, and Favorites fill the pane by stitching server pages so only the true last leftover is short.
 - Thread embed long-press save/open (phone only); compact Now Playing logo badge; theme-radio hover; list row count locked across rotation.
+- Holiday theme sniff reuses news/schedule/staff HTML, GETs `/` at most hourly until the live pack matches, and Board section labels come from domain constants.
