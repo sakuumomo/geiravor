@@ -52,6 +52,20 @@ fun GeiravorRoot(
     LaunchedEffect(ui.pack) {
         setApplicationNightMode(ctx, themePackIsNight(ui.pack))
     }
+    LaunchedEffect(ui.status?.np, ui.listNick, ui.nick) {
+        val nick = ui.listNickOrConnection()
+        val s = ui.status
+        ui.offMain {
+            val hit = if (s == null || nick.isEmpty()) {
+                false
+            } else {
+                runCatching {
+                    core.membershipHas(nick, if (s.isAfk) s.trackId else 0, s.np)
+                }.getOrDefault(false)
+            }
+            ui.onMain { if (!ui.faveBusy) ui.heartFilled = hit }
+        }
+    }
     GeiravorTheme(ui.pack) {
         val t = LocalTokens.current
         BoxWithConstraints(Modifier.fillMaxSize()) {
@@ -143,8 +157,8 @@ private fun TabBody(
 ) {
     when (ui.tab) {
         BottomTab.NowPlaying -> NowPlayingScreen(ui, onPlay, onStop, onGain, onFave)
-        BottomTab.Songs -> SongsScreen(ui)
-        BottomTab.Board -> BoardScreen(ui)
+        BottomTab.Songs -> SongsScreen(ui, core)
+        BottomTab.Board -> BoardScreen(ui, core)
         BottomTab.Settings -> SettingsScreen(ui, core, secrets)
     }
 }

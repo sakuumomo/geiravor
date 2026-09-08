@@ -1,0 +1,243 @@
+//! News list + article HTML. See `docs/spec/news.md`.
+
+use crate::error::ApiError;
+use crate::html::{between, collapse_ws, decode_entities, strip_tags};
+use crate::parse::check_bound;
+
+pub const NEWS_URL: &str = "https://r-a-d.io/news";
+
+#[derive(Debug, Clone, PartialEq, uniffi::Record)]
+pub struct NewsCard {
+    pub id: i64,
+    pub title: String,
+    pub author: String,
+    pub date: String,
+    pub header: String,
+}
+
+#[derive(Debug, Clone, PartialEq, uniffi::Record)]
+pub struct NewsList {
+    pub page: u32,
+    pub last_page: u32,
+    pub cards: Vec<NewsCard>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, uniffi::Enum)]
+pub enum RoleColor {
+    None,
+    Staff,
+    Dj,
+    Dev,
+}
+
+#[derive(Debug, Clone, PartialEq, uniffi::Record)]
+pub struct NewsComment {
+    pub id: i64,
+    pub author: String,
+    pub when_utc: String,
+    pub body: String,
+    pub role: RoleColor,
+}
+
+#[derive(Debug, Clone, PartialEq, uniffi::Record)]
+pub struct NewsArticle {
+    pub id: i64,
+    pub title: String,
+    pub author: String,
+    pub body: String,
+    pub comments: Vec<NewsComment>,
+}
+
+pub fn news_list_url(page: u32) -> String {
+    if page <= 1 {
+        NEWS_URL.to_string()
+    } else {
+        format!("{NEWS_URL}?page={page}")
+    }
+}
+
+pub fn news_article_url(id: i64) -> String {
+    format!("{NEWS_URL}/{id}")
+}
+
+pub fn parse_news_list(html: &str, page: u32) -> Result<NewsList, ApiError> {
+    check_bound(html.as_bytes())?;
+    let mut cards = Vec::new();
+    let mut rest = html;
+    while let Some(i) = rest.find("href=\"/news/") {
+        rest = &rest[i + 12..];
+        let id_s: String = rest.chars().take_while(|c| c.is_ascii_digit()).collect();
+        let Ok(id) = id_s.parse::<i64>() else {
+            continue;
+        };
+        if id == 0 {
+            continue;
+        }
+        let chunk = rest.get(..2500).unwrap_or(rest);
+        if !chunk.contains("news-title") {
+            continue;
+        }
+        let title = between(chunk, "news-title", "</span>")
+            .map(|s| strip_tags(&s[s.find('>').map(|x| x + 1).unwrap_or(0)..]))
+            .unwrap_or_default();
+        let author = between(chunk, "page-home-news-author", "<time")
+            .and_then(|s| s.rsplit('>').next())
+            .map(strip_tags)
+            .unwrap_or_default();
+        let date = between(chunk, "page-home-news-date", "</time>")
+            .map(|s| strip_tags(&s[s.find('>').map(|x| x + 1).unwrap_or(0)..]))
+            .unwrap_or_default()
+            .trim_start_matches("on ")
+            .to_string();
+        let header = between(chunk, "message-body", "</div>")
+            .map(strip_tags)
+            .unwrap_or_default();
+        if title.is_empty() {
+            continue;
+        }
+        cards.push(NewsCard {
+            id,
+            title,
+            author,
+            date,
+            header,
+        });
+    }
+    let mut last_page = 1u32;
+    let mut pager = html;
+    while let Some(i) = pager.find("/news?page=") {
+        pager = &pager[i + 11..];
+        let digits: String = pager.chars().take_while(|c| c.is_ascii_digit()).collect();
+        if let Ok(n) = digits.parse::<u32>() {
+            last_page = last_page.max(n);
+        }
+    }
+    if cards.is_empty() {
+        last_page = page.max(1).saturating_sub(1).max(1);
+    } else if cards.len() < 20 {
+        last_page = last_page.max(page.max(1));
+    }
+    Ok(NewsList {
+        page: page.max(1),
+        last_page: last_page.max(1),
+        cards,
+    })
+}
+
+pub fn parse_news_article(html: &str, id: i64) -> Result<NewsArticle, ApiError> {
+    check_bound(html.as_bytes())?;
+    let single = html
+        .find("page-news-single")
+        .map(|i| &html[i..])
+        .unwrap_or(html);
+    let title = between(single, "news-title", "</span>")
+        .map(|s| strip_tags(&s[s.find('>').map(|x| x + 1).unwrap_or(0)..]))
+        .unwrap_or_default();
+    let header_span = between(single, "message-header", "</div>").unwrap_or("");
+    let author = strip_tags(
+        header_span
+            .rsplit("<span")
+            .next()
+            .and_then(|s| s.find('>').map(|i| &s[i + 1..]))
+            .unwrap_or(""),
+    );
+    let body_raw = between(single, "message-body", "</div>").unwrap_or("");
+    let body = article_body(body_raw);
+    let comments = parse_comments(single);
+    Ok(NewsArticle {
+        id,
+        title,
+        author,
+        body,
+        comments,
+    })
+}
+
+fn article_body(raw: &str) -> String {
+    let mut s = raw.to_string();
+    while let Some(i) = s.find("data-type=\"medium\"") {
+        let start = s[..i].rfind("<time").unwrap_or(i);
+        let end = s[i..].find("</time>").map(|e| i + e + 7).unwrap_or(s.len());
+        s.replace_range(start..end, "");
+    }
+    let s = s.replace("<strong></strong>", "");
+    collapse_ws(&strip_tags(&s))
+}
+
+fn parse_comments(html: &str) -> Vec<NewsComment> {
+    let mut out = Vec::new();
+    let mut rest = html;
+    while let Some(i) = rest.find("id=\"comment-") {
+        rest = &rest[i + 12..];
+        let id_s: String = rest.chars().take_while(|c| c.is_ascii_digit()).collect();
+        let Ok(id) = id_s.parse::<i64>() else {
+            continue;
+        };
+        let chunk = rest.get(..2000).unwrap_or(rest);
+        let role = if chunk.contains("is-color-staff") {
+            RoleColor::Staff
+        } else if chunk.contains("is-color-dj") {
+            RoleColor::Dj
+        } else if chunk.contains("is-color-dev") {
+            RoleColor::Dev
+        } else {
+            RoleColor::None
+        };
+        let author = between(chunk, "ml-1", "</div>")
+            .map(strip_tags)
+            .unwrap_or_default();
+        let when_utc = between(chunk, "text-align:end", "</div>")
+            .map(|s| strip_tags(&s[s.find('>').map(|x| x + 1).unwrap_or(0)..]))
+            .unwrap_or_default();
+        let body = between(chunk, "class=\"p-4\"", "</div>")
+            .map(|s| collapse_ws(&decode_entities(&strip_tags(s))))
+            .unwrap_or_default();
+        out.push(NewsComment {
+            id,
+            author,
+            when_utc,
+            body,
+            role,
+        });
+    }
+    out
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn list_cards_and_pager() {
+        let list = parse_news_list(include_str!("../tests/fixtures/news_list.html"), 1).unwrap();
+        assert!(list.cards.len() >= 10);
+        assert_eq!(list.cards[0].id, 82);
+        assert!(list.cards[0].title.contains("lentines"));
+        assert_eq!(list.cards[0].author, "claud");
+        assert_eq!(list.cards[0].date, "2026-02-02");
+        assert!(list.last_page >= 4);
+        assert!(!list.cards[0].header.is_empty());
+    }
+
+    #[test]
+    fn article_skips_timeago_and_reads_comments() {
+        let a =
+            parse_news_article(include_str!("../tests/fixtures/news_article.html"), 82).unwrap();
+        assert_eq!(a.id, 82);
+        assert!(a.title.contains("lentines"));
+        assert!(!a.body.contains("217 days"));
+        assert!(a.body.contains("Good evening"));
+        assert!(a.comments.iter().any(|c| c.id == 5282));
+        let staff = a.comments.iter().find(|c| c.id == 5279).unwrap();
+        assert_eq!(staff.role, RoleColor::Staff);
+        assert!(staff.author.contains("Ojiisan"));
+        assert!(staff.body.contains("5276"));
+    }
+
+    #[test]
+    fn empty_html_page_is_past_last() {
+        let list = parse_news_list("<html></html>", 9).unwrap();
+        assert!(list.cards.is_empty());
+        assert_eq!(list.last_page, 8);
+    }
+}

@@ -13,6 +13,13 @@ pub trait HttpClient: Send + Sync {
     fn post_csrf(&self, url: &str, token: &str, form: &[(&str, &str)])
     -> Result<Vec<u8>, ApiError>;
     fn post_form(&self, url: &str, form: &[(&str, &str)]) -> Result<Vec<u8>, ApiError>;
+    /// POST with CSRF; returns status + body so 403 can retry.
+    fn post_csrf_raw(
+        &self,
+        url: &str,
+        token: &str,
+        form: &[(&str, &str)],
+    ) -> Result<(u16, Vec<u8>), ApiError>;
 }
 
 /// Process-wide blocking reqwest + rustls + cookie jar.
@@ -58,6 +65,19 @@ impl HttpClient for ReqwestClient {
         token: &str,
         form: &[(&str, &str)],
     ) -> Result<Vec<u8>, ApiError> {
+        let (code, bytes) = self.post_csrf_raw(url, token, form)?;
+        if !(200..300).contains(&code) {
+            return Err(ApiError::Http { code });
+        }
+        Ok(bytes)
+    }
+
+    fn post_csrf_raw(
+        &self,
+        url: &str,
+        token: &str,
+        form: &[(&str, &str)],
+    ) -> Result<(u16, Vec<u8>), ApiError> {
         tracing::debug!(url, "POST csrf");
         let res = self
             .inner
@@ -69,14 +89,11 @@ impl HttpClient for ReqwestClient {
                 detail: e.to_string(),
             })?;
         let code = res.status().as_u16();
-        if !res.status().is_success() {
-            return Err(ApiError::Http { code });
-        }
         let bytes = res.bytes().map_err(|e| ApiError::Network {
             detail: e.to_string(),
         })?;
         crate::parse::check_bound(&bytes)?;
-        Ok(bytes.to_vec())
+        Ok((code, bytes.to_vec()))
     }
 
     fn post_form(&self, url: &str, form: &[(&str, &str)]) -> Result<Vec<u8>, ApiError> {
@@ -150,6 +167,15 @@ impl<C: HttpClient> Coalescer<C> {
         self.inner.post_csrf(url, token, form)
     }
 
+    pub fn post_csrf_raw(
+        &self,
+        url: &str,
+        token: &str,
+        form: &[(&str, &str)],
+    ) -> Result<(u16, Vec<u8>), ApiError> {
+        self.inner.post_csrf_raw(url, token, form)
+    }
+
     pub fn post_form(&self, url: &str, form: &[(&str, &str)]) -> Result<Vec<u8>, ApiError> {
         self.inner.post_form(url, form)
     }
@@ -176,6 +202,14 @@ mod tests {
             unimplemented!()
         }
         fn post_form(&self, _: &str, _: &[(&str, &str)]) -> Result<Vec<u8>, ApiError> {
+            unimplemented!()
+        }
+        fn post_csrf_raw(
+            &self,
+            _: &str,
+            _: &str,
+            _: &[(&str, &str)],
+        ) -> Result<(u16, Vec<u8>), ApiError> {
             unimplemented!()
         }
     }

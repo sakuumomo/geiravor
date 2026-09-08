@@ -1,18 +1,33 @@
 //! Process-wide domain. UniFFI constructor takes `files_dir` from the shell.
 
+use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 use std::thread;
 use std::time::Duration;
 
 use crate::error::ApiError;
+use crate::faves::{
+    FaveRow, faves_html_last_page, faves_html_url, faves_json_url, parse_faves_json,
+    trim_faves_overlap,
+};
+use crate::html::extract_csrf;
 use crate::irc::{
     FaveConfig, FaveResult, IrcProfile, RIZON_HOST, RIZON_PORT, TapSnapshot, attach_nick,
     connect_irc, irc_nick, nick_is_empty, run_add_fave, with_retries,
 };
 use crate::net::{Coalescer, HttpClient, ReqwestClient};
+use crate::news::{
+    NewsArticle, NewsList, news_article_url, news_list_url, parse_news_article, parse_news_list,
+};
 use crate::parse::{API_URL, HOME_URL, Status, parse_status, parse_status_str, parse_theme_name};
 use crate::poll::poll_interval;
 use crate::reducer::{NowPlayingEvent, NowPlayingState, reduce};
+use crate::schedule::{SCHEDULE_URL, ScheduleDay, parse_schedule};
+use crate::search::{
+    CAN_REQUEST_URL, RequestResult, SEARCH_HTML_URL, SearchPage, parse_can_request,
+    parse_request_body, parse_search, request_url, search_url,
+};
+use crate::staff::{STAFF_URL, StaffGroup, parse_staff};
 use crate::store::Store;
 
 /// Callbacks from the poller. Arrive off the Android main thread.
@@ -30,6 +45,7 @@ struct Inner<C: HttpClient> {
     listeners: Mutex<Vec<Box<dyn StatusListener>>>,
     poller_started: Mutex<bool>,
     fave_busy: Mutex<bool>,
+    search_ram: Mutex<HashMap<(String, u32), SearchPage>>,
 }
 
 /// Named UniFFI surface. Kotlin must not call this on the main thread for GET/sqlite.
@@ -61,6 +77,7 @@ impl RadioCore {
                 listeners: Mutex::new(Vec::new()),
                 poller_started: Mutex::new(false),
                 fave_busy: Mutex::new(false),
+                search_ram: Mutex::new(HashMap::new()),
             }),
         }))
     }
@@ -168,6 +185,247 @@ impl RadioCore {
         Ok(parse_theme_name(&text))
     }
 
+    pub fn cached_news_list(&self, page: u32) -> Result<NewsList, ApiError> {
+        let page = page.max(1);
+        match self.inner.store.get(&format!("news:list:{page}"))? {
+            Some(html) if !html.is_empty() => parse_news_list(&html, page),
+            _ => Ok(NewsList {
+                page,
+                last_page: 1,
+                cards: Vec::new(),
+            }),
+        }
+    }
+
+    pub fn fetch_news_list(&self, page: u32) -> Result<NewsList, ApiError> {
+        let page = page.max(1);
+        let bytes = self.inner.http.get(&news_list_url(page))?;
+        let html = String::from_utf8_lossy(&bytes).into_owned();
+        let _ = self
+            .inner
+            .store
+            .put_if_changed(&format!("news:list:{page}"), &html)?;
+        parse_news_list(&html, page)
+    }
+
+    pub fn cached_news_article(&self, id: i64) -> Result<Option<NewsArticle>, ApiError> {
+        match self.inner.store.get(&format!("news:article:{id}"))? {
+            Some(html) if !html.is_empty() => Ok(Some(parse_news_article(&html, id)?)),
+            _ => Ok(None),
+        }
+    }
+
+    pub fn fetch_news_article(&self, id: i64) -> Result<NewsArticle, ApiError> {
+        let bytes = self.inner.http.get(&news_article_url(id))?;
+        let html = String::from_utf8_lossy(&bytes).into_owned();
+        let _ = self
+            .inner
+            .store
+            .put_if_changed(&format!("news:article:{id}"), &html)?;
+        parse_news_article(&html, id)
+    }
+
+    pub fn post_comment(&self, id: i64, body: String) -> Result<NewsArticle, ApiError> {
+        let text = body.trim();
+        if text.is_empty() || text.len() > 500 {
+            return Err(ApiError::Decode {
+                detail: "comment empty or too long".into(),
+            });
+        }
+        let token = self.csrf_token()?;
+        let url = news_article_url(id);
+        let form = [("comment", text)];
+        let (code, bytes) = self.inner.http.post_csrf_raw(&url, &token, &form)?;
+        if code == 403 {
+            let token = self.csrf_token()?;
+            let (code2, bytes2) = self.inner.http.post_csrf_raw(&url, &token, &form)?;
+            if !(200..300).contains(&code2) {
+                return Err(ApiError::Http { code: code2 });
+            }
+            let html = String::from_utf8_lossy(&bytes2).into_owned();
+            let _ = self
+                .inner
+                .store
+                .put_if_changed(&format!("news:article:{id}"), &html)?;
+            return parse_news_article(&html, id);
+        }
+        if !(200..300).contains(&code) {
+            return Err(ApiError::Http { code });
+        }
+        let html = String::from_utf8_lossy(&bytes).into_owned();
+        let _ = self
+            .inner
+            .store
+            .put_if_changed(&format!("news:article:{id}"), &html)?;
+        parse_news_article(&html, id)
+    }
+
+    pub fn cached_schedule(&self) -> Result<Vec<ScheduleDay>, ApiError> {
+        match self.inner.store.get("schedule")? {
+            Some(html) if !html.is_empty() => parse_schedule(&html),
+            _ => Ok(Vec::new()),
+        }
+    }
+
+    pub fn fetch_schedule(&self) -> Result<Vec<ScheduleDay>, ApiError> {
+        let bytes = self.inner.http.get(SCHEDULE_URL)?;
+        let html = String::from_utf8_lossy(&bytes).into_owned();
+        let _ = self.inner.store.put_if_changed("schedule", &html)?;
+        parse_schedule(&html)
+    }
+
+    pub fn cached_staff(&self) -> Result<Vec<StaffGroup>, ApiError> {
+        match self.inner.store.get("staff")? {
+            Some(html) if !html.is_empty() => parse_staff(&html),
+            _ => Ok(Vec::new()),
+        }
+    }
+
+    pub fn fetch_staff(&self) -> Result<Vec<StaffGroup>, ApiError> {
+        let bytes = self.inner.http.get(STAFF_URL)?;
+        let html = String::from_utf8_lossy(&bytes).into_owned();
+        let _ = self.inner.store.put_if_changed("staff", &html)?;
+        parse_staff(&html)
+    }
+
+    pub fn search(&self, query: String, page: u32) -> Result<SearchPage, ApiError> {
+        let q = query.trim().to_string();
+        let page = page.max(1);
+        if q.is_empty() {
+            return Ok(SearchPage {
+                total: 0,
+                per_page: 20,
+                current_page: 1,
+                last_page: 1,
+                tracks: Vec::new(),
+            });
+        }
+        if page != 1 {
+            let ram = self.inner.search_ram.lock().expect("search");
+            if let Some(hit) = ram.get(&(q.clone(), page)) {
+                return Ok(hit.clone());
+            }
+        }
+        let bytes = self.inner.http.get(&search_url(&q, page))?;
+        let parsed = parse_search(&bytes)?;
+        self.inner
+            .search_ram
+            .lock()
+            .expect("search")
+            .insert((q, page), parsed.clone());
+        Ok(parsed)
+    }
+
+    pub fn can_request(&self) -> Result<bool, ApiError> {
+        let bytes = self.inner.http.get(CAN_REQUEST_URL)?;
+        parse_can_request(&bytes)
+    }
+
+    pub fn request_track(&self, id: i64) -> Result<RequestResult, ApiError> {
+        if id <= 0 {
+            return Ok(RequestResult {
+                ok: false,
+                text: "unknown id".into(),
+            });
+        }
+        let url = request_url(id);
+        let token = self.csrf_token()?;
+        let (code, body) = self.inner.http.post_csrf_raw(&url, &token, &[])?;
+        if code == 403 {
+            let token = self.csrf_token()?;
+            let (code2, body2) = self.inner.http.post_csrf_raw(&url, &token, &[])?;
+            if !(200..300).contains(&code2) {
+                return Err(ApiError::Http { code: code2 });
+            }
+            return parse_request_body(&body2);
+        }
+        if !(200..300).contains(&code) {
+            return Err(ApiError::Http { code });
+        }
+        parse_request_body(&body)
+    }
+
+    pub fn cached_faves(&self, nick: String, page: u32) -> Result<Vec<FaveRow>, ApiError> {
+        let nick = nick.trim().to_string();
+        let page = page.max(1);
+        if nick.is_empty() {
+            return Ok(Vec::new());
+        }
+        match self.inner.store.get(&format!("faves:{nick}:{page}"))? {
+            Some(json) if !json.is_empty() => parse_faves_json(json.as_bytes()),
+            _ => Ok(Vec::new()),
+        }
+    }
+
+    pub fn fetch_faves(&self, nick: String, page: u32) -> Result<Vec<FaveRow>, ApiError> {
+        let nick = nick.trim().to_string();
+        let page = page.max(1);
+        if nick.is_empty() {
+            return Ok(Vec::new());
+        }
+        let bytes = self.inner.http.get(&faves_json_url(&nick, page))?;
+        let rows = parse_faves_json(&bytes)?;
+        let _ = self.inner.store.put_if_changed(
+            &format!("faves:{nick}:{page}"),
+            &String::from_utf8_lossy(&bytes),
+        )?;
+        Ok(rows)
+    }
+
+    pub fn faves_last_page(&self, nick: String) -> Result<u32, ApiError> {
+        let nick = nick.trim().to_string();
+        if nick.is_empty() {
+            return Ok(1);
+        }
+        let bytes = self.inner.http.get(&faves_html_url(&nick))?;
+        let html = String::from_utf8_lossy(&bytes);
+        Ok(faves_html_last_page(&html))
+    }
+
+    pub fn trim_fave_page(&self, prev: Vec<FaveRow>, last: Vec<FaveRow>) -> Vec<FaveRow> {
+        trim_faves_overlap(&prev, last)
+    }
+
+    pub fn membership_has(
+        &self,
+        nick: String,
+        track_id: i64,
+        np: String,
+    ) -> Result<bool, ApiError> {
+        let nick = nick.trim().to_string();
+        if nick.is_empty() {
+            return Ok(false);
+        }
+        let Some(raw) = self.inner.store.get(&format!("membership:{nick}"))? else {
+            return Ok(false);
+        };
+        if track_id > 0 && raw.lines().any(|l| l.starts_with(&format!("{track_id}\t"))) {
+            return Ok(true);
+        }
+        if !np.trim().is_empty() {
+            return Ok(raw
+                .lines()
+                .any(|l| l.ends_with(&format!("\t{}", np.trim()))));
+        }
+        Ok(false)
+    }
+
+    pub fn remember_membership(&self, nick: String, rows: Vec<FaveRow>) -> Result<(), ApiError> {
+        let nick = nick.trim().to_string();
+        if nick.is_empty() {
+            return Ok(());
+        }
+        let raw = rows
+            .iter()
+            .map(|r| format!("{}\t{} - {}", r.tracks_id, r.artist, r.title))
+            .collect::<Vec<_>>()
+            .join("\n");
+        self.inner
+            .store
+            .put_if_changed(&format!("membership:{nick}"), &raw)?;
+        Ok(())
+    }
+
     /// IRC add/remove fave. Empty nick is a no-op. Worker-thread only.
     pub fn add_fave(&self, cfg: FaveConfig, unfave: bool, catalog_id: i64) -> FaveResult {
         {
@@ -184,6 +442,14 @@ impl RadioCore {
 }
 
 impl RadioCore {
+    fn csrf_token(&self) -> Result<String, ApiError> {
+        let bytes = self.inner.http.get(SEARCH_HTML_URL)?;
+        let html = String::from_utf8_lossy(&bytes);
+        extract_csrf(&html).ok_or(ApiError::Decode {
+            detail: "csrf token missing".into(),
+        })
+    }
+
     fn add_fave_inner(&self, cfg: FaveConfig, unfave: bool, catalog_id: i64) -> FaveResult {
         if nick_is_empty(irc_nick(&cfg)) {
             return FaveResult::noop();

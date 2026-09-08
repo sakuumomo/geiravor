@@ -1,0 +1,765 @@
+
+<!DOCTYPE html>
+<html style="height:100%;">
+
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="application-name" content="r/a/dio" />
+    <meta name="description" content="online anime/japanese music radio stream" />
+    <link rel="manifest" href="/assets/manifest.json" />
+    <title>R/a/dio</title>
+    <link rel="shortcut icon" href="/assets/favicon.png" type="image/x-icon" />
+    <link rel="icon" href="/assets/images/logo_image_small.png" type="image/png" />
+    <link rel="apple-touch-icon" href="/assets/images/apple_touch_icon.png" type="image/png" />
+    <link rel="search" type="application/opensearchdescription+xml" title="r/a/dio" href="/assets/opensearch.xml" />
+    <script src="/assets/js/htmx.min.js"></script>
+    <script src="/assets/js/htmx-sse.js"></script>
+    <script src="/assets/js/htmx-head.js"></script>
+    <script src="/assets/js/radio.js"></script>
+    <meta name="htmx-config"
+        content='{"responseHandling":[{"code":"204", "swap": false}, {"code":"[23]..", "swap": true}, {"code":"[4]..", "swap": true, "error": true}, {"code": "500", "swap": true, "error": true}]}' />
+    
+<link rel="stylesheet" href="/assets/default-dark/css/bulma.min.css" />
+<link rel="preload" href="/assets/default-dark/css/fonts.css" as="style" />
+<link rel="preload" href="/assets/default-dark/css/main.css" as="style" />
+<link rel="stylesheet" href="/assets/default-dark/css/fonts.css" />
+<link rel="stylesheet" href="/assets/default-dark/css/main.css" />
+
+<style id="custom-css"></style>
+<script src="/assets/default-dark/js/theme.js"></script>
+
+    
+    
+</head>
+
+<body class="theme-dark" style="display:flex;flex-direction:column;height:100%;" hx-ext="head-support" hx-indicator="#loading-indicator">
+    
+    <div id="player" style="display: none;">
+        <audio id="stream-audio" preload="none">
+            <source src="//relay1.r-a-d.io/main.mp3" type="audio/mpeg" />
+        </audio>
+    </div>
+    
+
+    <div id="content" hx-history-elt>
+    
+        
+        
+<nav class="navbar is-dark" role="navigation" hx-boost="true" hx-push-url="true" hx-target="#content">
+    <div class="navbar-brand is-hidden-desktop">
+        <a class="navbar-item" href="/">
+            <img src="/assets/images/logotitle_2.png" alt="r/a/dio logo">
+        </a>
+        
+        <a role="button" class="navbar-burger" aria-label="menu" aria-expanded="false" data-target="public-navbar" onclick="this.classList.toggle('is-active'); document.getElementById(this.dataset.target).classList.toggle('is-active')">
+            <span aria-hidden="true"></span>
+            <span aria-hidden="true"></span>
+            <span aria-hidden="true"></span>
+            <span aria-hidden="true"></span>
+        </a>
+    </div>
+    <div id="public-navbar" class="navbar-menu is-justify-content-center">
+        <div class="navbar-container has-background-radio-primary-2 is-flex is-justify-content-space-evenly">
+            <a id="radio-logo" class="navbar-item is-hidden-touch" href="/">
+                <img src="/assets/images/logotitle_2.png" alt="r/a/dio logo">
+            </a>
+            <div class="navbar-start has-text-centered">
+            
+                <a class="navbar-item"  href="/news">News</a>
+            
+                <a class="navbar-item"  href="/help">Help</a>
+            
+                <a class="navbar-item"  href="/irc">Chat</a>
+            
+                <a class="navbar-item"  href="/search">Search</a>
+            
+                <a class="navbar-item"  href="/schedule">Schedule</a>
+            
+                <a class="navbar-item"  href="/last-played">Last Played</a>
+            
+                <a class="navbar-item"  href="/queue">Queue</a>
+            
+                <a class="navbar-item"  href="/faves">Favorites</a>
+            
+                <a class="navbar-item"  href="/staff">Staff</a>
+            
+                <a class="navbar-item"  href="/submit">Submit</a>
+            
+            </div>
+            <div class="pl-3 navbar-end is-hidden-touch">
+                <form class="my-auto" method="GET" action="/search" accept-charset="UTF-8">
+                    <input id="navbarinput" hx-push-url="false" hx-get="/v1/search" hx-trigger="input changed delay:250ms" hx-target="#search-bar" class="input has-text-centered" type="text" name="q" placeholder="Type to search and request" role="search" onblur="clearNavbarSearchValue(event)" style="font-size: 0.95rem;">
+                </form>
+                <div id="search-bar" style="position: absolute;"></div>
+            </div>
+        </div>
+        
+    </div>
+</nav>
+<progress id="loading-indicator" class="progress is-small is-primary htmx-indicator"></progress>
+
+
+        
+        <div id="error-container">
+        
+<template id="error-template">
+    
+    <div class="container">
+        <div class="notification is-warning mt-2">
+            <button data-target=".container" onclick="removeTargetOnClick(this)" class="delete"></button>
+            <div class="error-message has-text-centered">An error has occurred</div>
+        </div>
+    </div>
+    
+</template>
+
+        </div>
+        
+<section class="section">
+    <div id="page-news" class="container content">
+        <div id="news-content" hx-boost="true" hx-push-url="true" hx-target="#content" class="columns is-multiline">
+            
+                
+<div class="column is-12">
+    <article class="message m-0 p-0">
+        <a href="/news/82">
+            <div class="message-header has-background-radio-primary-2 on-hover-darken py-2">
+                <span class="news-title has-word-break-all pr-2">V/a/lentines Stream 2026</span>
+                <span class="page-home-news-author" style="display:flex;flex-direction:column;text-decoration:none;font-size:0.8rem;text-align:right;">claud<time class="has-text-weight-bold page-home-news-date pl-2" datetime="1770072157">on 2026-02-02</time></span>
+            </div>
+
+        </a>
+        <div class="message-body has-background-radio-secondary-1 disable-message-border">
+            <p>God fuckin help me I'm old, but it's that time of the year</p>
+
+        </div>
+    </article>
+</div>
+
+            
+                
+<div class="column is-12">
+    <article class="message m-0 p-0">
+        <a href="/news/81">
+            <div class="message-header has-background-radio-primary-2 on-hover-darken py-2">
+                <span class="news-title has-word-break-all pr-2">Holid/a/y Stre/a/ms 2025 Schedule</span>
+                <span class="page-home-news-author" style="display:flex;flex-direction:column;text-decoration:none;font-size:0.8rem;text-align:right;">kipukun<time class="has-text-weight-bold page-home-news-date pl-2" datetime="1765676989">on 2025-12-14</time></span>
+            </div>
+
+        </a>
+        <div class="message-body has-background-radio-secondary-1 disable-message-border">
+            <p>holiday stream schedule 2025 ... some would say the best. greatest even</p>
+
+        </div>
+    </article>
+</div>
+
+            
+                
+<div class="column is-12">
+    <article class="message m-0 p-0">
+        <a href="/news/80">
+            <div class="message-header has-background-radio-primary-2 on-hover-darken py-2">
+                <span class="news-title has-word-break-all pr-2">Halloween</span>
+                <span class="page-home-news-author" style="display:flex;flex-direction:column;text-decoration:none;font-size:0.8rem;text-align:right;">exci<time class="has-text-weight-bold page-home-news-date pl-2" datetime="1761258748">on 2025-10-23</time></span>
+            </div>
+
+        </a>
+        <div class="message-body has-background-radio-secondary-1 disable-message-border">
+            <p>Fright-day Night Faggotry</p>
+
+        </div>
+    </article>
+</div>
+
+            
+                
+<div class="column is-12">
+    <article class="message m-0 p-0">
+        <a href="/news/79">
+            <div class="message-header has-background-radio-primary-2 on-hover-darken py-2">
+                <span class="news-title has-word-break-all pr-2">V/a/lentine&#39;s Stream &amp; New Site</span>
+                <span class="page-home-news-author" style="display:flex;flex-direction:column;text-decoration:none;font-size:0.8rem;text-align:right;">exci<time class="has-text-weight-bold page-home-news-date pl-2" datetime="1738703523">on 2025-02-04</time></span>
+            </div>
+
+        </a>
+        <div class="message-body has-background-radio-secondary-1 disable-message-border">
+            <p>After 8 years in development, hopefully it'll have been worth the weight.</p>
+
+        </div>
+    </article>
+</div>
+
+            
+                
+<div class="column is-12">
+    <article class="message m-0 p-0">
+        <a href="/news/78">
+            <div class="message-header has-background-radio-primary-2 on-hover-darken py-2">
+                <span class="news-title has-word-break-all pr-2">Holid/a/y Stre/a/ms 2024 Schedule</span>
+                <span class="page-home-news-author" style="display:flex;flex-direction:column;text-decoration:none;font-size:0.8rem;text-align:right;">exci<time class="has-text-weight-bold page-home-news-date pl-2" datetime="1733848665">on 2024-12-10</time></span>
+            </div>
+
+        </a>
+        <div class="message-body has-background-radio-secondary-1 disable-message-border">
+            <p>In a move that took everyone by surprise, we decided to do holiday streams this year, too.<br>
+Happy new years!</p>
+
+        </div>
+    </article>
+</div>
+
+            
+                
+<div class="column is-12">
+    <article class="message m-0 p-0">
+        <a href="/news/77">
+            <div class="message-header has-background-radio-primary-2 on-hover-darken py-2">
+                <span class="news-title has-word-break-all pr-2">Halloween</span>
+                <span class="page-home-news-author" style="display:flex;flex-direction:column;text-decoration:none;font-size:0.8rem;text-align:right;">exci<time class="has-text-weight-bold page-home-news-date pl-2" datetime="1730330093">on 2024-10-30</time></span>
+            </div>
+
+        </a>
+        <div class="message-body has-background-radio-secondary-1 disable-message-border">
+            <p>Trick or stream?</p>
+
+        </div>
+    </article>
+</div>
+
+            
+                
+<div class="column is-12">
+    <article class="message m-0 p-0">
+        <a href="/news/76">
+            <div class="message-header has-background-radio-primary-2 on-hover-darken py-2">
+                <span class="news-title has-word-break-all pr-2">V/a/lentines Stream</span>
+                <span class="page-home-news-author" style="display:flex;flex-direction:column;text-decoration:none;font-size:0.8rem;text-align:right;">claud<time class="has-text-weight-bold page-home-news-date pl-2" datetime="1706654988">on 2024-01-30</time></span>
+            </div>
+
+        </a>
+        <div class="message-body has-background-radio-secondary-1 disable-message-border">
+            <p>It's that time of the year again. High score here we go!</p>
+
+        </div>
+    </article>
+</div>
+
+            
+                
+<div class="column is-12">
+    <article class="message m-0 p-0">
+        <a href="/news/75">
+            <div class="message-header has-background-radio-primary-2 on-hover-darken py-2">
+                <span class="news-title has-word-break-all pr-2">Holid/a/y Stre/a/ms 2023 Schedule</span>
+                <span class="page-home-news-author" style="display:flex;flex-direction:column;text-decoration:none;font-size:0.8rem;text-align:right;">exci<time class="has-text-weight-bold page-home-news-date pl-2" datetime="1702175768">on 2023-12-10</time></span>
+            </div>
+
+        </a>
+        <div class="message-body has-background-radio-secondary-1 disable-message-border">
+            <p>Were you expecting Kethsar to make this post? Too bad it's me<br>
+Happy new years!</p>
+
+        </div>
+    </article>
+</div>
+
+            
+                
+<div class="column is-12">
+    <article class="message m-0 p-0">
+        <a href="/news/74">
+            <div class="message-header has-background-radio-primary-2 on-hover-darken py-2">
+                <span class="news-title has-word-break-all pr-2">Doogle Sundays are Moving!</span>
+                <span class="page-home-news-author" style="display:flex;flex-direction:column;text-decoration:none;font-size:0.8rem;text-align:right;">mcdoogle<time class="has-text-weight-bold page-home-news-date pl-2" datetime="1695603983">on 2023-09-25</time></span>
+            </div>
+
+        </a>
+        <div class="message-body has-background-radio-secondary-1 disable-message-border">
+            <p>But where should they go?</p>
+
+        </div>
+    </article>
+</div>
+
+            
+                
+<div class="column is-12">
+    <article class="message m-0 p-0">
+        <a href="/news/73">
+            <div class="message-header has-background-radio-primary-2 on-hover-darken py-2">
+                <span class="news-title has-word-break-all pr-2">V/a/lentine&#39;s Day 2023 Stream</span>
+                <span class="page-home-news-author" style="display:flex;flex-direction:column;text-decoration:none;font-size:0.8rem;text-align:right;">Kethsar<time class="has-text-weight-bold page-home-news-date pl-2" datetime="1675092274">on 2023-01-30</time></span>
+            </div>
+
+        </a>
+        <div class="message-body has-background-radio-secondary-1 disable-message-border">
+            <p>Our resident bartending goose is looking to increase his score once again.</p>
+
+        </div>
+    </article>
+</div>
+
+            
+                
+<div class="column is-12">
+    <article class="message m-0 p-0">
+        <a href="/news/72">
+            <div class="message-header has-background-radio-primary-2 on-hover-darken py-2">
+                <span class="news-title has-word-break-all pr-2">Happy new years</span>
+                <span class="page-home-news-author" style="display:flex;flex-direction:column;text-decoration:none;font-size:0.8rem;text-align:right;">exci<time class="has-text-weight-bold page-home-news-date pl-2" datetime="1672629158">on 2023-01-02</time></span>
+            </div>
+
+        </a>
+        <div class="message-body has-background-radio-secondary-1 disable-message-border">
+            <p>Not much to say but someone asked so whatever</p>
+
+        </div>
+    </article>
+</div>
+
+            
+                
+<div class="column is-12">
+    <article class="message m-0 p-0">
+        <a href="/news/71">
+            <div class="message-header has-background-radio-primary-2 on-hover-darken py-2">
+                <span class="news-title has-word-break-all pr-2">Holid/a/y Stre/a/ms 2022 Schedule</span>
+                <span class="page-home-news-author" style="display:flex;flex-direction:column;text-decoration:none;font-size:0.8rem;text-align:right;">Kethsar<time class="has-text-weight-bold page-home-news-date pl-2" datetime="1670652110">on 2022-12-10</time></span>
+            </div>
+
+        </a>
+        <div class="message-body has-background-radio-secondary-1 disable-message-border">
+            <p>We've made it through another year, and it's time for the only days (You) listen to r/a/dio.</p>
+
+        </div>
+    </article>
+</div>
+
+            
+                
+<div class="column is-12">
+    <article class="message m-0 p-0">
+        <a href="/news/69">
+            <div class="message-header has-background-radio-primary-2 on-hover-darken py-2">
+                <span class="news-title has-word-break-all pr-2">Valentine&#39;s Day 2022 Stream</span>
+                <span class="page-home-news-author" style="display:flex;flex-direction:column;text-decoration:none;font-size:0.8rem;text-align:right;">Kethsar<time class="has-text-weight-bold page-home-news-date pl-2" datetime="1644419191">on 2022-02-09</time></span>
+            </div>
+
+        </a>
+        <div class="message-body has-background-radio-secondary-1 disable-message-border">
+            <p>Haven't sudoku'd yet? Let Claud help you with that, with his annual Valentine's Day stream.</p>
+
+        </div>
+    </article>
+</div>
+
+            
+                
+<div class="column is-12">
+    <article class="message m-0 p-0">
+        <a href="/news/68">
+            <div class="message-header has-background-radio-primary-2 on-hover-darken py-2">
+                <span class="news-title has-word-break-all pr-2">Happy new years</span>
+                <span class="page-home-news-author" style="display:flex;flex-direction:column;text-decoration:none;font-size:0.8rem;text-align:right;">exci<time class="has-text-weight-bold page-home-news-date pl-2" datetime="1641059051">on 2022-01-01</time></span>
+            </div>
+
+        </a>
+        <div class="message-body has-background-radio-secondary-1 disable-message-border">
+            <p>The usual stuff</p>
+<p>Also, new stuff under<br>
+More Options -&gt; Preferences</p>
+
+        </div>
+    </article>
+</div>
+
+            
+                
+<div class="column is-12">
+    <article class="message m-0 p-0">
+        <a href="/news/67">
+            <div class="message-header has-background-radio-primary-2 on-hover-darken py-2">
+                <span class="news-title has-word-break-all pr-2">Holid/a/y Stre/a/ms 2021 Schedule</span>
+                <span class="page-home-news-author" style="display:flex;flex-direction:column;text-decoration:none;font-size:0.8rem;text-align:right;">Kethsar<time class="has-text-weight-bold page-home-news-date pl-2" datetime="1638920136">on 2021-12-07</time></span>
+            </div>
+
+        </a>
+        <div class="message-body has-background-radio-secondary-1 disable-message-border">
+            <p>It may look like we're on life support, but R/a/dio still lives.<br>
+Join us for another year of gata goto choo choo, Super Special, JIBUN WOOOOOOOOO, and all your favourites no one will play.</p>
+
+        </div>
+    </article>
+</div>
+
+            
+                
+<div class="column is-12">
+    <article class="message m-0 p-0">
+        <a href="/news/66">
+            <div class="message-header has-background-radio-primary-2 on-hover-darken py-2">
+                <span class="news-title has-word-break-all pr-2">Minor site update</span>
+                <span class="page-home-news-author" style="display:flex;flex-direction:column;text-decoration:none;font-size:0.8rem;text-align:right;">exci<time class="has-text-weight-bold page-home-news-date pl-2" datetime="1616359475">on 2021-03-21</time></span>
+            </div>
+
+        </a>
+        <div class="message-body has-background-radio-secondary-1 disable-message-border">
+            <p>I added some stuff to the submit page</p>
+<p>Update: clarified why your submissions get declined</p>
+
+        </div>
+    </article>
+</div>
+
+            
+                
+<div class="column is-12">
+    <article class="message m-0 p-0">
+        <a href="/news/65">
+            <div class="message-header has-background-radio-primary-2 on-hover-darken py-2">
+                <span class="news-title has-word-break-all pr-2">V/a/lentine&#39;s 2021 Stream</span>
+                <span class="page-home-news-author" style="display:flex;flex-direction:column;text-decoration:none;font-size:0.8rem;text-align:right;">Kethsar<time class="has-text-weight-bold page-home-news-date pl-2" datetime="1612599550">on 2021-02-06</time></span>
+            </div>
+
+        </a>
+        <div class="message-body has-background-radio-secondary-1 disable-message-border">
+            <p>Claud is still alive, and that means the yearly suicide-inducing stream will happen.</p>
+
+        </div>
+    </article>
+</div>
+
+            
+                
+<div class="column is-12">
+    <article class="message m-0 p-0">
+        <a href="/news/64">
+            <div class="message-header has-background-radio-primary-2 on-hover-darken py-2">
+                <span class="news-title has-word-break-all pr-2">Happy new years</span>
+                <span class="page-home-news-author" style="display:flex;flex-direction:column;text-decoration:none;font-size:0.8rem;text-align:right;">exci<time class="has-text-weight-bold page-home-news-date pl-2" datetime="1609508743">on 2021-01-01</time></span>
+            </div>
+
+        </a>
+        <div class="message-body has-background-radio-secondary-1 disable-message-border">
+            <p>read for happy new years  happy news</p>
+
+        </div>
+    </article>
+</div>
+
+            
+                
+<div class="column is-12">
+    <article class="message m-0 p-0">
+        <a href="/news/63">
+            <div class="message-header has-background-radio-primary-2 on-hover-darken py-2">
+                <span class="news-title has-word-break-all pr-2">Holid/a/y Streams 2020 Schedule</span>
+                <span class="page-home-news-author" style="display:flex;flex-direction:column;text-decoration:none;font-size:0.8rem;text-align:right;">Kethsar<time class="has-text-weight-bold page-home-news-date pl-2" datetime="1607314864">on 2020-12-07</time></span>
+            </div>
+
+        </a>
+        <div class="message-body has-background-radio-secondary-1 disable-message-border">
+            <p>R/a/dio has somehow survived another year, which means holiday streams for Christmas/Eve and New Years Eve.</p>
+<p>12/24: (Probably) Finalized schedule is up.</p>
+
+        </div>
+    </article>
+</div>
+
+            
+                
+<div class="column is-12">
+    <article class="message m-0 p-0">
+        <a href="/news/62">
+            <div class="message-header has-background-radio-primary-2 on-hover-darken py-2">
+                <span class="news-title has-word-break-all pr-2">Anison Hijack is Moving</span>
+                <span class="page-home-news-author" style="display:flex;flex-direction:column;text-decoration:none;font-size:0.8rem;text-align:right;">mcdoogle<time class="has-text-weight-bold page-home-news-date pl-2" datetime="1604524689">on 2020-11-04</time></span>
+            </div>
+
+        </a>
+        <div class="message-body has-background-radio-secondary-1 disable-message-border">
+            <p>Some changes in the relationship between Hijack and R/a/dio.</p>
+
+        </div>
+    </article>
+</div>
+
+            
+            
+            <div id="news-scroll"
+                hx-push-url="false"
+                hx-trigger="intersect once"
+                hx-get="/news?page=2"
+                hx-select="#news-content>div"
+                hx-target="#news-content"
+                hx-swap="beforeend"></div>
+            
+        </div>
+        <div class="is-hidden-with-js">
+            
+
+<div class="columns m-0">
+    <nav class="column pagination is-left is-flex mb-0" hx-boost="true" hx-push-url="true" hx-target="#content" role="navigation">
+        
+        <a class="pagination-previous is-disabled disable-pointer button">Previous</a>
+        
+        
+        <a class="pagination-next button" href="/news?page=2">Next</a>
+        
+        <ul class="pagination-list m-0 p-0">
+            
+            
+            <li class="m-0"><a class="pagination-link is-current button" href="/news?page=1">1</a></li>
+            
+<li class="m-0">
+    <a class="pagination-link button" href="/news?page=2">2</a>
+</li>
+
+            
+                
+<li class="m-0">
+    <a class="pagination-link button" href="/news?page=3">3</a>
+</li>
+
+                
+                    
+                        
+                        
+<li class="m-0">
+    <a class="pagination-link button" href="/news?page=4">4</a>
+</li>
+
+                    
+                
+            
+        </ul>
+    </nav>
+    <form action="/news" class="column control is-2 is-flex is-hidden-mobile" hx-boost="true" hx-push-url="true" hx-target="#content">
+        <input class="input" type="text" id="page" name="page" placeholder="Enter Page Number">
+        
+            
+        
+        <input class="is-hidden" type="submit">
+    </form>
+</div>
+
+
+        </div>
+    </div>
+</section>
+
+    
+    </div>
+
+<div id="prefs-modal" class="modal">
+    <div class="modal-background" onclick="removeClassOnClick(this)" data-target="prefs-modal" data-class="is-active"></div>
+    <div class="modal-content">
+        <div id="preferences-notification-notifications-reset" class="notification notification-temporary is-success has-text-centered is-hidden">
+            Notifications have been reset.
+        </div>
+        <div id="preferences" class="block column fixed-grid has-background-radio-secondary-1 p-0">
+            <div class="fixed-grid has-2-cols">
+                <div class="tabs is-boxed mb-0">
+                    <ul>
+                        <li class="is-fullwidth is-active"><a class="tab-button borderless-tab" data-target="preferences-theme-content" onclick="switchTab(this)">Theme</a></li>
+                        <li class="is-fullwidth"><a class="tab-button borderless-tab" data-target="preferences-other-settings" onclick="switchTab(this)">Other Settings</a></li>
+                    </ul>
+                </div>
+
+                <div id="preferences-theme-content" class="cell is-col-span-2 p-4">
+                    <form action="/set-theme" method="get" hx-push-url="false" hx-boost="true">
+                        <div class="fixed-grid has-1-cols">
+                            <div class="grid">
+                                <div class="cell has-text-centered">Select your preferred theme and options below.</div>
+                                <div class="cell">
+                                    <div class="grid">
+                                    <div class="field">
+                                        <label class="checkbox button">
+                                            <input type="checkbox" name="override-dj" value="true" >
+                                            Opt out of DJ themes
+                                        </label>
+                                    </div>
+                                    <div class="field">
+                                        <label class="checkbox button">
+                                            <input type="checkbox" name="override-holiday" value="true" >
+                                            Opt out of holiday themes
+                                        </label>
+                                    </div>
+                                    </div>
+                                </div>
+                                <hr class="m-0">
+                                <div class="cell">
+                                    <div class="grid">
+                                    
+                                        <div class="cell">
+                                            <label class="radio button">
+                                                <input type="radio" name="theme" value="christmas" >
+                                                Christmas
+                                            </label>
+                                        </div>
+                                    
+                                        <div class="cell">
+                                            <label class="radio button">
+                                                <input type="radio" name="theme" value="default-dark" checked>
+                                                Default
+                                            </label>
+                                        </div>
+                                    
+                                        <div class="cell">
+                                            <label class="radio button">
+                                                <input type="radio" name="theme" value="default-light" >
+                                                Default Light
+                                            </label>
+                                        </div>
+                                    
+                                        <div class="cell">
+                                            <label class="radio button">
+                                                <input type="radio" name="theme" value="edenlight" >
+                                                Eden Light
+                                            </label>
+                                        </div>
+                                    
+                                        <div class="cell">
+                                            <label class="radio button">
+                                                <input type="radio" name="theme" value="halloween" >
+                                                Halloween
+                                            </label>
+                                        </div>
+                                    
+                                        <div class="cell">
+                                            <label class="radio button">
+                                                <input type="radio" name="theme" value="newyears" >
+                                                New Years
+                                            </label>
+                                        </div>
+                                    
+                                        <div class="cell">
+                                            <label class="radio button">
+                                                <input type="radio" name="theme" value="suzu" >
+                                                suzu
+                                            </label>
+                                        </div>
+                                    
+                                        <div class="cell">
+                                            <label class="radio button">
+                                                <input type="radio" name="theme" value="tuicss" >
+                                                TuiCSS
+                                            </label>
+                                        </div>
+                                    
+                                    </div>
+                                </div>
+                                <div class="cell">
+                                    <button type="submit" class="button is-fullwidth is-primary">Save</button>
+                                </div>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+                
+                <div id="preferences-other-settings" class="cell is-col-span-2 p-4 is-hidden">
+                    <div class="fixed-grid has-1-cols">
+                        <div class="grid">
+                            
+                            <div class="field dropdown-cbox-parent mb-0">
+                                <input type="checkbox" id="notifications-settings-dropdown">
+                                <label for="notifications-settings-dropdown" class="button is-fullwidth is-flex is-justify-content-space-between is-align-items-center">
+                                    Notification Settings
+                                    <svg class="svg-icon" data-state="plus" style="height:1.5rem!important;width:1.5rem!important;">
+                                        <use href="/assets/default-dark/svg/sprites.svg#plus"></use>
+                                    </svg>
+                                    <svg class="svg-icon" data-state="minus" style="height:1.5rem!important;width:1.5rem!important;">
+                                        <use href="/assets/default-dark/svg/sprites.svg#minus"></use>
+                                    </svg>
+                                </label>
+                                <div class="dropdown-cbox-container box">
+                                    <button class="button is-fullwidth" onclick="preferencesResetNotifications()">Reset all notifications</button>
+                                </div>
+                            </div>
+                
+                            
+                            <div class="field dropdown-cbox-parent mb-0">
+                                <input type="checkbox" id="font-settings-dropdown">
+                                <label for="font-settings-dropdown" class="button is-fullwidth is-flex is-justify-content-space-between is-align-items-center">
+                                    Font Settings
+                                    <svg class="svg-icon" data-state="plus" style="height:1.5rem!important;width:1.5rem!important;">
+                                        <use href="/assets/default-dark/svg/sprites.svg#plus"></use>
+                                    </svg>
+                                    <svg class="svg-icon" data-state="minus" style="height:1.5rem!important;width:1.5rem!important;">
+                                        <use href="/assets/default-dark/svg/sprites.svg#minus"></use>
+                                    </svg>
+                                </label>
+                                <div class="dropdown-cbox-container box">
+                                    <div class="field">
+                                        <label class="label">Select Font</label>
+                                        <div class="control">
+                                            <div class="select is-fullwidth">
+                                                <select id="fontSelector" onchange="localStorage.setItem('preferredFont', this.value); document.documentElement.style.setProperty('--bulma-family-primary', this.value); loadFonts();">
+                                                    <option value="Default">Default</option>
+                                                    <option value="Old">Old</option>
+                                                    <option value="monospace">monospace</option>
+                                                </select>
+                                                <script>document.getElementById("fontSelector").value = localStorage.getItem("preferredFont") || document.getElementById("fontSelector").options[0].value;</script>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="field dropdown-cbox-parent mb-0">
+                                <input type="checkbox" id="custom-css-dropdown">
+                                <label for="custom-css-dropdown" class="button is-fullwidth is-flex is-justify-content-space-between is-align-items-center">
+                                    Custom CSS
+                                    <svg class="svg-icon" data-state="plus" style="height:1.5rem!important;width:1.5rem!important;">
+                                        <use href="/assets/default-dark/svg/sprites.svg#plus"></use>
+                                    </svg>
+                                    <svg class="svg-icon" data-state="minus" style="height:1.5rem!important;width:1.5rem!important;">
+                                        <use href="/assets/default-dark/svg/sprites.svg#minus"></use>
+                                    </svg>
+                                </label>
+                                <div class="dropdown-cbox-container box">
+                                    <div class="field">
+                                        <div class="control">
+                                            <textarea id="custom-css-input" class="textarea" onkeyup="localStorage.setItem('customCss', this.value);" placeholder="Anything you type here will be loaded as custom css."></textarea>
+                                            <script>document.getElementById("custom-css-input").value = localStorage.getItem("customCss") || "";</script>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>        
+        </div>    
+    </div>
+    <button data-target="prefs-modal" data-class="is-active" onclick="removeClassOnClick(this)" class="modal-close is-large" aria-label="close"></button>
+</div>
+
+
+<footer class="footer is-flex is-justify-content-center no-background" style="margin-top:auto;">
+    <a class="mx-4" href="https://play.google.com/store/apps/details?id=io.r_a_d.radio2" aria-description="r/a/dio on Android" target="_blank">
+        <svg class="svg-icon-big">
+            <use href="/assets/default-dark/svg/sprites.svg#gpstore"></use>
+        </svg>
+    </a>
+    <a class="mx-4" href="https://twitter.com/Hanyuu_status" aria-description="Hanyuu's Twitter (DJ announcements)" target="_blank">
+        <svg class="svg-icon-big">
+            <use href="/assets/default-dark/svg/sprites.svg#twitter"></use>
+        </svg>
+    </a>
+    <a class="mx-4" href="https://github.com/R-a-dio/valkyrie" aria-description="Github (Source code for website)" target="_blank">
+        <svg class="svg-icon-big">
+            <use href="/assets/default-dark/svg/sprites.svg#ghcat"></use>
+        </svg>
+    </a>
+    <a class="mx-4" href="https://need.moe/radio/" aria-description="need.moe/radio (extra r/a/dio utilities)" target="_blank">
+        <svg class="svg-icon-big">
+            <use href="/assets/default-dark/svg/sprites.svg#chart"></use>
+        </svg>
+    </a>
+</footer>
+
+</body>
+</html>

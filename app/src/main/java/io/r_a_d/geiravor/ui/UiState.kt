@@ -9,8 +9,14 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import io.r_a_d.geiravor.settings.SecretsStore
 import uniffi.geiravor_core.FaveConfig
+import uniffi.geiravor_core.FaveRow
 import uniffi.geiravor_core.IrcProfile
+import uniffi.geiravor_core.NewsArticle
+import uniffi.geiravor_core.NewsList
 import uniffi.geiravor_core.RadioCore
+import uniffi.geiravor_core.ScheduleDay
+import uniffi.geiravor_core.SearchPage
+import uniffi.geiravor_core.StaffGroup
 import uniffi.geiravor_core.Status
 import uniffi.geiravor_core.ThemePack
 import uniffi.geiravor_core.decideTheme
@@ -50,6 +56,17 @@ class UiState {
     var boardSection by mutableStateOf(BoardSection.News)
     var settingsSection by mutableStateOf(SettingsSection.General)
     var tagsOpen by mutableStateOf(false)
+    var query by mutableStateOf("")
+    var search by mutableStateOf<SearchPage?>(null)
+    var requestText by mutableStateOf<String?>(null)
+    var canRequest by mutableStateOf(true)
+    var faveRows by mutableStateOf<List<FaveRow>>(emptyList())
+    var favePage by mutableStateOf(1u)
+    var faveLast by mutableStateOf(1u)
+    var news by mutableStateOf<NewsList?>(null)
+    var article by mutableStateOf<NewsArticle?>(null)
+    var schedule by mutableStateOf<List<ScheduleDay>>(emptyList())
+    var staff by mutableStateOf<List<StaffGroup>>(emptyList())
 
     private val worker = Executors.newSingleThreadExecutor { r ->
         Thread(r, "geiravor-ui").apply { isDaemon = true }
@@ -156,6 +173,19 @@ class UiState {
             tlsFingerprint = tlsFingerprint,
         )
     }
+
+    fun offMain(block: () -> Unit) {
+        worker.execute {
+            runCatching(block)
+        }
+    }
+
+    fun onMain(block: () -> Unit) {
+        main.post(block)
+    }
+
+    fun listNickOrConnection(): String =
+        listNick.trim().ifEmpty { nick.trim() }
 
     private fun redecide(core: RadioCore) {
         worker.execute {

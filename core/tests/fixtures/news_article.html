@@ -1,0 +1,811 @@
+
+<!DOCTYPE html>
+<html style="height:100%;">
+
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="application-name" content="r/a/dio" />
+    <meta name="description" content="online anime/japanese music radio stream" />
+    <link rel="manifest" href="/assets/manifest.json" />
+    <title>R/a/dio</title>
+    <link rel="shortcut icon" href="/assets/favicon.png" type="image/x-icon" />
+    <link rel="icon" href="/assets/images/logo_image_small.png" type="image/png" />
+    <link rel="apple-touch-icon" href="/assets/images/apple_touch_icon.png" type="image/png" />
+    <link rel="search" type="application/opensearchdescription+xml" title="r/a/dio" href="/assets/opensearch.xml" />
+    <script src="/assets/js/htmx.min.js"></script>
+    <script src="/assets/js/htmx-sse.js"></script>
+    <script src="/assets/js/htmx-head.js"></script>
+    <script src="/assets/js/radio.js"></script>
+    <meta name="htmx-config"
+        content='{"responseHandling":[{"code":"204", "swap": false}, {"code":"[23]..", "swap": true}, {"code":"[4]..", "swap": true, "error": true}, {"code": "500", "swap": true, "error": true}]}' />
+    
+<link rel="stylesheet" href="/assets/default-dark/css/bulma.min.css" />
+<link rel="preload" href="/assets/default-dark/css/fonts.css" as="style" />
+<link rel="preload" href="/assets/default-dark/css/main.css" as="style" />
+<link rel="stylesheet" href="/assets/default-dark/css/fonts.css" />
+<link rel="stylesheet" href="/assets/default-dark/css/main.css" />
+
+<style id="custom-css"></style>
+<script src="/assets/default-dark/js/theme.js"></script>
+
+    
+    
+</head>
+
+<body class="theme-dark" style="display:flex;flex-direction:column;height:100%;" hx-ext="head-support" hx-indicator="#loading-indicator">
+    
+    <div id="player" style="display: none;">
+        <audio id="stream-audio" preload="none">
+            <source src="//relay1.r-a-d.io/main.mp3" type="audio/mpeg" />
+        </audio>
+    </div>
+    
+
+    <div id="content" hx-history-elt>
+    
+        
+        
+<nav class="navbar is-dark" role="navigation" hx-boost="true" hx-push-url="true" hx-target="#content">
+    <div class="navbar-brand is-hidden-desktop">
+        <a class="navbar-item" href="/">
+            <img src="/assets/images/logotitle_2.png" alt="r/a/dio logo">
+        </a>
+        
+        <a role="button" class="navbar-burger" aria-label="menu" aria-expanded="false" data-target="public-navbar" onclick="this.classList.toggle('is-active'); document.getElementById(this.dataset.target).classList.toggle('is-active')">
+            <span aria-hidden="true"></span>
+            <span aria-hidden="true"></span>
+            <span aria-hidden="true"></span>
+            <span aria-hidden="true"></span>
+        </a>
+    </div>
+    <div id="public-navbar" class="navbar-menu is-justify-content-center">
+        <div class="navbar-container has-background-radio-primary-2 is-flex is-justify-content-space-evenly">
+            <a id="radio-logo" class="navbar-item is-hidden-touch" href="/">
+                <img src="/assets/images/logotitle_2.png" alt="r/a/dio logo">
+            </a>
+            <div class="navbar-start has-text-centered">
+            
+                <a class="navbar-item"  href="/news">News</a>
+            
+                <a class="navbar-item"  href="/help">Help</a>
+            
+                <a class="navbar-item"  href="/irc">Chat</a>
+            
+                <a class="navbar-item"  href="/search">Search</a>
+            
+                <a class="navbar-item"  href="/schedule">Schedule</a>
+            
+                <a class="navbar-item"  href="/last-played">Last Played</a>
+            
+                <a class="navbar-item"  href="/queue">Queue</a>
+            
+                <a class="navbar-item"  href="/faves">Favorites</a>
+            
+                <a class="navbar-item"  href="/staff">Staff</a>
+            
+                <a class="navbar-item"  href="/submit">Submit</a>
+            
+            </div>
+            <div class="pl-3 navbar-end is-hidden-touch">
+                <form class="my-auto" method="GET" action="/search" accept-charset="UTF-8">
+                    <input id="navbarinput" hx-push-url="false" hx-get="/v1/search" hx-trigger="input changed delay:250ms" hx-target="#search-bar" class="input has-text-centered" type="text" name="q" placeholder="Type to search and request" role="search" onblur="clearNavbarSearchValue(event)" style="font-size: 0.95rem;">
+                </form>
+                <div id="search-bar" style="position: absolute;"></div>
+            </div>
+        </div>
+        
+    </div>
+</nav>
+<progress id="loading-indicator" class="progress is-small is-primary htmx-indicator"></progress>
+
+
+        
+        <div id="error-container">
+        
+<template id="error-template">
+    
+    <div class="container">
+        <div class="notification is-warning mt-2">
+            <button data-target=".container" onclick="removeTargetOnClick(this)" class="delete"></button>
+            <div class="error-message has-text-centered">An error has occurred</div>
+        </div>
+    </div>
+    
+</template>
+
+        </div>
+        
+<section class="section">
+    <div class="container">
+        <div id="page-news-single" class="content">
+            
+<div class="columns block has-background-radio-secondary-1 mb-5">
+    <article class="message column is-12 disable-message-hover">
+        <a href="/news" hx-boost="true" hx-push-url="true" hx-target="#content">
+            <div class="block message-header has-background-radio-primary-2 on-hover-darken mb-0">
+                <span class="news-title">V/a/lentines Stream 2026</span>
+                <span style="text-decoration:none;">claud</span>
+            </div>
+        </a>
+        <div class="message-body has-background-radio-secondary-1 disable-message-border">
+            <strong><time class="is-inline-block is-fullwidth has-text-right has-timeago" datetime="1770072157" data-type="medium">217 days, 13 hours, 9 minutes</time></strong>
+            <p>Good evening gents.<br>
+That time of the year where we all get incredibly drunk, stare at the portal to our waifu, and Claud tries to continue his high score beating streak that totally is happening every year I swear. And this time it's a Saturday so it starts early (though who knows how we'll do threads)<br>
+Ojiisan kicks it off around 3pm GMT/10am EST<br>
+Claud picks it up at 9pm GMT/4pm EST<br>
+And then it ends whenever the goose decides to pass out or someone else joins the high score competition.</p>
+<p>So get the booze ready, make sure to square away your lunch and dinner with your waifu, and then join us and cry a bit.</p>
+<p>Edit: SUZU IS A FOOKIN LEGEND!</p>
+
+        </div>
+    </article>
+</div>
+
+            
+<div class="columns">
+    <div class="column is-hidden-tablet has-background-radio-secondary-1 is-align-self-flex-start mb-4">
+        <form method="POST" action="/news/82" hx-post="/news/82" hx-push-url="false" hx-target="#content">
+            <input type="hidden" name="gorilla.csrf.Token" value="TESTTOKEN">
+            <textarea id="news-comment-input-1" name="comment" rows="4" class="textarea mb-4" placeholder="Enter a comment..." onkeyup="countNewsInputCharacters(event)"></textarea>
+            <div class="columns">
+                <div class="column is-8 has-text-centered">
+                    <p>Not logged in</p>
+                    <p>Comments use markdown formatting (<a href="https://github.com/adam-p/markdown-here/wiki/Markdown-Cheatsheet">guide</a>)</p>
+                    <p><span id="news-comment-character-counter-1">500</span> characters remaining.</p>
+                </div>
+                <div class="column is-narrow is-flex is-align-self-flex-end">
+                    <button class="submit button is-primary is-fullwidth">Submit</button>
+                </div>
+            </div>
+        </form>
+    </div>
+    <div class="column is-8 m-0 p-0">
+        
+        
+        <div id="comment-5282" class="column block has-background-radio-secondary-1 mb-4">
+            <div class="columns is-flex-mobile">
+                <div class="column is-narrow ml-1 ">Anonymous (b42a)</div>
+                <div class="column pr-0" style="text-align:end">2026-08-28 05:44:55 UTC</div>
+                <div class="column is-narrow-mobile is-narrow mr-1 pl-2"><a class="post-id is-clickable" onclick="quotePost(&#34;5282&#34;)">#5282</a></div>
+            </div>
+            <div class="block has-background-radio-primary-2 content-border-top-light disable-border-radius">
+                <div class="p-4">
+                    
+                    <p>Anni time</p>
+
+                </div>
+            </div>
+        </div>
+        
+        <div id="comment-5281" class="column block has-background-radio-secondary-1 mb-4">
+            <div class="columns is-flex-mobile">
+                <div class="column is-narrow ml-1 ">Anonymous (ae4b)</div>
+                <div class="column pr-0" style="text-align:end">2026-08-27 09:49:16 UTC</div>
+                <div class="column is-narrow-mobile is-narrow mr-1 pl-2"><a class="post-id is-clickable" onclick="quotePost(&#34;5281&#34;)">#5281</a></div>
+            </div>
+            <div class="block has-background-radio-primary-2 content-border-top-light disable-border-radius">
+                <div class="p-4">
+                    
+                    <p>test 2: <strong>electric</strong> <em>boogaloo</em></p>
+
+                </div>
+            </div>
+        </div>
+        
+        <div id="comment-5279" class="column block has-background-radio-secondary-1 mb-4">
+            <div class="columns is-flex-mobile">
+                <div class="column is-narrow ml-1 is-color-staff">Ojiisan <span class="is-uppercase is-size-7">## staff</span></div>
+                <div class="column pr-0" style="text-align:end">2026-08-25 09:00:01 UTC</div>
+                <div class="column is-narrow-mobile is-narrow mr-1 pl-2"><a class="post-id is-clickable" onclick="quotePost(&#34;5279&#34;)">#5279</a></div>
+            </div>
+            <div class="block has-background-radio-primary-2 content-border-top-light disable-border-radius">
+                <div class="p-4">
+                    
+                    <p><a href="#comment-5276">&gt;&gt;5276</a><br>
+Just letting (You) know that I have read your message (albeit almost one month later) and it's fixed. The song you mentioned should play normally now.<br>
+Thanks for reporting the issue but please next time do use the IRC.<br>
+Thank you!</p>
+
+                </div>
+            </div>
+        </div>
+        
+        <div id="comment-5276" class="column block has-background-radio-secondary-1 mb-4">
+            <div class="columns is-flex-mobile">
+                <div class="column is-narrow ml-1 ">Anonymous (f93a)</div>
+                <div class="column pr-0" style="text-align:end">2026-07-29 23:51:04 UTC</div>
+                <div class="column is-narrow-mobile is-narrow mr-1 pl-2"><a class="post-id is-clickable" onclick="quotePost(&#34;5276&#34;)">#5276</a></div>
+            </div>
+            <div class="block has-background-radio-primary-2 content-border-top-light disable-border-radius">
+                <div class="p-4">
+                    
+                    <p>Can’t bother to go the IRC but I just wanna say &quot;YOASOBI - Yoru ni Kakeru&quot; is fucked and keeps playing over and over again.</p>
+
+                </div>
+            </div>
+        </div>
+        
+        <div id="comment-5270" class="column block has-background-radio-secondary-1 mb-4">
+            <div class="columns is-flex-mobile">
+                <div class="column is-narrow ml-1 ">Anonymous (44cb)</div>
+                <div class="column pr-0" style="text-align:end">2026-05-22 02:31:20 UTC</div>
+                <div class="column is-narrow-mobile is-narrow mr-1 pl-2"><a class="post-id is-clickable" onclick="quotePost(&#34;5270&#34;)">#5270</a></div>
+            </div>
+            <div class="block has-background-radio-primary-2 content-border-top-light disable-border-radius">
+                <div class="p-4">
+                    
+                    <p>Yeet</p>
+
+                </div>
+            </div>
+        </div>
+        
+        <div id="comment-4800" class="column block has-background-radio-secondary-1 mb-4">
+            <div class="columns is-flex-mobile">
+                <div class="column is-narrow ml-1 ">Anonymous (9853)</div>
+                <div class="column pr-0" style="text-align:end">2026-03-10 20:10:01 UTC</div>
+                <div class="column is-narrow-mobile is-narrow mr-1 pl-2"><a class="post-id is-clickable" onclick="quotePost(&#34;4800&#34;)">#4800</a></div>
+            </div>
+            <div class="block has-background-radio-primary-2 content-border-top-light disable-border-radius">
+                <div class="p-4">
+                    
+                    <p>ghf</p>
+
+                </div>
+            </div>
+        </div>
+        
+        <div id="comment-4797" class="column block has-background-radio-secondary-1 mb-4">
+            <div class="columns is-flex-mobile">
+                <div class="column is-narrow ml-1 ">Anonymous (6145)</div>
+                <div class="column pr-0" style="text-align:end">2026-03-01 05:24:09 UTC</div>
+                <div class="column is-narrow-mobile is-narrow mr-1 pl-2"><a class="post-id is-clickable" onclick="quotePost(&#34;4797&#34;)">#4797</a></div>
+            </div>
+            <div class="block has-background-radio-primary-2 content-border-top-light disable-border-radius">
+                <div class="p-4">
+                    
+                    <p>You're telling me I gotta wait 8 (EIGHT) fucking months to do this again? This sucks bros, I'm not gonna make it.</p>
+
+                </div>
+            </div>
+        </div>
+        
+        <div id="comment-4792" class="column block has-background-radio-secondary-1 mb-4">
+            <div class="columns is-flex-mobile">
+                <div class="column is-narrow ml-1 ">Anonymous (59c0)</div>
+                <div class="column pr-0" style="text-align:end">2026-02-17 19:59:05 UTC</div>
+                <div class="column is-narrow-mobile is-narrow mr-1 pl-2"><a class="post-id is-clickable" onclick="quotePost(&#34;4792&#34;)">#4792</a></div>
+            </div>
+            <div class="block has-background-radio-primary-2 content-border-top-light disable-border-radius">
+                <div class="p-4">
+                    
+                    <p>He really went for 24 hours and made it huh?<br>
+Damn proud Claud :) (unlike your father)</p>
+
+                </div>
+            </div>
+        </div>
+        
+        <div id="comment-4791" class="column block has-background-radio-secondary-1 mb-4">
+            <div class="columns is-flex-mobile">
+                <div class="column is-narrow ml-1 ">Anonymous (7ec2)</div>
+                <div class="column pr-0" style="text-align:end">2026-02-15 22:40:24 UTC</div>
+                <div class="column is-narrow-mobile is-narrow mr-1 pl-2"><a class="post-id is-clickable" onclick="quotePost(&#34;4791&#34;)">#4791</a></div>
+            </div>
+            <div class="block has-background-radio-primary-2 content-border-top-light disable-border-radius">
+                <div class="p-4">
+                    
+                    <p>I love you faggots &lt;3</p>
+
+                </div>
+            </div>
+        </div>
+        
+        <div id="comment-4790" class="column block has-background-radio-secondary-1 mb-4">
+            <div class="columns is-flex-mobile">
+                <div class="column is-narrow ml-1 ">Anonymous (534b)</div>
+                <div class="column pr-0" style="text-align:end">2026-02-15 22:33:28 UTC</div>
+                <div class="column is-narrow-mobile is-narrow mr-1 pl-2"><a class="post-id is-clickable" onclick="quotePost(&#34;4790&#34;)">#4790</a></div>
+            </div>
+            <div class="block has-background-radio-primary-2 content-border-top-light disable-border-radius">
+                <div class="p-4">
+                    
+                    <p>Time's fleeting boys....</p>
+
+                </div>
+            </div>
+        </div>
+        
+        <div id="comment-4789" class="column block has-background-radio-secondary-1 mb-4">
+            <div class="columns is-flex-mobile">
+                <div class="column is-narrow ml-1 ">Anonymous (f7a7)</div>
+                <div class="column pr-0" style="text-align:end">2026-02-15 20:19:28 UTC</div>
+                <div class="column is-narrow-mobile is-narrow mr-1 pl-2"><a class="post-id is-clickable" onclick="quotePost(&#34;4789&#34;)">#4789</a></div>
+            </div>
+            <div class="block has-background-radio-primary-2 content-border-top-light disable-border-radius">
+                <div class="p-4">
+                    
+                    <p><a href="#comment-4788">&gt;&gt;4788</a><br>
+Ah<br>
+Thank you dearly</p>
+
+                </div>
+            </div>
+        </div>
+        
+        <div id="comment-4788" class="column block has-background-radio-secondary-1 mb-4">
+            <div class="columns is-flex-mobile">
+                <div class="column is-narrow ml-1 ">Anonymous (472b)</div>
+                <div class="column pr-0" style="text-align:end">2026-02-15 19:54:53 UTC</div>
+                <div class="column is-narrow-mobile is-narrow mr-1 pl-2"><a class="post-id is-clickable" onclick="quotePost(&#34;4788&#34;)">#4788</a></div>
+            </div>
+            <div class="block has-background-radio-primary-2 content-border-top-light disable-border-radius">
+                <div class="p-4">
+                    
+                    <p><a href="#comment-4787">&gt;&gt;4787</a><br>
+Oi dingus<br>
+Check out the submit page</p>
+
+                </div>
+            </div>
+        </div>
+        
+        <div id="comment-4787" class="column block has-background-radio-secondary-1 mb-4">
+            <div class="columns is-flex-mobile">
+                <div class="column is-narrow ml-1 ">Anonymous (f7a7)</div>
+                <div class="column pr-0" style="text-align:end">2026-02-15 10:47:11 UTC</div>
+                <div class="column is-narrow-mobile is-narrow mr-1 pl-2"><a class="post-id is-clickable" onclick="quotePost(&#34;4787&#34;)">#4787</a></div>
+            </div>
+            <div class="block has-background-radio-primary-2 content-border-top-light disable-border-radius">
+                <div class="p-4">
+                    
+                    <p>Please add machine love to the database<br>
+https://files.catbox.moe/18wuzc.mp3<br>
+I want to request it immidiatly after a miku block so that I can be smug about the superior baka</p>
+
+                </div>
+            </div>
+        </div>
+        
+        <div id="comment-4786" class="column block has-background-radio-secondary-1 mb-4">
+            <div class="columns is-flex-mobile">
+                <div class="column is-narrow ml-1 ">Anonymous (45a4)</div>
+                <div class="column pr-0" style="text-align:end">2026-02-15 00:17:11 UTC</div>
+                <div class="column is-narrow-mobile is-narrow mr-1 pl-2"><a class="post-id is-clickable" onclick="quotePost(&#34;4786&#34;)">#4786</a></div>
+            </div>
+            <div class="block has-background-radio-primary-2 content-border-top-light disable-border-radius">
+                <div class="p-4">
+                    
+                    <p>I like you guys no fag</p>
+
+                </div>
+            </div>
+        </div>
+        
+        <div id="comment-4785" class="column block has-background-radio-secondary-1 mb-4">
+            <div class="columns is-flex-mobile">
+                <div class="column is-narrow ml-1 ">Anonymous (014b)</div>
+                <div class="column pr-0" style="text-align:end">2026-02-14 01:36:44 UTC</div>
+                <div class="column is-narrow-mobile is-narrow mr-1 pl-2"><a class="post-id is-clickable" onclick="quotePost(&#34;4785&#34;)">#4785</a></div>
+            </div>
+            <div class="block has-background-radio-primary-2 content-border-top-light disable-border-radius">
+                <div class="p-4">
+                    
+                    <p>damn, i forgot to buy drinks</p>
+
+                </div>
+            </div>
+        </div>
+        
+        <div id="comment-4784" class="column block has-background-radio-secondary-1 mb-4">
+            <div class="columns is-flex-mobile">
+                <div class="column is-narrow ml-1 ">Anonymous (5151)</div>
+                <div class="column pr-0" style="text-align:end">2026-02-12 18:52:22 UTC</div>
+                <div class="column is-narrow-mobile is-narrow mr-1 pl-2"><a class="post-id is-clickable" onclick="quotePost(&#34;4784&#34;)">#4784</a></div>
+            </div>
+            <div class="block has-background-radio-primary-2 content-border-top-light disable-border-radius">
+                <div class="p-4">
+                    
+                    <p>JIBUN WOOOOOOOOOOOOOOOOOOOOOOOOOOOO</p>
+
+                </div>
+            </div>
+        </div>
+        
+        <div id="comment-4783" class="column block has-background-radio-secondary-1 mb-4">
+            <div class="columns is-flex-mobile">
+                <div class="column is-narrow ml-1 ">Anonymous (c190)</div>
+                <div class="column pr-0" style="text-align:end">2026-02-11 05:13:27 UTC</div>
+                <div class="column is-narrow-mobile is-narrow mr-1 pl-2"><a class="post-id is-clickable" onclick="quotePost(&#34;4783&#34;)">#4783</a></div>
+            </div>
+            <div class="block has-background-radio-primary-2 content-border-top-light disable-border-radius">
+                <div class="p-4">
+                    
+                    <p>Gotta rush home from work on Saturday and get back in time to catch up</p>
+
+                </div>
+            </div>
+        </div>
+        
+        <div id="comment-4782" class="column block has-background-radio-secondary-1 mb-4">
+            <div class="columns is-flex-mobile">
+                <div class="column is-narrow ml-1 ">Anonymous (a640)</div>
+                <div class="column pr-0" style="text-align:end">2026-02-11 04:26:44 UTC</div>
+                <div class="column is-narrow-mobile is-narrow mr-1 pl-2"><a class="post-id is-clickable" onclick="quotePost(&#34;4782&#34;)">#4782</a></div>
+            </div>
+            <div class="block has-background-radio-primary-2 content-border-top-light disable-border-radius">
+                <div class="p-4">
+                    
+                    <p>Rejoice in your freedom. Believe in the valentine that believes in you, believe in yourself.</p>
+
+                </div>
+            </div>
+        </div>
+        
+        <div id="comment-4781" class="column block has-background-radio-secondary-1 mb-4">
+            <div class="columns is-flex-mobile">
+                <div class="column is-narrow ml-1 ">Anonymous (5ea2)</div>
+                <div class="column pr-0" style="text-align:end">2026-02-08 01:54:15 UTC</div>
+                <div class="column is-narrow-mobile is-narrow mr-1 pl-2"><a class="post-id is-clickable" onclick="quotePost(&#34;4781&#34;)">#4781</a></div>
+            </div>
+            <div class="block has-background-radio-primary-2 content-border-top-light disable-border-radius">
+                <div class="p-4">
+                    
+                    <p>Can you feel it? It's the weight of our sins coming home to roost.</p>
+
+                </div>
+            </div>
+        </div>
+        
+        <div id="comment-4780" class="column block has-background-radio-secondary-1 mb-4">
+            <div class="columns is-flex-mobile">
+                <div class="column is-narrow ml-1 ">Anonymous (b3ce)</div>
+                <div class="column pr-0" style="text-align:end">2026-02-07 14:10:44 UTC</div>
+                <div class="column is-narrow-mobile is-narrow mr-1 pl-2"><a class="post-id is-clickable" onclick="quotePost(&#34;4780&#34;)">#4780</a></div>
+            </div>
+            <div class="block has-background-radio-primary-2 content-border-top-light disable-border-radius">
+                <div class="p-4">
+                    
+                    <p>Maybe I can finally kill myself this year</p>
+
+                </div>
+            </div>
+        </div>
+        
+        <div id="comment-4779" class="column block has-background-radio-secondary-1 mb-4">
+            <div class="columns is-flex-mobile">
+                <div class="column is-narrow ml-1 ">Anonymous (0bb7)</div>
+                <div class="column pr-0" style="text-align:end">2026-02-04 21:49:27 UTC</div>
+                <div class="column is-narrow-mobile is-narrow mr-1 pl-2"><a class="post-id is-clickable" onclick="quotePost(&#34;4779&#34;)">#4779</a></div>
+            </div>
+            <div class="block has-background-radio-primary-2 content-border-top-light disable-border-radius">
+                <div class="p-4">
+                    
+                    <p>I made paper from my waifu just for this occasion.</p>
+
+                </div>
+            </div>
+        </div>
+        
+        <div id="comment-4778" class="column block has-background-radio-secondary-1 mb-4">
+            <div class="columns is-flex-mobile">
+                <div class="column is-narrow ml-1 ">Anonymous (efdf)</div>
+                <div class="column pr-0" style="text-align:end">2026-02-03 15:03:20 UTC</div>
+                <div class="column is-narrow-mobile is-narrow mr-1 pl-2"><a class="post-id is-clickable" onclick="quotePost(&#34;4778&#34;)">#4778</a></div>
+            </div>
+            <div class="block has-background-radio-primary-2 content-border-top-light disable-border-radius">
+                <div class="p-4">
+                    
+                    <p>my body is ready</p>
+
+                </div>
+            </div>
+        </div>
+        
+        <div id="comment-4777" class="column block has-background-radio-secondary-1 mb-4">
+            <div class="columns is-flex-mobile">
+                <div class="column is-narrow ml-1 ">Anonymous (893e)</div>
+                <div class="column pr-0" style="text-align:end">2026-02-03 11:20:24 UTC</div>
+                <div class="column is-narrow-mobile is-narrow mr-1 pl-2"><a class="post-id is-clickable" onclick="quotePost(&#34;4777&#34;)">#4777</a></div>
+            </div>
+            <div class="block has-background-radio-primary-2 content-border-top-light disable-border-radius">
+                <div class="p-4">
+                    
+                    <p>Imagine being Kilimanjaro</p>
+
+                </div>
+            </div>
+        </div>
+        
+        <div id="comment-4776" class="column block has-background-radio-secondary-1 mb-4">
+            <div class="columns is-flex-mobile">
+                <div class="column is-narrow ml-1 ">Anonymous (de9c)</div>
+                <div class="column pr-0" style="text-align:end">2026-02-03 10:39:55 UTC</div>
+                <div class="column is-narrow-mobile is-narrow mr-1 pl-2"><a class="post-id is-clickable" onclick="quotePost(&#34;4776&#34;)">#4776</a></div>
+            </div>
+            <div class="block has-background-radio-primary-2 content-border-top-light disable-border-radius">
+                <div class="p-4">
+                    
+                    <p>just a bit</p>
+
+                </div>
+            </div>
+        </div>
+        
+        <div id="comment-4775" class="column block has-background-radio-secondary-1 mb-4">
+            <div class="columns is-flex-mobile">
+                <div class="column is-narrow ml-1 ">Anonymous (3468)</div>
+                <div class="column pr-0" style="text-align:end">2026-02-03 07:55:14 UTC</div>
+                <div class="column is-narrow-mobile is-narrow mr-1 pl-2"><a class="post-id is-clickable" onclick="quotePost(&#34;4775&#34;)">#4775</a></div>
+            </div>
+            <div class="block has-background-radio-primary-2 content-border-top-light disable-border-radius">
+                <div class="p-4">
+                    
+                    <p>remember to protect your waifu from the wizard</p>
+
+                </div>
+            </div>
+        </div>
+        
+        <div id="comment-4774" class="column block has-background-radio-secondary-1 mb-4">
+            <div class="columns is-flex-mobile">
+                <div class="column is-narrow ml-1 ">Anonymous (4d2d)</div>
+                <div class="column pr-0" style="text-align:end">2026-02-02 22:54:13 UTC</div>
+                <div class="column is-narrow-mobile is-narrow mr-1 pl-2"><a class="post-id is-clickable" onclick="quotePost(&#34;4774&#34;)">#4774</a></div>
+            </div>
+            <div class="block has-background-radio-primary-2 content-border-top-light disable-border-radius">
+                <div class="p-4">
+                    
+                    <p>uweee uweee uwee</p>
+
+                </div>
+            </div>
+        </div>
+        
+        <div id="comment-4773" class="column block has-background-radio-secondary-1 mb-4">
+            <div class="columns is-flex-mobile">
+                <div class="column is-narrow ml-1 ">Anonymous (815e)</div>
+                <div class="column pr-0" style="text-align:end">2026-02-02 22:43:52 UTC</div>
+                <div class="column is-narrow-mobile is-narrow mr-1 pl-2"><a class="post-id is-clickable" onclick="quotePost(&#34;4773&#34;)">#4773</a></div>
+            </div>
+            <div class="block has-background-radio-primary-2 content-border-top-light disable-border-radius">
+                <div class="p-4">
+                    
+                    <p>No being sad allowed.</p>
+
+                </div>
+            </div>
+        </div>
+        
+        
+    </div>
+    <div class="column is-hidden-mobile has-background-radio-secondary-1 is-align-self-flex-start ml-4">
+        <form method="POST" action="/news/82" hx-post="/news/82" hx-push-url="false" hx-target="#content">
+            <input type="hidden" name="gorilla.csrf.Token" value="TESTTOKEN">
+            <textarea id="news-comment-input-2" name="comment" rows="4" class="textarea mb-4" placeholder="Enter a comment..." onkeyup="countNewsInputCharacters(event)"></textarea>
+            <button class="submit button is-primary" style="position:relative;float:right;">Submit</button>
+            <p>Not logged in</p>
+            <p>Comments use markdown formatting (<a href="https://github.com/adam-p/markdown-here/wiki/Markdown-Cheatsheet">guide</a>)</p>
+            <p><span id="news-comment-character-counter-2">500</span> characters remaining.</p>
+        </form>
+    </div>
+</div>
+
+        </div>
+    </div>
+</section>
+
+    
+    </div>
+
+<div id="prefs-modal" class="modal">
+    <div class="modal-background" onclick="removeClassOnClick(this)" data-target="prefs-modal" data-class="is-active"></div>
+    <div class="modal-content">
+        <div id="preferences-notification-notifications-reset" class="notification notification-temporary is-success has-text-centered is-hidden">
+            Notifications have been reset.
+        </div>
+        <div id="preferences" class="block column fixed-grid has-background-radio-secondary-1 p-0">
+            <div class="fixed-grid has-2-cols">
+                <div class="tabs is-boxed mb-0">
+                    <ul>
+                        <li class="is-fullwidth is-active"><a class="tab-button borderless-tab" data-target="preferences-theme-content" onclick="switchTab(this)">Theme</a></li>
+                        <li class="is-fullwidth"><a class="tab-button borderless-tab" data-target="preferences-other-settings" onclick="switchTab(this)">Other Settings</a></li>
+                    </ul>
+                </div>
+
+                <div id="preferences-theme-content" class="cell is-col-span-2 p-4">
+                    <form action="/set-theme" method="get" hx-push-url="false" hx-boost="true">
+                        <div class="fixed-grid has-1-cols">
+                            <div class="grid">
+                                <div class="cell has-text-centered">Select your preferred theme and options below.</div>
+                                <div class="cell">
+                                    <div class="grid">
+                                    <div class="field">
+                                        <label class="checkbox button">
+                                            <input type="checkbox" name="override-dj" value="TESTTOKEN" >
+                                            Opt out of DJ themes
+                                        </label>
+                                    </div>
+                                    <div class="field">
+                                        <label class="checkbox button">
+                                            <input type="checkbox" name="override-holiday" value="TESTTOKEN" >
+                                            Opt out of holiday themes
+                                        </label>
+                                    </div>
+                                    </div>
+                                </div>
+                                <hr class="m-0">
+                                <div class="cell">
+                                    <div class="grid">
+                                    
+                                        <div class="cell">
+                                            <label class="radio button">
+                                                <input type="radio" name="theme" value="TESTTOKEN" >
+                                                Christmas
+                                            </label>
+                                        </div>
+                                    
+                                        <div class="cell">
+                                            <label class="radio button">
+                                                <input type="radio" name="theme" value="TESTTOKEN" checked>
+                                                Default
+                                            </label>
+                                        </div>
+                                    
+                                        <div class="cell">
+                                            <label class="radio button">
+                                                <input type="radio" name="theme" value="TESTTOKEN" >
+                                                Default Light
+                                            </label>
+                                        </div>
+                                    
+                                        <div class="cell">
+                                            <label class="radio button">
+                                                <input type="radio" name="theme" value="TESTTOKEN" >
+                                                Eden Light
+                                            </label>
+                                        </div>
+                                    
+                                        <div class="cell">
+                                            <label class="radio button">
+                                                <input type="radio" name="theme" value="TESTTOKEN" >
+                                                Halloween
+                                            </label>
+                                        </div>
+                                    
+                                        <div class="cell">
+                                            <label class="radio button">
+                                                <input type="radio" name="theme" value="TESTTOKEN" >
+                                                New Years
+                                            </label>
+                                        </div>
+                                    
+                                        <div class="cell">
+                                            <label class="radio button">
+                                                <input type="radio" name="theme" value="TESTTOKEN" >
+                                                suzu
+                                            </label>
+                                        </div>
+                                    
+                                        <div class="cell">
+                                            <label class="radio button">
+                                                <input type="radio" name="theme" value="TESTTOKEN" >
+                                                TuiCSS
+                                            </label>
+                                        </div>
+                                    
+                                    </div>
+                                </div>
+                                <div class="cell">
+                                    <button type="submit" class="button is-fullwidth is-primary">Save</button>
+                                </div>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+                
+                <div id="preferences-other-settings" class="cell is-col-span-2 p-4 is-hidden">
+                    <div class="fixed-grid has-1-cols">
+                        <div class="grid">
+                            
+                            <div class="field dropdown-cbox-parent mb-0">
+                                <input type="checkbox" id="notifications-settings-dropdown">
+                                <label for="notifications-settings-dropdown" class="button is-fullwidth is-flex is-justify-content-space-between is-align-items-center">
+                                    Notification Settings
+                                    <svg class="svg-icon" data-state="plus" style="height:1.5rem!important;width:1.5rem!important;">
+                                        <use href="/assets/default-dark/svg/sprites.svg#plus"></use>
+                                    </svg>
+                                    <svg class="svg-icon" data-state="minus" style="height:1.5rem!important;width:1.5rem!important;">
+                                        <use href="/assets/default-dark/svg/sprites.svg#minus"></use>
+                                    </svg>
+                                </label>
+                                <div class="dropdown-cbox-container box">
+                                    <button class="button is-fullwidth" onclick="preferencesResetNotifications()">Reset all notifications</button>
+                                </div>
+                            </div>
+                
+                            
+                            <div class="field dropdown-cbox-parent mb-0">
+                                <input type="checkbox" id="font-settings-dropdown">
+                                <label for="font-settings-dropdown" class="button is-fullwidth is-flex is-justify-content-space-between is-align-items-center">
+                                    Font Settings
+                                    <svg class="svg-icon" data-state="plus" style="height:1.5rem!important;width:1.5rem!important;">
+                                        <use href="/assets/default-dark/svg/sprites.svg#plus"></use>
+                                    </svg>
+                                    <svg class="svg-icon" data-state="minus" style="height:1.5rem!important;width:1.5rem!important;">
+                                        <use href="/assets/default-dark/svg/sprites.svg#minus"></use>
+                                    </svg>
+                                </label>
+                                <div class="dropdown-cbox-container box">
+                                    <div class="field">
+                                        <label class="label">Select Font</label>
+                                        <div class="control">
+                                            <div class="select is-fullwidth">
+                                                <select id="fontSelector" onchange="localStorage.setItem('preferredFont', this.value); document.documentElement.style.setProperty('--bulma-family-primary', this.value); loadFonts();">
+                                                    <option value="TESTTOKEN">Default</option>
+                                                    <option value="TESTTOKEN">Old</option>
+                                                    <option value="TESTTOKEN">monospace</option>
+                                                </select>
+                                                <script>document.getElementById("fontSelector").value = localStorage.getItem("preferredFont") || document.getElementById("fontSelector").options[0].value;</script>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="field dropdown-cbox-parent mb-0">
+                                <input type="checkbox" id="custom-css-dropdown">
+                                <label for="custom-css-dropdown" class="button is-fullwidth is-flex is-justify-content-space-between is-align-items-center">
+                                    Custom CSS
+                                    <svg class="svg-icon" data-state="plus" style="height:1.5rem!important;width:1.5rem!important;">
+                                        <use href="/assets/default-dark/svg/sprites.svg#plus"></use>
+                                    </svg>
+                                    <svg class="svg-icon" data-state="minus" style="height:1.5rem!important;width:1.5rem!important;">
+                                        <use href="/assets/default-dark/svg/sprites.svg#minus"></use>
+                                    </svg>
+                                </label>
+                                <div class="dropdown-cbox-container box">
+                                    <div class="field">
+                                        <div class="control">
+                                            <textarea id="custom-css-input" class="textarea" onkeyup="localStorage.setItem('customCss', this.value);" placeholder="Anything you type here will be loaded as custom css."></textarea>
+                                            <script>document.getElementById("custom-css-input").value = localStorage.getItem("customCss") || "";</script>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>        
+        </div>    
+    </div>
+    <button data-target="prefs-modal" data-class="is-active" onclick="removeClassOnClick(this)" class="modal-close is-large" aria-label="close"></button>
+</div>
+
+
+<footer class="footer is-flex is-justify-content-center no-background" style="margin-top:auto;">
+    <a class="mx-4" href="https://play.google.com/store/apps/details?id=io.r_a_d.radio2" aria-description="r/a/dio on Android" target="_blank">
+        <svg class="svg-icon-big">
+            <use href="/assets/default-dark/svg/sprites.svg#gpstore"></use>
+        </svg>
+    </a>
+    <a class="mx-4" href="https://twitter.com/Hanyuu_status" aria-description="Hanyuu's Twitter (DJ announcements)" target="_blank">
+        <svg class="svg-icon-big">
+            <use href="/assets/default-dark/svg/sprites.svg#twitter"></use>
+        </svg>
+    </a>
+    <a class="mx-4" href="https://github.com/R-a-dio/valkyrie" aria-description="Github (Source code for website)" target="_blank">
+        <svg class="svg-icon-big">
+            <use href="/assets/default-dark/svg/sprites.svg#ghcat"></use>
+        </svg>
+    </a>
+    <a class="mx-4" href="https://need.moe/radio/" aria-description="need.moe/radio (extra r/a/dio utilities)" target="_blank">
+        <svg class="svg-icon-big">
+            <use href="/assets/default-dark/svg/sprites.svg#chart"></use>
+        </svg>
+    </a>
+</footer>
+
+</body>
+</html>
