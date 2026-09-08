@@ -17,6 +17,7 @@ nix develop          # full shell (JDK, Android SDK/NDK, DHU on Linux)
 nix develop .#rust   # host Rust only (fmt, clippy, tests, rustdoc)
 cargo test --manifest-path core/Cargo.toml
 ./gradlew :app:testDebugUnitTest :app:assembleDebug
+./scripts/dhu.sh          # DHU; waits for Head Unit Server; --stop to end
 ```
 
 Needs a flake-capable Nix. `aarch64-linux` is not a flake target.

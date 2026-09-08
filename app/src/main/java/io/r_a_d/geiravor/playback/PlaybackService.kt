@@ -59,7 +59,7 @@ class PlaybackService : MediaLibraryService() {
         })
         live = LiveStationPlayer(player)
         ensureLiveItem()
-        session = MediaLibrarySession.Builder(this, player, Callbacks())
+        session = MediaLibrarySession.Builder(this, live, Callbacks())
             .setId("geiravor")
             .build()
         core().addListener(Listener())

@@ -42,4 +42,15 @@ object LivePlaybackPolicy {
             .build()
 
     fun pauseStops(): Boolean = true
+
+    /**
+     * After pause/stop Icecast is torn down (`IDLE`) but the session must stay
+     * paused `STATE_READY` so Auto/shade keep the live card.
+     */
+    fun reportedPlaybackState(wantPlay: Boolean, exoState: Int): Int =
+        if (!wantPlay && (exoState == Player.STATE_IDLE || exoState == Player.STATE_ENDED)) {
+            Player.STATE_READY
+        } else {
+            exoState
+        }
 }

@@ -14,6 +14,22 @@ class LivePlaybackPolicyTest {
     }
 
     @Test
+    fun idleAfterStopLooksPausedReady() {
+        assertEquals(
+            Player.STATE_READY,
+            LivePlaybackPolicy.reportedPlaybackState(false, Player.STATE_IDLE),
+        )
+        assertEquals(
+            Player.STATE_READY,
+            LivePlaybackPolicy.reportedPlaybackState(true, Player.STATE_READY),
+        )
+        assertEquals(
+            Player.STATE_BUFFERING,
+            LivePlaybackPolicy.reportedPlaybackState(true, Player.STATE_BUFFERING),
+        )
+    }
+
+    @Test
     fun noSkipCommands() {
         val cmds = LivePlaybackPolicy.advertisedPlayerCommands().toSet()
         assertFalse(Player.COMMAND_SEEK_TO_NEXT in cmds)
