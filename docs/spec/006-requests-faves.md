@@ -76,9 +76,9 @@ The heart is a **toggle** shared by phone, the shade, and Auto. Toggle fill **on
 
 This is **not** an IRC client: no channel UI, no JOIN, no chat log, no native Quassel. 0.2.0 SASL is only for this short-lived fave session (`PLAIN` password and/or `EXTERNAL` with a TLS client certificate).
 
-Fave while paused is allowed (Hanyuu faves station state, not local playback). Snapshot **at tap**: `isafkstream`, `trackid`, `np`. Empty/whitespace nick → no connect, no-op on Auto.
+Fave while paused is allowed (Hanyuu faves station state, not local playback). Snapshot **at tap**: `isafkstream`, `trackid`, `np`. Empty/whitespace nick → no connect, no-op on Auto. Last paint is restored into `RadioCore` at process start so a tap before the first poll still has a snapshot. If that store is empty, GET `/api` once for the tap; after `001` still do not extra-GET.
 
-One in-flight fave. Blocking worker thread — never the `/api` poller, never the Android main thread. After `001`, sample the process-wide latest snapshot already in `RadioCore` (no extra GET). Heart / catalog match use the Favorites (list) nick; IRC uses Connection nick (fallback to list nick). On `Timeout` / `Network` / TLS drop, retry the whole session up to two extra times. Do not retry nick-in-use, nick mismatch, SASL, unknown id, or accuracy failure.
+One in-flight fave. Blocking worker thread — never the `/api` poller, never the Android main thread. After `001`, sample the process-wide latest snapshot already in `RadioCore` (no extra GET). Heart / catalog match use the Favorites (list) nick; IRC uses Connection nick (fallback to list nick). On `Timeout` / `Network` / TLS drop, retry the whole session up to two extra times. Do not retry nick-in-use, nick mismatch, SASL, unknown id, or accuracy failure. TCP still tries every resolved address, IPv6 first then IPv4; do not wait the full connect timeout on an address when others remain (cellular IPv6 often black-holes). Persist membership from the stored nicks, not empty composition defaults.
 
 ### Accuracy — AFK (`isafkstream` at tap, `trackid > 0`)
 
@@ -138,7 +138,7 @@ Password fields and the client **key** PEM do not offer copy or cut (paste-in is
 
 ### Tests
 
-Local only: `IrcIo` scripts and a localhost TLS listener that speaks 001 / PING / Hanyuu NOTICE. Do not open `irc.rizon.net` or r-a-d.io in CI. Cover AFK `.fave {id}`, AFK `.unfave {id}`, live-DJ last/Added-only unfave, bouncer no-QUIT / no-NICK-after-001 / orderly close, self-signed fails unless the toggle is on, `001`/`NICK` rename (`nick_`) does not fave, SASL PLAIN payload, SASL EXTERNAL, PEM prefers EXTERNAL over PLAIN, SASL missing from `CAP LS` does not fave. A **Test connection** control on Settings → Connection runs handshake only (no `.fave`); it uses the on-device secrets and must not log them. Success includes the server certificate SHA-256. TCP tries every resolved address, **IPv6 first, IPv4 if that fails**. Host may include `:port`; that hostname is used for TLS SNI. Cover fingerprint pin (empty accepts; mismatch fails even with insecure TLS).
+Local only: `IrcIo` scripts and a localhost TLS listener that speaks 001 / PING / Hanyuu NOTICE. Do not open `irc.rizon.net` or r-a-d.io in CI. Cover AFK `.fave {id}`, AFK `.unfave {id}`, live-DJ last/Added-only unfave, bouncer no-QUIT / no-NICK-after-001 / orderly close, self-signed fails unless the toggle is on, `001`/`NICK` rename (`nick_`) does not fave, SASL PLAIN payload, SASL EXTERNAL, PEM prefers EXTERNAL over PLAIN, SASL missing from `CAP LS` does not fave. A **Test connection** control on Settings → Connection runs handshake only (no `.fave`); it uses the on-device secrets and must not log them. Success includes the server certificate SHA-256. TCP tries every resolved address, **IPv6 first, IPv4 if that fails**; remaining addresses use a short connect timeout so a black-holed IPv6 does not block cellular. Host may include `:port`; that hostname is used for TLS SNI. Cover fingerprint pin (empty accepts; mismatch fails even with insecure TLS).
 
 ## UI
 

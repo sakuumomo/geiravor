@@ -21,6 +21,15 @@ object FavePolicy {
 
     fun canFave(nick: String): Boolean = nick.trim().isNotEmpty()
 
+    fun nickFieldRequired(): Boolean = true
+
+    fun hostFieldRequired(bouncer: Boolean): Boolean = bouncer
+
+    fun portFieldRequired(): Boolean = false
+
+    fun connectionLabel(label: String, required: Boolean): String =
+        if (required) "$label *" else label
+
     fun ircNick(connectionNick: String, listNick: String): String {
         val connection = connectionNick.trim()
         return connection.ifEmpty { listNick.trim() }

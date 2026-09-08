@@ -40,7 +40,9 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withContext
 
 class PlaybackService : MediaLibraryService() {
@@ -153,8 +155,11 @@ class PlaybackService : MediaLibraryService() {
         val secrets = SecretsStore(this)
         var vehicleOn = SettingsPolicy.AUTO_START_VEHICLE_DEFAULT
         var plugOn = SettingsPolicy.AUTO_START_DEFAULT
-        var faveNick = ""
-        var ircNick = ""
+        val storedNicks = runBlocking(Dispatchers.IO) {
+            settings.favesNick.first() to settings.ircNick.first()
+        }
+        var faveNick = storedNicks.first
+        var ircNick = storedNicks.second
         var ircProfile = IrcProfile.RIZON
         var bouncerHost = ""
         var bouncerPort = FavePolicy.DEFAULT_BOUNCER_PORT
@@ -219,6 +224,8 @@ class PlaybackService : MediaLibraryService() {
                 publishButtons()
                 scope.launch(Dispatchers.IO) {
                     try {
+                    faveNick = settings.favesNick.first()
+                    ircNick = settings.ircNick.first()
                     val home = FavePolicy.listNick(faveNick, ircNick)
                     val result = radio.addFave(
                         FavePolicy.config(
@@ -357,6 +364,15 @@ class PlaybackService : MediaLibraryService() {
                 publishBrowse(radio.snapshot(), settingsSnapshot(), listOf(AutoBrowse.SETTINGS))
             }
         }
+        scope.launch(Dispatchers.IO) {
+            val keep = FavePolicy.membershipNicks(faveNick, ircNick)
+            keep.forEach { nick ->
+                runCatching { radio.prefetchFavorites(nick) }
+            }
+            app.persistMembership(keep)
+            refreshFaveIcon(radio.snapshot() ?: RadioStore.state.value.status)
+        }
+        refreshFaveIcon(radio.snapshot() ?: RadioStore.state.value.status)
         scope.launch {
             var lastSong: Triple<Boolean, Long, String>? = null
             RadioStore.state.collect { state ->

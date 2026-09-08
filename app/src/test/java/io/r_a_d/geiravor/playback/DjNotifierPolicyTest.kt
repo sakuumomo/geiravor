@@ -158,7 +158,7 @@ class DjNotifierPolicyTest {
             dj = Dj(id = 7, name = "exci", image = "x"),
         )
         assertEquals(
-            DjNotifierPolicy.Seen(isAfk = false, djId = 7, djName = "exci"),
+            DjNotifierPolicy.Seen(isAfk = false, djId = 7, djName = "exci", djImage = "x"),
             DjNotifierPolicy.fromStatus(status),
         )
         assertEquals("r/a/dio", DjNotifierPolicy.TITLE)
@@ -172,6 +172,13 @@ class DjNotifierPolicyTest {
             DjNotifierPolicy.body(seen(isAfk = true, id = 1, name = "")),
         )
         assertFalse(DjNotifierPolicy.isHanyuu("exci"))
+        assertEquals("x", DjNotifierPolicy.fromStatus(status).djImage)
+        assertEquals(
+            "https://r-a-d.io/api/dj-image/59-abc.gif",
+            DjNotifierPolicy.artworkUrl("59-abc.gif"),
+        )
+        assertEquals(null, DjNotifierPolicy.artworkUrl(""))
+        assertEquals(null, DjNotifierPolicy.artworkUrl("  "))
     }
 
     private fun seen(isAfk: Boolean, id: Long, name: String) =

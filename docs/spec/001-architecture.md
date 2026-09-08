@@ -22,7 +22,7 @@ Rust owns domain, HTTP to `/api`, JSON, poll policy, now-playing reducer. Kotlin
 
 ## Process
 
-`Application.onCreate` initializes UniFFI and starts a **process-wide** poller. `MediaLibraryService` and the UI share that store. Auto and the notification must update with the Activity dead.
+`Application.onCreate` initializes UniFFI and starts a **process-wide** poller. Last paint restores into both the Kotlin UI store and `RadioCore` so Auto/fave have a snapshot before the first poll. `MediaLibraryService` and the UI share that store. Auto and the notification must update with the Activity dead. Cold Auto loads committed-nick membership (Room, then `/faves`) when the session starts.
 
 UniFFI callbacks arrive off the main thread. Kotlin hops to Main before Compose or `MediaSession`.
 

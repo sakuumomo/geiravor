@@ -59,7 +59,7 @@ object DjNotifier {
         )
     }
 
-    fun notify(context: Context, next: DjNotifierPolicy.Seen) {
+    suspend fun notify(context: Context, next: DjNotifierPolicy.Seen) {
         if (!Notifications.granted(context)) {
             return
         }
@@ -70,10 +70,12 @@ object DjNotifier {
             Intent(context, MainActivity::class.java),
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
         )
+        val artwork = DjArtwork.loadStill(context, DjNotifierPolicy.artworkUrl(next.djImage))
         val notification = NotificationCompat.Builder(context, DjNotifierPolicy.CHANNEL_ID)
             .setSmallIcon(R.drawable.ic_fave)
             .setContentTitle(DjNotifierPolicy.TITLE)
             .setContentText(DjNotifierPolicy.body(next))
+            .setLargeIcon(artwork)
             .setCategory(NotificationCompat.CATEGORY_EVENT)
             .setPriority(NotificationCompat.PRIORITY_DEFAULT)
             .setAutoCancel(true)

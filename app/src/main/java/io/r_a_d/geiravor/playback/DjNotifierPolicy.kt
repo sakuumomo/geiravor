@@ -18,13 +18,17 @@ object DjNotifierPolicy {
         val isAfk: Boolean,
         val djId: Long,
         val djName: String,
+        val djImage: String = "",
     )
 
     fun fromStatus(status: Status): Seen = Seen(
         isAfk = status.isAfkStream,
         djId = status.dj.id,
         djName = status.dj.name,
+        djImage = status.dj.image,
     )
+
+    fun artworkUrl(image: String): String? = LivePlaybackPolicy.djImageUrl(image)
 
     fun isHanyuu(name: String): Boolean {
         val fold = name.trim().lowercase()

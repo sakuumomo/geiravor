@@ -90,7 +90,7 @@ fun ConnectionSettings(
         ConnectionField(
             value = ircNick,
             onValue = onIrcNick,
-            label = "Nick",
+            label = FavePolicy.connectionLabel("Nick", FavePolicy.nickFieldRequired()),
             secret = false,
             placeholder = "Favorites nick",
         )
@@ -98,7 +98,7 @@ fun ConnectionSettings(
             ConnectionField(
                 value = bouncerHost,
                 onValue = onBouncerHost,
-                label = "Host",
+                label = FavePolicy.connectionLabel("Host", FavePolicy.hostFieldRequired(bouncer = true)),
                 secret = false,
             )
             ConnectionField(
@@ -106,7 +106,7 @@ fun ConnectionSettings(
                 onValue = { incoming ->
                     onBouncerPort(FavePolicy.portInput(incoming))
                 },
-                label = "Port",
+                label = FavePolicy.connectionLabel("Port", FavePolicy.portFieldRequired()),
                 secret = false,
                 placeholder = FavePolicy.DEFAULT_BOUNCER_PORT.toString(),
             )

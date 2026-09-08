@@ -35,7 +35,7 @@ Android Auto Settings tab surfaces the same two auto-start flags (On/Off subtitl
 
 `008` still prefers DataStore over SharedPreferences. **Exception:** secrets only may use AndroidX Security EncryptedSharedPreferences (Tink). Do not move gain / auto-start into it.
 
-Settings sections are **General | Auto | Connection**. Alarm / snooze / sleep / DJ notifier / fave-currently-playing live under General unless they overflow — then an **Alerts** section tab, still not a fifth bottom tab. IRC connection (nick, profile, NickServ, bouncer host/port/`PASS`, Allow insecure TLS, TLS fingerprint, SASL, client PEM, Test connection) is **Settings → Connection**. The Favorites tab nick stays the public list. NickServ / bouncer `PASS` / SASL password have no copy/cut.
+Settings sections are **General | Auto | Connection**. Alarm / snooze / sleep / DJ notifier / fave-currently-playing live under General unless they overflow — then an **Alerts** section tab, still not a fifth bottom tab. IRC connection (nick, profile, NickServ, bouncer host/port/`PASS`, Allow insecure TLS, TLS fingerprint, SASL, client PEM, Test connection) is **Settings → Connection**. Required fields are marked `*` on the label: Rizon is **Nick** only; Bouncer is **Nick** and **Host** (port still defaults to 6697). Empty Connection nick still falls back to the Favorites nick. The Favorites tab nick stays the public list. NickServ / bouncer `PASS` / SASL password have no copy/cut.
 
 ## 0.3.0
 

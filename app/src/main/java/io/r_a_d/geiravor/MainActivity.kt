@@ -245,7 +245,10 @@ private fun GeiravorRoot() {
     }
     LaunchedEffect(homeNick, ircNick) {
         delay(350)
-        val keep = FavePolicy.membershipNicks(homeNick, ircNick)
+        val keep = FavePolicy.membershipNicks(
+            settings.favesNick.first(),
+            settings.ircNick.first(),
+        )
         withContext(Dispatchers.IO) {
             keep.forEach { nick ->
                 runCatching { app.radio.prefetchFavorites(nick) }
@@ -342,11 +345,14 @@ private fun GeiravorRoot() {
             scope.launch {
                 try {
                 val result = withContext(Dispatchers.IO) {
-                    val home = FavePolicy.listNick(homeNick, ircNick)
-                    val keep = FavePolicy.membershipNicks(homeNick, ircNick)
+                    val faves = settings.favesNick.first()
+                    val ircStored = settings.ircNick.first()
+                    val home = FavePolicy.listNick(faves, ircStored)
+                    val keep = FavePolicy.membershipNicks(faves, ircStored)
+                    val irc = FavePolicy.ircNick(ircStored, home)
                     val done = app.radio.addFave(
                         FavePolicy.config(
-                            nick = FavePolicy.ircNick(ircNick, homeNick),
+                            nick = irc,
                             listNick = home,
                             profile = ircProfile,
                             nickservPassword = nickservPassword,
@@ -362,7 +368,6 @@ private fun GeiravorRoot() {
                         ),
                     )
                     if (FavePolicy.bumpFavoritesList(done)) {
-                        val irc = FavePolicy.ircNick(ircNick, homeNick)
                         if (irc.isNotEmpty()) {
                             runCatching { app.radio.prefetchFavorites(irc) }
                         }
@@ -372,9 +377,9 @@ private fun GeiravorRoot() {
                             }
                         }
                     }
-                    done
+                    done to keep
                 }
-                val heart = FavePolicy.heartUpdate(wasFilled, result)
+                val heart = FavePolicy.heartUpdate(wasFilled, result.first)
                 RadioStore.setHeart(
                     filled = heart.filled,
                     notice = heart.notice,
@@ -382,7 +387,7 @@ private fun GeiravorRoot() {
                     bumpList = heart.bumpList,
                 )
                 if (heart.bumpList) {
-                    app.persistMembership(FavePolicy.membershipNicks(homeNick, ircNick))
+                    app.persistMembership(result.second)
                 }
                 } finally {
                     faveBusy = false

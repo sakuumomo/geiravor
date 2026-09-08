@@ -407,6 +407,14 @@ fn open_irc(config: &FaveConfig) -> Result<TlsIrc, IrcError> {
 }
 
 impl RadioCore {
+    fn tap_status(&self) -> Option<Status> {
+        if let Some(status) = self.snapshot() {
+            return Some(status);
+        }
+        let _ = self.poll_once();
+        self.snapshot()
+    }
+
     fn fetch_news_entry(&self, id: i64) -> Result<(String, String, Vec<NewsComment>), ApiError> {
         let _fetch = self.news_fetch.lock().expect("news_fetch");
         if let Some((cached_id, html)) = self.http_cache.lock().expect("cache").news_html.as_ref() {
@@ -512,6 +520,14 @@ impl RadioCore {
 
     pub fn snapshot(&self) -> Option<Status> {
         self.state.lock().expect("state").status.clone()
+    }
+
+    pub fn restore_snapshot(&self, status: Status) {
+        let mut state = self.state.lock().expect("state");
+        if state.status.is_some() {
+            return;
+        }
+        state.apply(NowPlayingEvent::Snapshot(status), Self::unix_now());
     }
 
     pub fn refresh(&self) -> Result<(), ApiError> {
@@ -816,7 +832,7 @@ impl RadioCore {
         let Ok(_guard) = self.fave_lock.try_lock() else {
             return FaveResult::failed("A fave is already in progress.");
         };
-        let Some(status) = self.snapshot() else {
+        let Some(status) = self.tap_status() else {
             return FaveResult::failed("No station status yet.");
         };
         let tap = TapSnapshot {
@@ -979,6 +995,61 @@ mod tests {
 
     fn np() -> &'static str {
         "Mori Yuuya - Seitokai Yakuindomo no March"
+    }
+
+    fn fave_config(nick: &str) -> FaveConfig {
+        FaveConfig {
+            nick: nick.into(),
+            list_nick: String::new(),
+            profile: IrcProfile::Rizon,
+            nickserv_password: String::new(),
+            bouncer_host: String::new(),
+            bouncer_port: 6697,
+            bouncer_pass: String::new(),
+            allow_insecure_tls: false,
+            sasl_username: String::new(),
+            sasl_password: String::new(),
+            client_cert_pem: String::new(),
+            client_key_pem: String::new(),
+            tls_fingerprint: String::new(),
+        }
+    }
+
+    #[test]
+    fn restore_snapshot_seeds_tap_before_first_poll() {
+        let status = crate::status::parse_status(include_str!("../tests/fixtures/api_snapshot.json"))
+            .expect("fixture");
+        let core = core();
+        assert!(core.snapshot().is_none());
+        core.restore_snapshot(status.clone());
+        assert_eq!(core.snapshot().unwrap().np, status.np);
+        let later = status.clone();
+        core.restore_snapshot(Status {
+            np: "should not clobber".into(),
+            ..later
+        });
+        assert_eq!(core.snapshot().unwrap().np, status.np);
+    }
+
+    #[test]
+    fn add_fave_without_snapshot_fails_without_irc() {
+        struct FailGet;
+        impl ApiClient for FailGet {
+            fn get(&self, _url: &str) -> Result<String, ApiError> {
+                Err(ApiError::Network {
+                    detail: "offline".into(),
+                })
+            }
+            fn post_csrf(&self, _url: &str, _token: &str) -> Result<String, ApiError> {
+                Err(ApiError::Network {
+                    detail: "no post".into(),
+                })
+            }
+        }
+        let core = RadioCore::with_client(Arc::new(FailGet));
+        let result = core.add_fave(fave_config("geiravor"));
+        assert_eq!(result.kind, FaveKind::Failed);
+        assert_eq!(result.message, "No station status yet.");
     }
 
     #[test]

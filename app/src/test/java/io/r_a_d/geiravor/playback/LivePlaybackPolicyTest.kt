@@ -12,6 +12,16 @@ class LivePlaybackPolicyTest {
         assertEquals("https://stream.r-a-d.io/main.mp3", LivePlaybackPolicy.STREAM_URL)
         assertFalse(LivePlaybackPolicy.STREAM_URL.startsWith("https://r-a-d.io/main"))
         assertEquals("https://r-a-d.io/api/dj-image/", LivePlaybackPolicy.DJ_IMAGE_BASE)
+        assertEquals(
+            "https://r-a-d.io/api/dj-image/59-abc.gif",
+            LivePlaybackPolicy.djImageUrl("59-abc.gif"),
+        )
+        assertEquals(
+            "https://r-a-d.io/api/dj-image/18.png",
+            LivePlaybackPolicy.djImageUrl(" 18.png "),
+        )
+        assertEquals(null, LivePlaybackPolicy.djImageUrl(""))
+        assertEquals(null, LivePlaybackPolicy.djImageUrl("  "))
     }
 
     @Test

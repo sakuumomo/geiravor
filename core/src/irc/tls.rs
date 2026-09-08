@@ -92,6 +92,14 @@ pub fn parse_host_port(host: &str, port: u16) -> (String, u16) {
     (h.to_string(), port)
 }
 
+fn tcp_connect_timeout(remaining: usize) -> Duration {
+    if remaining > 1 {
+        Duration::from_secs(2)
+    } else {
+        Duration::from_secs(10)
+    }
+}
+
 fn ipv6_then_ipv4(addrs: impl IntoIterator<Item = SocketAddr>) -> Vec<SocketAddr> {
     let mut v4 = Vec::new();
     let mut v6 = Vec::new();
@@ -141,8 +149,9 @@ fn tcp_connect(host: &str, port: u16) -> Result<TcpStream, IrcError> {
         });
     }
     let mut failures = Vec::new();
-    for addr in addrs {
-        match TcpStream::connect_timeout(&addr, Duration::from_secs(10)) {
+    let total = addrs.len();
+    for (i, addr) in addrs.into_iter().enumerate() {
+        match TcpStream::connect_timeout(&addr, tcp_connect_timeout(total - i)) {
             Ok(stream) => return Ok(stream),
             Err(e) => failures.push(format!("{addr}: {}", io_detail(&e))),
         }
@@ -465,7 +474,7 @@ impl IrcIo for TlsIrc {
 mod tests {
     use super::{
         certificate_fingerprint_sha256, fingerprint_sha256, fingerprints_equal, io_detail,
-        ipv6_then_ipv4, parse_host_port, tls_server_name,
+        ipv6_then_ipv4, parse_host_port, tcp_connect_timeout, tls_server_name,
     };
 
     #[test]
@@ -491,6 +500,7 @@ mod tests {
     #[test]
     fn ipv6_is_tried_first_ipv4_is_fallback() {
         use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr};
+        use std::time::Duration;
         let v4 = SocketAddr::new(IpAddr::V4(Ipv4Addr::LOCALHOST), 1);
         let v6 = SocketAddr::new(IpAddr::V6(Ipv6Addr::LOCALHOST), 1);
         assert_eq!(ipv6_then_ipv4([v4, v6]), vec![v6, v4]);
@@ -498,6 +508,10 @@ mod tests {
             io_detail(&std::io::Error::from_raw_os_error(101)),
             "network unreachable (no route, often IPv6)"
         );
+        assert_eq!(tcp_connect_timeout(2), Duration::from_secs(2));
+        assert_eq!(tcp_connect_timeout(3), Duration::from_secs(2));
+        assert_eq!(tcp_connect_timeout(1), Duration::from_secs(10));
+        assert_eq!(tcp_connect_timeout(0), Duration::from_secs(10));
     }
 
     #[test]
@@ -511,7 +525,6 @@ mod tests {
         assert!(!fingerprints_equal("00:11", "AA:BB"));
     }
 
-    #[test]
     #[test]
     fn only_drop_errors_are_retryable() {
         use super::IrcError;

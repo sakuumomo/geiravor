@@ -29,7 +29,7 @@ App gain is the same as the phone (0–100, default 80, DataStore). Independent 
 - Title = split `np` title. Subtitle = artist. Description = `dj.djname`. No `| DJ` on Auto (the phone shade owns that compact line).
 - Unfocused now-playing is title and artist. Focused now-playing is title, artist, then DJ on its own line.
 - No artist (`""` or whitespace): subtitle is DJ only, no description line. Do not leave a blank artist line.
-- No next/prev on Auto chrome. Artwork = DJ image (mystery-DJ fallback).
+- No next/prev on Auto chrome. Artwork = DJ image still (GIF first frame; mystery-DJ fallback). Auto cannot animate.
 - Those fields live on the stream `MediaItem`. Auto only uses subtitle/description when `displayTitle` is set.
 - Duration/position from the AFK API window (`002-api.md`) on both **unfocused** and **focused** now-playing so the platform can draw a progress bar. Not seekable. Live DJ: unknown duration (`TIME_UNSET`), no bar.
 
@@ -58,7 +58,7 @@ When **Auto-start in vehicle** is on, projected Auto session connect starts the 
 
 Do not advertise `COMMAND_GET_TIMELINE` (hides Auto’s empty Queue button). Do not add-to-playlist.
 
-A **Fave** custom action on the now-playing card (`LivePlaybackPolicy.FAVE`) uses the same IRC add-fave path as the phone (`006-requests-faves.md`). Empty nick → no-op (keep advertising the command). It must not start, stop, or replace the live item, and must not rewrite now-playing metadata to display the result. Heart is **filled** when the current song is already a favorite (cached `/faves` rows or a successful Fave this session); outline otherwise. Same icon on the media notification custom action. On Auto, the compact **unfocused** card is Mute (back) and Fave (forward — skip-next is not advertised). Focused adds Vol − (back secondary) and Vol + (forward secondary). Use media button preferences (not custom-layout list order).
+A **Fave** custom action on the now-playing card (`LivePlaybackPolicy.FAVE`) uses the same IRC add-fave path as the phone (`006-requests-faves.md`). Empty nick → no-op (keep advertising the command). It must not start, stop, or replace the live item, and must not rewrite now-playing metadata to display the result. Heart is **filled** when the current song is already a favorite (cached `/faves` rows or a successful Fave this session); outline otherwise. Same icon on the media notification custom action. Cold Auto (Activity never opened) still hydrates committed-nick membership from Room and revalidates `/faves` when the session starts, then paints the heart — do not wait for the Favorites tab. Read the stored nicks at session start and at each Fave tap. On Auto, the compact **unfocused** card is Mute (back) and Fave (forward — skip-next is not advertised). Focused adds Vol − (back secondary) and Vol + (forward secondary). Use media button preferences (not custom-layout list order).
 
 No request, news, schedule, staff, thread, or search in Auto. No Favorites browse folder. Holiday token packs are phone-only. Dark/light is the only theme Auto can follow: Default light → day; Default, a holiday user pick, or holiday auto → night (`UiModeManager.setApplicationNightMode`, API 31+). Auto only honors that if the head unit is set to match the phone. Mute/Fave/Vol use Media3 `ICON_*` so Auto can tint them. No wallpaper, glass, or `--edenlight-color` on the dash.
 

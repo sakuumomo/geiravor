@@ -29,6 +29,18 @@ class FavePolicyTest {
     }
 
     @Test
+    fun connectionMarksOnlyRequiredFields() {
+        assertTrue(FavePolicy.nickFieldRequired())
+        assertFalse(FavePolicy.hostFieldRequired(bouncer = false))
+        assertTrue(FavePolicy.hostFieldRequired(bouncer = true))
+        assertFalse(FavePolicy.portFieldRequired())
+        assertEquals("Nick *", FavePolicy.connectionLabel("Nick", required = true))
+        assertEquals("Host *", FavePolicy.connectionLabel("Host", required = true))
+        assertEquals("Port", FavePolicy.connectionLabel("Port", required = false))
+        assertEquals("NickServ password", FavePolicy.connectionLabel("NickServ password", required = false))
+    }
+
+    @Test
     fun emptyNickIsNoFave() {
         assertFalse(FavePolicy.canFave(""))
         assertFalse(FavePolicy.canFave("  "))

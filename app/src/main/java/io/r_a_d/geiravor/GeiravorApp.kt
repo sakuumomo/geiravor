@@ -70,7 +70,11 @@ class GeiravorApp : Application(), ImageLoaderFactory {
             val fromRoom = db.paint().get()?.blob?.let { SnapshotPolicy.decode(it) }
             fromRoom ?: settings.lastPaint()
         }
-        paint?.let { RadioStore.hydrateStatus(SnapshotPolicy.toStatus(it)) }
+        paint?.let {
+            val status = SnapshotPolicy.toStatus(it)
+            RadioStore.hydrateStatus(status)
+            radio.restoreSnapshot(status)
+        }
         var lastPaint = paint
         val keepNicks = runBlocking(Dispatchers.IO) {
             FavePolicy.membershipNicks(settings.favesNick.first(), settings.ircNick.first())
