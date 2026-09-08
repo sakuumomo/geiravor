@@ -7,8 +7,10 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Text
@@ -36,26 +38,24 @@ sealed class PagerSlot {
     data class Page(val n: UInt) : PagerSlot()
 }
 
-/** First, nearby window, last. `...` is jump-to-page. Prev/next are the bar edges. */
+/** First, nearby, one `...` jump, last. Prev/next are the bar edges. */
 fun pagerSlots(page: UInt, last: UInt): List<PagerSlot> {
     if (last <= 1u) return emptyList()
     val cur = page.coerceIn(1u, last)
-    val nearby = linkedSetOf<UInt>()
-    nearby.add(1u)
-    nearby.add(last)
+    val mid = linkedSetOf<UInt>()
+    mid.add(1u)
     for (d in -1..1) {
         val n = cur.toInt() + d
-        if (n in 1..last.toInt()) nearby.add(n.toUInt())
+        if (n in 1..last.toInt() && n.toUInt() != last) mid.add(n.toUInt())
     }
-    val sorted = nearby.sorted()
-    val mid = mutableListOf<PagerSlot>()
-    var prev: UInt? = null
-    for (n in sorted) {
-        if (prev != null && n > prev + 1u) mid.add(PagerSlot.Ellipsis)
-        mid.add(PagerSlot.Page(n))
-        prev = n
-    }
-    return listOf(PagerSlot.Prev) + mid + listOf(PagerSlot.Next)
+    val sorted = mid.sorted()
+    val out = mutableListOf<PagerSlot>(PagerSlot.Prev)
+    sorted.forEach { out += PagerSlot.Page(it) }
+    val lastNearby = sorted.lastOrNull() ?: 1u
+    if (last > lastNearby + 1u) out += PagerSlot.Ellipsis
+    out += PagerSlot.Page(last)
+    out += PagerSlot.Next
+    return out
 }
 
 @Composable
@@ -66,22 +66,25 @@ fun PagerBar(page: UInt, last: UInt, onPage: (UInt) -> Unit) {
     var jumpText by remember { mutableStateOf("") }
     val slots = pagerSlots(page, last)
     val measurer = rememberTextMeasurer()
-    val widest = (0..9).maxOf { measurer.measure(it.toString()).size.width }
+    val digitStyle = TextStyle.Default
+    val widest = (0..9).maxOf { measurer.measure(it.toString(), digitStyle).size.width }
     val slotPx = widest * last.toString().length
-    val slotDp = with(LocalDensity.current) { slotPx.toDp() }
+    val slotDp = with(LocalDensity.current) { slotPx.toDp() } + 8.dp
     Row(
         Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        slots.forEach { slot ->
+        TextButton(onClick = { onPage(page - 1u) }, enabled = page > 1u) {
+            Text("<", color = t.highlight)
+        }
+        Row(
+            Modifier.weight(1f),
+            horizontalArrangement = Arrangement.spacedBy(6.dp, Alignment.CenterHorizontally),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+        slots.filter { it !is PagerSlot.Prev && it !is PagerSlot.Next }.forEach { slot ->
             when (slot) {
-                PagerSlot.Prev -> TextButton(onClick = { onPage(page - 1u) }, enabled = page > 1u) {
-                    Text("<", color = t.highlight)
-                }
-                PagerSlot.Next -> TextButton(onClick = { onPage(page + 1u) }, enabled = page < last) {
-                    Text(">", color = t.highlight)
-                }
+                PagerSlot.Prev, PagerSlot.Next -> {}
                 PagerSlot.Ellipsis -> Box(
                     Modifier
                         .background(
@@ -92,30 +95,37 @@ fun PagerBar(page: UInt, last: UInt, onPage: (UInt) -> Unit) {
                         .padding(horizontal = 10.dp, vertical = 6.dp),
                     contentAlignment = Alignment.Center,
                 ) {
-                    Text("…", color = t.muted)
+                    Text("…", color = t.muted, maxLines = 1)
                 }
                 is PagerSlot.Page -> {
                     val on = slot.n == page
                     Box(
                         Modifier
-                            .width(slotDp)
+                            .widthIn(min = slotDp)
                             .background(
                                 if (on) t.highlight.copy(alpha = if (t.glass) 0.92f else 0.35f)
                                 else t.surface.copy(alpha = if (t.glass) 0.8f else 1f),
                                 RoundedCornerShape(6.dp),
                             )
                             .clickable { onPage(slot.n) }
-                            .padding(vertical = 6.dp),
+                            .padding(horizontal = 6.dp, vertical = 6.dp),
                         contentAlignment = Alignment.Center,
                     ) {
                         Text(
                             slot.n.toString(),
                             color = if (on) t.text else t.muted,
                             textAlign = TextAlign.Center,
+                            maxLines = 1,
+                            softWrap = false,
+                            overflow = TextOverflow.Visible,
                         )
                     }
                 }
             }
+        }
+        }
+        TextButton(onClick = { onPage(page + 1u) }, enabled = page < last) {
+            Text(">", color = t.highlight)
         }
     }
     if (jump) {

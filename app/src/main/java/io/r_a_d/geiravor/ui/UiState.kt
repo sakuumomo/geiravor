@@ -110,7 +110,7 @@ class UiState {
             val n = core.pref(Prefs.NICK)
             val prof = if (core.pref(Prefs.PROFILE) == "bouncer") IrcProfile.BOUNCER else IrcProfile.RIZON
             val host = core.pref(Prefs.BOUNCER_HOST)
-            val port = core.pref(Prefs.BOUNCER_PORT).ifBlank { "6697" }
+            val port = core.pref(Prefs.BOUNCER_PORT)
             val insecure = flag(Prefs.ALLOW_INSECURE)
             val fp = core.pref(Prefs.TLS_FP)
             val sasl = core.pref(Prefs.SASL_USER)

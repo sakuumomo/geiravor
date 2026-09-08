@@ -211,10 +211,28 @@ pub fn sanitize_news_html(raw: &str) -> String {
             }
         } else if lower.starts_with("</a") {
             out.push_str(tag);
+        } else if is_block_tag(&lower) && !lower.starts_with("</") {
+            out.push_str("<br>");
         }
     }
     out.push_str(rest);
     out
+}
+
+fn is_block_tag(lower: &str) -> bool {
+    lower.starts_with("<div")
+        || lower.starts_with("<h1")
+        || lower.starts_with("<h2")
+        || lower.starts_with("<h3")
+        || lower.starts_with("<h4")
+        || lower.starts_with("<h5")
+        || lower.starts_with("<h6")
+        || lower.starts_with("<li")
+        || lower.starts_with("<ul")
+        || lower.starts_with("<ol")
+        || lower.starts_with("<blockquote")
+        || lower.starts_with("<section")
+        || lower.starts_with("<hr")
 }
 
 fn parse_comments(html: &str) -> Vec<NewsComment> {
@@ -369,6 +387,10 @@ mod tests {
         assert!(!out.contains("script"));
         assert!(out.contains("<p>Hi</p>"));
         assert!(sanitize_news_html(r#"<img src="//static.r-a-d.io/y.png">"#).contains("y.png"));
+        let blocks = sanitize_news_html("<div>One</div><div>Two</div>");
+        assert!(blocks.contains("One"));
+        assert!(blocks.contains("Two"));
+        assert!(blocks.contains("<br>"));
     }
 
     #[test]

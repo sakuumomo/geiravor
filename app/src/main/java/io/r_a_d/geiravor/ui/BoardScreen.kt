@@ -271,14 +271,17 @@ private fun SchedulePane(ui: UiState) {
     Column(Modifier.verticalScroll(rememberScrollState()).fillMaxWidth()) {
         ui.schedule.forEach { day ->
             val highlight = weekdayToday(day, today)
-            Row(Modifier.fillMaxWidth().padding(vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+            Row(Modifier.fillMaxWidth().padding(vertical = 8.dp), verticalAlignment = Alignment.Top) {
                 if (day.image.isNotBlank()) {
                     StationMedia(
                         url = day.image,
                         autoplay = true,
                         contentDescription = day.owner,
-                        modifier = Modifier.size(48.dp).clip(RoundedCornerShape(6.dp)).padding(end = 8.dp),
-                        contentScale = ContentScale.Crop,
+                        modifier = Modifier
+                            .padding(end = 8.dp)
+                            .size(56.dp)
+                            .clip(RoundedCornerShape(6.dp)),
+                        contentScale = ContentScale.Fit,
                     )
                 }
                 Column(Modifier.weight(1f)) {

@@ -28,6 +28,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.layout.LayoutCoordinates
 import androidx.compose.ui.layout.onGloballyPositioned
@@ -143,15 +144,21 @@ fun GeiravorRoot(
                     val body = Modifier.padding(padding).fillMaxSize()
                     if (twoPane) {
                         Row(body) {
-                            Box(Modifier.weight(1f).fillMaxHeight()) {
+                            Box(
+                                Modifier.weight(1f).fillMaxHeight(),
+                                contentAlignment = Alignment.TopStart,
+                            ) {
                                 NowPlayingScreen(ui, onPlay, onStop, onGain, onFave, showThread = false)
                             }
-                            Box(Modifier.weight(1f).fillMaxHeight()) {
+                            Box(
+                                Modifier.weight(1f).fillMaxHeight(),
+                                contentAlignment = Alignment.TopStart,
+                            ) {
                                 TabBody(ui, core, secrets, onPlay, onStop, onGain, onFave)
                             }
                         }
                     } else {
-                        Box(body) {
+                        Box(body, contentAlignment = Alignment.TopStart) {
                             TabBody(ui, core, secrets, onPlay, onStop, onGain, onFave)
                         }
                     }

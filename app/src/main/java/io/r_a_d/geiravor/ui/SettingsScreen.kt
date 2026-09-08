@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.text.selection.SelectionContainer
@@ -122,7 +123,6 @@ fun SettingsScreen(ui: UiState, core: RadioCore, secrets: SecretsStore) {
                     }
                 }
                 SettingsSection.Connection -> {
-                    Text("Rizon vs bouncer", color = t.muted)
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         RadioButton(
                             selected = ui.profile == IrcProfile.RIZON,
@@ -156,11 +156,11 @@ fun SettingsScreen(ui: UiState, core: RadioCore, secrets: SecretsStore) {
                             ui.bouncerHost = it
                             ui.setPref(core, Prefs.BOUNCER_HOST, it)
                         }
-                        PrefField("Port", ui.bouncerPort, KeyboardType.Number) {
-                            ui.bouncerPort = it
-                            ui.setPref(core, Prefs.BOUNCER_PORT, it)
+                        PrefField("Port", ui.bouncerPort, KeyboardType.Number, placeholder = "6697") {
+                            ui.bouncerPort = it.filter { c -> c.isDigit() }
+                            ui.setPref(core, Prefs.BOUNCER_PORT, it.filter { c -> c.isDigit() })
                         }
-                        SecretField("Bouncer PASS", secrets, SecretKeys.BOUNCER_PASS)
+                        SecretField("Server password", secrets, SecretKeys.BOUNCER_PASS)
                         FlagRow("Allow insecure TLS", ui.allowInsecure) {
                             ui.allowInsecure = it
                             ui.setFlag(core, Prefs.ALLOW_INSECURE, it)
@@ -229,39 +229,32 @@ fun SettingsScreen(ui: UiState, core: RadioCore, secrets: SecretsStore) {
                             core,
                         ) { msg -> ui.alertError = msg }
                     }
-                    PrefField("Alarm hour (0–23)", ui.alarmHour, KeyboardType.Number) {
-                        ui.alarmHour = it
-                        ui.setPref(core, Prefs.ALARM_HOUR, it)
-                    }
-                    PrefField("Alarm minute (0–59)", ui.alarmMinute, KeyboardType.Number) {
-                        ui.alarmMinute = it
-                        ui.setPref(core, Prefs.ALARM_MINUTE, it)
+                    ClockRow("Alarm time", ui.alarmHour, ui.alarmMinute) { h, m ->
+                        ui.alarmHour = h
+                        ui.alarmMinute = m
+                        ui.setPref(core, Prefs.ALARM_HOUR, h)
+                        ui.setPref(core, Prefs.ALARM_MINUTE, m)
                     }
                     FlagRow("Snooze", ui.snoozeOn) {
                         ui.snoozeOn = it
                         ui.setFlag(core, Prefs.SNOOZE_ON, it)
                     }
-                    PrefField("Snooze hours", ui.snoozeHours, KeyboardType.Number) {
-                        ui.snoozeHours = it
-                        ui.setPref(core, Prefs.SNOOZE_HOURS, it)
-                    }
-                    PrefField("Snooze minutes", ui.snoozeMinutes, KeyboardType.Number) {
-                        ui.snoozeMinutes = it
-                        ui.setPref(core, Prefs.SNOOZE_MINUTES, it)
+                    DurationRow("Snooze for", ui.snoozeHours, ui.snoozeMinutes) { h, m ->
+                        ui.snoozeHours = h
+                        ui.snoozeMinutes = m
+                        ui.setPref(core, Prefs.SNOOZE_HOURS, h)
+                        ui.setPref(core, Prefs.SNOOZE_MINUTES, m)
                     }
                     FlagRow("Sleep timer", ui.sleepOn) {
                         ui.sleepOn = it
                         ui.setFlag(core, Prefs.SLEEP_ON, it)
                         if (it) armSleep(ctx, ui)
                     }
-                    PrefField("Sleep hours", ui.sleepHours, KeyboardType.Number) {
-                        ui.sleepHours = it
-                        ui.setPref(core, Prefs.SLEEP_HOURS, it)
-                        if (ui.sleepOn) armSleep(ctx, ui)
-                    }
-                    PrefField("Sleep minutes", ui.sleepMinutes, KeyboardType.Number) {
-                        ui.sleepMinutes = it
-                        ui.setPref(core, Prefs.SLEEP_MINUTES, it)
+                    DurationRow("Sleep after", ui.sleepHours, ui.sleepMinutes) { h, m ->
+                        ui.sleepHours = h
+                        ui.sleepMinutes = m
+                        ui.setPref(core, Prefs.SLEEP_HOURS, h)
+                        ui.setPref(core, Prefs.SLEEP_MINUTES, m)
                         if (ui.sleepOn) armSleep(ctx, ui)
                     }
                     FlagRow("DJ online notifier", ui.djNotifier) {
@@ -312,10 +305,73 @@ private fun FlagRow(label: String, on: Boolean, onChange: (Boolean) -> Unit) {
 }
 
 @Composable
+private fun ClockRow(
+    label: String,
+    hour: String,
+    minute: String,
+    onChange: (String, String) -> Unit,
+) {
+    val t = LocalTokens.current
+    Row(
+        Modifier.fillMaxWidth().padding(vertical = 6.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(label, color = t.text, modifier = Modifier.weight(1f))
+        CompactNumber(hour, "h") { onChange(it.filter { c -> c.isDigit() }.take(2), minute) }
+        Text(":", color = t.muted, modifier = Modifier.padding(horizontal = 4.dp))
+        CompactNumber(minute, "m") { onChange(hour, it.filter { c -> c.isDigit() }.take(2)) }
+    }
+}
+
+@Composable
+private fun DurationRow(
+    label: String,
+    hours: String,
+    minutes: String,
+    onChange: (String, String) -> Unit,
+) {
+    val t = LocalTokens.current
+    Row(
+        Modifier.fillMaxWidth().padding(vertical = 6.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(label, color = t.text, modifier = Modifier.weight(1f))
+        CompactNumber(hours, "h") { onChange(it.filter { c -> c.isDigit() }.take(2), minutes) }
+        Text("h", color = t.muted, modifier = Modifier.padding(end = 8.dp))
+        CompactNumber(minutes, "m") { onChange(hours, it.filter { c -> c.isDigit() }.take(2)) }
+        Text("m", color = t.muted)
+    }
+}
+
+@Composable
+private fun CompactNumber(value: String, label: String, onChange: (String) -> Unit) {
+    val t = LocalTokens.current
+    TextField(
+        value = value,
+        onValueChange = onChange,
+        placeholder = { Text(label) },
+        singleLine = true,
+        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+        modifier = Modifier
+            .padding(horizontal = 4.dp)
+            .width(64.dp),
+        colors = TextFieldDefaults.colors(
+            focusedTextColor = t.text,
+            unfocusedTextColor = t.text,
+            focusedContainerColor = t.surface,
+            unfocusedContainerColor = t.surface,
+            focusedLabelColor = t.muted,
+            unfocusedLabelColor = t.muted,
+        ),
+    )
+}
+
+@Composable
 private fun PrefField(
     label: String,
     value: String,
     type: KeyboardType = KeyboardType.Text,
+    placeholder: String? = null,
     onChange: (String) -> Unit,
 ) {
     val t = LocalTokens.current
@@ -323,6 +379,11 @@ private fun PrefField(
         value = value,
         onValueChange = onChange,
         label = { Text(label) },
+        placeholder = if (placeholder != null) {
+            { Text(placeholder) }
+        } else {
+            null
+        },
         singleLine = true,
         keyboardOptions = KeyboardOptions(keyboardType = type),
         modifier = Modifier

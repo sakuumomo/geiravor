@@ -5,7 +5,6 @@ import android.text.method.LinkMovementMethod
 import android.text.style.URLSpan
 import android.widget.TextView
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
@@ -123,7 +122,6 @@ fun NewsHtml(html: String, onJump: (Long) -> Unit) {
                 contentDescription = null,
                 modifier = Modifier
                     .fillMaxWidth()
-                    .heightIn(max = 240.dp)
                     .padding(vertical = 8.dp),
                 contentScale = ContentScale.FillWidth,
             )
@@ -137,7 +135,7 @@ fun NewsHtml(html: String, onJump: (Long) -> Unit) {
                     }
                 },
                 update = { tv ->
-                    val spanned = HtmlCompat.fromHtml(block.html, HtmlCompat.FROM_HTML_MODE_COMPACT)
+                    val spanned = HtmlCompat.fromHtml(block.html, HtmlCompat.FROM_HTML_MODE_LEGACY)
                     tv.text = spanned
                     tv.movementMethod = object : LinkMovementMethod() {
                         override fun onTouchEvent(

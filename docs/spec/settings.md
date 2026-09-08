@@ -15,8 +15,8 @@ Phone sections: **General | Auto | Connection**. Alarm / snooze / sleep / DJ not
 | Connection nick | prefs | empty | Settings → Connection; IRC fave/unfave; empty → Favorites nick |
 | NickServ password | encrypted | empty | Direct Rizon only when SASL was not used; never log; no copy/cut |
 | IRC profile | prefs | Rizon | Rizon vs bouncer |
-| Bouncer host / port | prefs | port **6697** | Bouncer; Host required `*` |
-| Bouncer `PASS` | encrypted | empty | Opaque; never log; no copy/cut |
+| Bouncer host / port | prefs | port empty → **6697** | Bouncer; Host required `*`; Port placeholder 6697 |
+| Server password | encrypted | empty | Bouncer `PASS`; opaque; never log; no copy/cut |
 | Allow insecure TLS | prefs | **false** | Bouncer IRC only |
 | TLS fingerprint | prefs | empty | Server cert SHA-256; empty = unpinned |
 | SASL username | prefs | empty | Empty → public nick |
@@ -36,7 +36,7 @@ Android Auto Settings tab surfaces the same two auto-start flags (On/Off subtitl
 
 ## Connection labels
 
-Required fields are marked `*` on the label: Rizon is **Nick** only; Bouncer is **Nick** and **Host** (port still defaults to 6697). Empty Connection nick still falls back to the Favorites nick. The Favorites tab nick stays the public list.
+Required fields are marked `*` on the label: Rizon is **Nick** only; Bouncer is **Nick** and **Host**. Port empty means 6697. Server password is the bouncer `PASS`. Empty Connection nick still falls back to the Favorites nick. The Favorites tab nick stays the public list. Profile is two radios (Rizon / Bouncer), no “Rizon vs bouncer” heading.
 
 ## Themes
 

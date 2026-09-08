@@ -16,7 +16,7 @@ Songs, Board, and Settings use **section tabs** at every width.
 
 | Destination | Content |
 |---|---|
-| Now Playing | Play/stop, volume 0–100 (default 80), **Fave** (heart), title/artist, collapsible tags, progress + mm:ss / mm:ss (AFK only; live DJ hides the bar), listeners (centered), DJ image + `dj.djname`, **next** then **previous**, then thread if present. Toggle the heart **immediately** on tap; revert if the attempt fails or is a no-op. One in-flight fave. Failures also as red text, faded out when `np` changes |
+| Now Playing | Play/stop, volume 0–100 (default 80), **Fave** (heart), title/artist, collapsible tags, progress + mm:ss / mm:ss (AFK only; live DJ hides the bar), listeners (centered), DJ image + `dj.djname`, **Next** then **Last played** (centered; live DJ next is `???`), then thread if present. Toggle the heart **immediately** on tap; revert if the attempt fails or is a no-op. One in-flight fave. Failures also as red text, faded out when `np` changes |
 | Songs | **Last Played \| Queue \| Request \| Favorites**. Queue hidden when not AFK. `/r/` + blue on `type == 1`. Request is search + request. Favorites is nick + public list + per-row Request when AFK + **Request random**. Request and Favorites use the same no-scroll pane pager as news |
 | Board | **News \| Schedule \| Staff** (default News). News: list + article. Schedule: seven weekday rows, Monday first. Staff: groups Staff / Developers / DJs; image + name; no bio |
 | Settings | **General \| Auto \| Connection**. Overflow **Alerts** (alarm / snooze / sleep / DJ notifier / fave currently playing) — not a fifth bottom tab. General: auto-start on plug, about, theme pick, holiday opt-out, convert schedule times to local. Auto: auto-start in vehicle. Connection: Rizon vs Bouncer ([requests-faves.md](requests-faves.md), [settings.md](settings.md)) |
@@ -27,7 +27,7 @@ URLs, weekday order, staff role order, holiday windows, EST zone id (`America/Ne
 
 Follow the live homepage order for player chrome: play + volume, title, tags (+/-), progress + listeners + clock, DJ column, next, previous, then thread.
 
-Now Playing lists the **next** song first (`queue[0]` when AFK; live DJ: `???`) and the **previous** song second (`lp[0]`). Currently playing may wrap up to two lines. Next and previous are one line each, ellipsized to the width of the screen. DJ name is centered under the image. **Listeners** is centered on its line; the AFK mm:ss clock stays on the right of that line. Full last-played and queue live on the Songs tab.
+Now Playing lists **Next** first (`queue[0]` when AFK; live DJ: `???`) and **Last played** second (`lp[0]`). Currently playing may wrap up to two lines. Next and last played are one line each, centered, ellipsized to the width of the screen. Hug panes sit at the **top** of the tab (wallpaper still shows below). DJ name is centered under the image. **Listeners** is centered on its line; the AFK mm:ss clock stays on the right of that line. Full last-played and queue live on the Songs tab.
 
 Tags: one space-separated line from `tags[]`, collapsed behind +/- like the site.
 

@@ -220,17 +220,29 @@ fun NowPlayingScreen(
             }
             val prev = status?.lp?.firstOrNull()?.let { "${it.artist} - ${it.title}" }.orEmpty()
             Text(
-                next,
+                "Next",
                 color = t.muted,
+                textAlign = TextAlign.Center,
+                modifier = Modifier.fillMaxWidth().padding(top = 12.dp),
+            )
+            Text(
+                next,
+                color = t.text,
+                textAlign = TextAlign.Center,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(top = 12.dp),
+                modifier = Modifier.fillMaxWidth(),
+            )
+            Text(
+                "Last played",
+                color = t.muted,
+                textAlign = TextAlign.Center,
+                modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
             )
             Text(
                 prev,
-                color = t.muted,
+                color = t.text,
+                textAlign = TextAlign.Center,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
                 modifier = Modifier.fillMaxWidth(),
