@@ -1,0 +1,11 @@
+#!/usr/bin/env bash
+# Refuse pushing main. Land through a PR.
+set -euo pipefail
+while read -r _local_ref _local_sha remote_ref _remote_sha; do
+  case "$remote_ref" in
+  refs/heads/main)
+    echo "pre-push: do not push main; open a PR" >&2
+    exit 1
+    ;;
+  esac
+done
