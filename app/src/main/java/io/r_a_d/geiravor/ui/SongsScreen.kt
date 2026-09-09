@@ -102,7 +102,9 @@ private fun RequestPane(ui: UiState, core: RadioCore) {
             label = { Text("Search") },
             keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
             keyboardActions = KeyboardActions(onSearch = { go(1u) }),
-            modifier = Modifier.fillMaxWidth(),
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(bottom = InnerSection.FIELD_LIST_GAP_DP.dp),
         )
         ui.requestText?.let { Text(it, color = if (it.contains("Thank", true)) t.green else t.red) }
         BoxWithConstraints(Modifier.weight(1f).fillMaxWidth()) {
@@ -204,7 +206,9 @@ private fun FavoritesPane(ui: UiState, core: RadioCore) {
                     load(1u)
                 },
             ),
-            modifier = Modifier.fillMaxWidth(),
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(bottom = InnerSection.FIELD_LIST_GAP_DP.dp),
         )
         ui.requestText?.let { Text(it, color = t.red) }
         BoxWithConstraints(Modifier.weight(1f).fillMaxWidth()) {

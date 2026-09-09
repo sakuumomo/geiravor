@@ -40,5 +40,6 @@ class PaneFitTest {
         assertEquals(68, InnerSection.SONG_ROW_DP)
         assertEquals(88, InnerSection.NEWS_ROW_DP)
         assertEquals(20, InnerSection.ARTICLE_COMMENT_GAP_DP)
+        assertEquals(12, InnerSection.FIELD_LIST_GAP_DP)
     }
 }

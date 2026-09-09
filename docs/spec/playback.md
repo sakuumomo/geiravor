@@ -47,7 +47,7 @@ The playback shade is a **media-style** notification the app posts (not Media3�
 
 `/api` metadata (`np`, DJ name, `djimage`, artwork URI, AFK duration / live `TIME_UNSET`) is applied **in place** on the current live item (same URI / mediaId). Do not rebuild the Icecast `MediaSource` or start a new GET on a snapshot. Pause still **stops**.
 
-After pause/stop: keep that notification as the play target (unprepared live item, no Icecast GET) until the user dismisses it. It is **not** ongoing while stopped — swipe-away dismisses it and it must **not** come back until the next Play or alarm. Media3 must not post id 1001 (including after dismiss while the session reports paused `STATE_READY`). The session reports paused `STATE_READY` for that item (including on Auto connect before the first Play) so compact/focused now-playing stay available. Play on it reconnects.
+After pause/stop: keep that notification as the play target (unprepared live item, no Icecast GET) until the user dismisses it. Post it **once** on stop; `/api` polls must not rewrite or cancel it. If the system or the user clears it, leave it gone until the next Play or alarm. It is **not** ongoing while stopped — swipe-away dismisses it and it must **not** come back until the next Play or alarm. Media3 must not post id 1001 (including after dismiss while the session reports paused `STATE_READY`). The session reports paused `STATE_READY` for that item (including on Auto connect before the first Play) so compact/focused now-playing stay available. Play on it reconnects.
 
 `setSessionActivity` → the single Activity.
 

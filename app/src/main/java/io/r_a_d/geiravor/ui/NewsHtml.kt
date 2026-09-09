@@ -79,18 +79,20 @@ fun commentListIndex(ids: List<Long>, id: Long, headerItems: Int = 1): Int? {
 
 /** `#id` quotes `>>id` into the composer. `docs/spec/news.md`. */
 fun quoteComment(draft: String, id: Long, max: Int = 500): String {
-    val quote = ">>$id\n"
     val next = if (draft.isEmpty() || draft.endsWith('\n')) {
-        draft + quote
+        "$draft>>$id\n"
     } else {
-        "$draft $quote"
+        "$draft >>$id "
     }
     return if (next.length <= max) next else next.take(max)
 }
 
-/** ← News film: transparent at rest, opaque on hover. `docs/spec/news.md`. */
+/** Rest is a fraction of the opaque film so the chip is never fully clear. */
+const val NEWS_FILM_REST = 0.4f
+
+/** ← News film: partial at rest, opaque on hover. `docs/spec/news.md`. */
 fun newsFilmFill(hovered: Boolean, opaque: androidx.compose.ui.graphics.Color): androidx.compose.ui.graphics.Color =
-    if (hovered) opaque else androidx.compose.ui.graphics.Color.Transparent
+    if (hovered) opaque else opaque.copy(alpha = opaque.alpha * NEWS_FILM_REST)
 
 fun newsBlocks(html: String): List<NewsBlock> {
     val rewritten = rewriteLocalTimes(html)

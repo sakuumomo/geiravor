@@ -44,6 +44,7 @@ object InnerSection {
     const val SONG_ROW_DP = 68
     const val NEWS_ROW_DP = 88
     const val ARTICLE_COMMENT_GAP_DP = 20
+    const val FIELD_LIST_GAP_DP = 12
 }
 
 @Composable

@@ -113,6 +113,9 @@ class LivePlaybackPolicyTest {
         assertFalse(LivePlaybackPolicy.leaveForegroundOnStop(true, true))
         assertFalse(LivePlaybackPolicy.leaveForegroundOnStop(false, false))
         assertTrue(LivePlaybackPolicy.skipMedia3Notification())
+        assertTrue(LivePlaybackPolicy.shouldRefreshShadeFromSnapshot(true))
+        assertFalse(LivePlaybackPolicy.shouldRefreshShadeFromSnapshot(false))
+        assertFalse(LivePlaybackPolicy.assumeDismissedIfShadeMissing())
     }
 
     @Test

@@ -45,6 +45,11 @@ object LivePlaybackPolicy {
 
     fun skipMedia3Notification(): Boolean = true
 
+    /** Poll /api must not rewrite a stopped shade. User mute/fave/play still may. */
+    fun shouldRefreshShadeFromSnapshot(wantPlay: Boolean): Boolean = wantPlay
+
+    fun assumeDismissedIfShadeMissing(): Boolean = false
+
     fun stepGain(current: Float, delta: Float): Float =
         (current + delta).coerceIn(0f, 1f)
 

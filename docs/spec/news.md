@@ -16,7 +16,7 @@ List pages, article bodies, and comments live on disk and in a process RAM catal
 
 `GET https://r-a-d.io/news/{id}` is HTML: body + comments + gorilla CSRF. One GET fills both. Persist body and comments; revalidate on open; **write only if different**. Replace comments on a successful POST. Drop Coil files for image URLs that leave the article.
 
-The article is the `message-body` HTML (paragraphs, `<br>`, `<em>`, `<strong>`, `<img>`, `<time>`), not the list flavor. Skip the relative `data-type="medium"` timeago line. **← News** stays pinned at the top as a link over the scrolling article — not a toolbar or rule. A compact theme **film** chip sits behind the label: **transparent at rest**, opaque on hover (glass 50% black, Christmas white sheet, Default `surface`) so the pointer hover reads. The body and comments scroll under it. Extra pad between the article body and the first comment.
+The article is the `message-body` HTML (paragraphs, `<br>`, `<em>`, `<strong>`, `<img>`, `<time>`), not the list flavor. Skip the relative `data-type="medium"` timeago line. **← News** stays pinned at the top as a link over the scrolling article — not a toolbar or rule. A compact theme **film** chip sits behind the label: **partially transparent at rest**, opaque on hover (glass 50% black, Christmas white sheet, Default `surface`) so the pointer hover reads. The body and comments scroll under it. Extra pad between the article body and the first comment.
 
 `<time datetime="{unix}" data-type="local" data-dur="{ms}">` is converted to the device local timezone the same way the site’s JS does (`data-dur` is a range when non-zero). Do not leave the inner UTC `+0000` string, and do not substitute the raw unix value.
 
@@ -34,5 +34,5 @@ Show author (`Anonymous (abcd)` or nick, including `## staff`), `YYYY-MM-DD HH:M
 
 Imageboard clicks:
 
-- **`#id`** (the comment id) quotes `>>id\n` into the composer (append; keep a trailing newline). If the composer already has text that does not end in a newline, insert a space before `>>`.
+- **`#id`** (the comment id) quotes `>>id\n` into the composer (append; keep a trailing newline). If the composer already has text that does not end in a newline, insert a space before `>>` and a space after the id instead of a newline.
 - **`>>id`** in a body (`href="#comment-{id}"`) **jumps** to that comment. Do not open a browser.

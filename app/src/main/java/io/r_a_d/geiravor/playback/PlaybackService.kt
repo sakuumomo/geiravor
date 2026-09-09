@@ -193,7 +193,7 @@ class PlaybackService : MediaLibraryService() {
             }
             ACTION_FAVE -> {
                 val app = application as GeiravorApp
-                tapFave(app.ui, app.core, app.secrets) { refreshButtons() }
+                tapFave(app.ui, app.core, app.secrets) { refreshButtons(updateShade = true) }
             }
             ACTION_MUTE -> {
                 val cur = player.volume
@@ -271,12 +271,8 @@ class PlaybackService : MediaLibraryService() {
 
     private fun postShade(playing: Boolean) {
         if (shadeDismissed || !shadePosted) return
+        if (LivePlaybackPolicy.assumeDismissedIfShadeMissing()) return
         val nm = getSystemService(android.app.NotificationManager::class.java) ?: return
-        if (!playing && nm.activeNotifications.none { it.id == PlaybackNotice.ID }) {
-            shadePosted = false
-            shadeDismissed = true
-            return
-        }
         nm.notify(PlaybackNotice.ID, shadeNotice(playing))
     }
 
@@ -290,7 +286,9 @@ class PlaybackService : MediaLibraryService() {
             app.ui.onMain {
                 if (shadeArtUrl != key) return@onMain
                 shadeArt = bmp
-                postShade(playbackForeground)
+                if (LivePlaybackPolicy.shouldRefreshShadeFromSnapshot(playbackForeground)) {
+                    postShade(true)
+                }
             }
         }
     }
@@ -340,9 +338,9 @@ class PlaybackService : MediaLibraryService() {
             built.setLiveConfiguration(MediaItem.LiveConfiguration.Builder().build())
         }
         player.replaceMediaItem(0, built.build())
-        if (shadePosted) {
+        if (shadePosted && LivePlaybackPolicy.shouldRefreshShadeFromSnapshot(playbackForeground)) {
             loadShadeArt(LivePlaybackPolicy.djImageUrl(status.dj.image))
-            postShade(playbackForeground)
+            postShade(true)
         }
     }
 
@@ -388,7 +386,7 @@ class PlaybackService : MediaLibraryService() {
         override fun onStatus(status: Status, streamDown: Boolean, playing: Boolean) {
             Handler(Looper.getMainLooper()).post {
                 applyStatus(status)
-                refreshButtons()
+                refreshButtons(updateShade = false)
                 val sig = AutoBrowse.songsSignature(status)
                 if (sig != lastSongsSig) {
                     lastSongsSig = sig
@@ -434,14 +432,14 @@ class PlaybackService : MediaLibraryService() {
         session?.notifyChildrenChanged(AutoBrowse.SETTINGS, 3, null)
     }
 
-    private fun refreshButtons() {
+    private fun refreshButtons(updateShade: Boolean = LivePlaybackPolicy.shouldRefreshShadeFromSnapshot(playbackForeground)) {
         session?.setMediaButtonPreferences(
             LivePlaybackPolicy.mediaButtons(
                 (application as GeiravorApp).ui.heartFilled,
                 LivePlaybackPolicy.muted(player.volume),
             ),
         )
-        postShade(playbackForeground)
+        if (updateShade) postShade(playbackForeground)
     }
 
     private fun applyGain(g: Float) {
@@ -511,7 +509,7 @@ class PlaybackService : MediaLibraryService() {
             when (customCommand.customAction) {
                 LivePlaybackPolicy.FAVE -> {
                     val app = application as GeiravorApp
-                    tapFave(app.ui, app.core, app.secrets) { refreshButtons() }
+                    tapFave(app.ui, app.core, app.secrets) { refreshButtons(updateShade = true) }
                 }
                 LivePlaybackPolicy.MUTE -> {
                     val cur = player.volume
