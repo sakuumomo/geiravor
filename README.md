@@ -46,4 +46,4 @@ git config core.hooksPath .githooks
 | [`SECURITY.md`](SECURITY.md) | Vulnerability reports |
 | [`CHANGELOG.md`](CHANGELOG.md) | Version history of **this** tree |
 
-Generated crate docs: [Pages](https://sakuumomo.github.io/geiravor/geiravor_core/) or `nix develop .#rust -c cargo doc --no-deps --open` (not a second spec).
+Generated crate docs (GitHub Pages, not the wiki): [rustdoc](https://sakuumomo.github.io/geiravor/geiravor_core/) or `nix develop .#rust -c cargo doc --no-deps --open` (not a second spec). The Pages site exists after `main` has the `pages` workflow.

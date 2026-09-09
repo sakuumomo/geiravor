@@ -28,7 +28,7 @@ Fake UniFFI core. Cover pause→stop, notification/Auto session with the Activit
 
 ## CI
 
-[`build.md`](build.md). `nix develop .#rust` fmt, clippy, test, rustdoc, pins. Gradle: `:app:testDebugUnitTest` and `:app:assembleDebug`.
+[`build.md`](build.md). Required jobs **`rust`** and **`android`**. `nix develop .#rust` fmt, clippy, test, rustdoc, pins, deny. Gradle: `:app:testDebugUnitTest` and `:app:assembleDebug`.
 
 ## Device
 
