@@ -8,7 +8,7 @@ import android.os.Bundle
 import androidx.media3.common.AudioAttributes
 import androidx.media3.common.C
 import androidx.media3.common.MediaItem
-import androidx.media3.common.MediaMetadata
+
 import androidx.media3.common.Metadata
 import androidx.media3.common.Player
 import androidx.media3.common.util.UnstableApi
@@ -258,7 +258,7 @@ class PlaybackService : MediaLibraryService() {
 
     private fun shadeNotice(playing: Boolean): android.app.Notification {
         PlaybackNotice.ensureChannel(this)
-        val meta = player.mediaMetadata
+        val meta = live.mediaMetadata
         val title = meta.displayTitle ?: meta.title ?: getString(R.string.app_name)
         val text = ShadeLine.fitForShade(
             this,
@@ -307,7 +307,7 @@ class PlaybackService : MediaLibraryService() {
         startMediaPlaybackForeground(PlaybackNotice.ID, shadeNotice(playing = true))
         playbackForeground = true
         shadePosted = true
-        loadShadeArt(player.mediaMetadata.artworkUri?.toString())
+        loadShadeArt(live.mediaMetadata.artworkUri?.toString())
     }
 
     private fun leavePlaybackForeground() {
@@ -322,39 +322,32 @@ class PlaybackService : MediaLibraryService() {
     }
 
     private fun applyStatus(status: Status) {
-        val item = player.currentMediaItem ?: return
-        val now = System.currentTimeMillis() / 1000
-        val fetched = (application as GeiravorApp).ui.fetchedAt
-        val progress = uniffi.geiravor_core.songProgressAt(status, now, fetched)
+        if (player.currentMediaItem == null) return
+        val nowSecs = System.currentTimeMillis() / 1000
+        val fetched = LivePlaybackPolicy.localAtFetchSecs(
+            nowSecs,
+            (application as GeiravorApp).ui.fetchedAt,
+        )
+        val progress = uniffi.geiravor_core.songProgressAt(status, nowSecs, fetched)
         val duration = if (progress.known) progress.durationSecs * 1000 else C.TIME_UNSET
+        val elapsed = if (progress.known) progress.elapsedSecs * 1000 else 0L
         val fields = NowPlayingMeta.fields(status.title, status.artist, status.np, status.dj.name)
-        val meta = MediaMetadata.Builder()
-            .setDisplayTitle(fields.title)
-            .setTitle(fields.title)
-            .setArtist(fields.subtitle)
-            .setDescription(fields.description)
-            .setAlbumArtist(fields.dj)
-            .setDurationMs(duration)
-            .setArtworkUri(
+        live.publishMetadata(
+            NowPlayingMeta.sessionMetadata(
+                fields,
+                duration,
                 LivePlaybackPolicy.djImageUrl(status.dj.image)?.let { android.net.Uri.parse(it) },
-            )
-            .setExtras(
                 NowPlayingMeta.extras(
                     fields.artist,
                     fields.dj,
-                    elapsedMs = if (progress.known) progress.elapsedSecs * 1000 else 0L,
+                    elapsedMs = elapsed,
                     fetchedAtMs = System.currentTimeMillis(),
                     durationMs = duration,
                 ),
-            )
-            .build()
-        val built = item.buildUpon().setMediaMetadata(meta)
-        if (progress.known) {
-            built.setLiveConfiguration(MediaItem.LiveConfiguration.UNSET)
-        } else {
-            built.setLiveConfiguration(MediaItem.LiveConfiguration.Builder().build())
-        }
-        player.replaceMediaItem(0, built.build())
+            ),
+            elapsedMs = elapsed,
+            durationMs = duration,
+        )
         if (shadePosted && LivePlaybackPolicy.shouldRefreshShadeFromSnapshot(playbackForeground)) {
             loadShadeArt(LivePlaybackPolicy.djImageUrl(status.dj.image))
             postShade(true)
@@ -484,7 +477,7 @@ class PlaybackService : MediaLibraryService() {
             controller: MediaSession.ControllerInfo,
         ): MediaSession.ConnectionResult {
             val sessionCommands = LivePlaybackPolicy.sessionCommands()
-            val playerCommands = LivePlaybackPolicy.playerCommands()
+            val playerCommands = live.availableCommands
             val app = application as GeiravorApp
             if (LivePlaybackPolicy.shouldAutoStartVehicle(
                     app.ui.autoStartVehicle,
@@ -514,6 +507,12 @@ class PlaybackService : MediaLibraryService() {
             return MediaSession.ConnectionResult.AcceptedResultBuilder(session)
                 .setAvailableSessionCommands(sessionCommands)
                 .setAvailablePlayerCommands(playerCommands)
+                .setMediaButtonPreferences(
+                    LivePlaybackPolicy.mediaButtons(
+                        app.ui.heartFilled,
+                        LivePlaybackPolicy.muted(player.volume),
+                    ),
+                )
                 .build()
         }
 
@@ -545,18 +544,8 @@ class PlaybackService : MediaLibraryService() {
             session: MediaLibrarySession,
             browser: MediaSession.ControllerInfo,
             params: MediaLibraryService.LibraryParams?,
-        ): ListenableFuture<LibraryResult<MediaItem>> {
-            val root = MediaItem.Builder()
-                .setMediaId("root")
-                .setMediaMetadata(
-                    MediaMetadata.Builder()
-                        .setIsBrowsable(true)
-                        .setIsPlayable(false)
-                        .build(),
-                )
-                .build()
-            return Futures.immediateFuture(LibraryResult.ofItem(root, params))
-        }
+        ): ListenableFuture<LibraryResult<MediaItem>> =
+            Futures.immediateFuture(LibraryResult.ofItem(AutoBrowse.rootItem(), params))
 
         override fun onGetChildren(
             session: MediaLibrarySession,
@@ -575,9 +564,12 @@ class PlaybackService : MediaLibraryService() {
             browser: MediaSession.ControllerInfo,
             mediaId: String,
         ): ListenableFuture<LibraryResult<MediaItem>> {
-            if (AutoBrowse.isLiveId(mediaId) || mediaId == player.currentMediaItem?.mediaId) {
+            if (mediaId == AutoBrowse.ROOT) {
+                return Futures.immediateFuture(LibraryResult.ofItem(AutoBrowse.rootItem(), null))
+            }
+            if (AutoBrowse.isLiveId(mediaId) || mediaId == live.currentMediaItem?.mediaId) {
                 ensureLiveItem()
-                val item = player.currentMediaItem
+                val item = live.currentMediaItem
                     ?: MediaItem.fromUri(LivePlaybackPolicy.STREAM_URL)
                 return Futures.immediateFuture(LibraryResult.ofItem(item, null))
             }
@@ -597,9 +589,11 @@ class PlaybackService : MediaLibraryService() {
             val id = mediaItems.firstOrNull()?.mediaId.orEmpty()
             if (AutoBrowse.isSettingsToggle(id) || id == AutoBrowse.ABOUT) {
                 if (AutoBrowse.isSettingsToggle(id)) toggleSetting(id)
-                if (!player.isPlaying) live.skipNextPlay = true
+                if (LivePlaybackPolicy.skipFollowUpPlayAfterSettingsTap(player.playWhenReady)) {
+                    live.skipNextPlay = true
+                }
                 ensureLiveItem()
-                val current = player.currentMediaItem
+                val current = live.currentMediaItem
                     ?: MediaItem.fromUri(LivePlaybackPolicy.STREAM_URL)
                 return Futures.immediateFuture(mutableListOf(current))
             }
@@ -624,7 +618,7 @@ class PlaybackService : MediaLibraryService() {
             }
             return Futures.immediateFuture(
                 MediaSession.MediaItemsWithStartPosition(
-                    listOf(player.currentMediaItem ?: MediaItem.fromUri(LivePlaybackPolicy.STREAM_URL)),
+                    listOf(live.currentMediaItem ?: MediaItem.fromUri(LivePlaybackPolicy.STREAM_URL)),
                     0,
                     C.TIME_UNSET,
                 ),

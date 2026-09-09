@@ -1,7 +1,9 @@
 package io.r_a_d.geiravor.playback
 
+import android.os.Bundle
 import androidx.media3.common.MediaItem
 import androidx.media3.common.MediaMetadata
+import androidx.media3.session.MediaConstants
 import com.google.common.collect.ImmutableList
 import uniffi.geiravor_core.Status
 
@@ -29,6 +31,30 @@ object AutoBrowse {
 
     fun isLiveId(mediaId: String): Boolean =
         mediaId == LivePlaybackPolicy.STREAM_URL
+
+    fun rootItem(): MediaItem {
+        val extras = Bundle().apply {
+            putInt(
+                MediaConstants.EXTRAS_KEY_CONTENT_STYLE_BROWSABLE,
+                MediaConstants.EXTRAS_VALUE_CONTENT_STYLE_LIST_ITEM,
+            )
+            putInt(
+                MediaConstants.EXTRAS_KEY_CONTENT_STYLE_PLAYABLE,
+                MediaConstants.EXTRAS_VALUE_CONTENT_STYLE_LIST_ITEM,
+            )
+        }
+        return MediaItem.Builder()
+            .setMediaId(ROOT)
+            .setMediaMetadata(
+                MediaMetadata.Builder()
+                    .setTitle("r/a/dio")
+                    .setIsBrowsable(true)
+                    .setIsPlayable(false)
+                    .setExtras(extras)
+                    .build(),
+            )
+            .build()
+    }
 
     fun onOff(on: Boolean): String = if (on) "On" else "Off"
 

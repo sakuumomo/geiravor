@@ -1,8 +1,12 @@
 package io.r_a_d.geiravor.playback
 
+import android.os.Bundle
+import androidx.media3.common.C
 import androidx.media3.common.Player
 import androidx.media3.session.CommandButton
+import androidx.media3.session.MediaSession
 import androidx.media3.session.SessionCommand
+import androidx.media3.session.SessionCommands
 import com.google.common.collect.ImmutableList
 
 /** Product: docs/spec/playback.md and docs/spec/android-auto.md. */
@@ -119,6 +123,8 @@ object LivePlaybackPolicy {
         intArrayOf(
             Player.COMMAND_PLAY_PAUSE,
             Player.COMMAND_STOP,
+            Player.COMMAND_PREPARE,
+            Player.COMMAND_SET_MEDIA_ITEM,
             Player.COMMAND_GET_CURRENT_MEDIA_ITEM,
             Player.COMMAND_GET_METADATA,
         )
@@ -129,15 +135,67 @@ object LivePlaybackPolicy {
         return b.build()
     }
 
-    fun sessionCommands(): androidx.media3.session.SessionCommands =
-        androidx.media3.session.SessionCommands.Builder()
-            .add(SessionCommand(FAVE, android.os.Bundle.EMPTY))
-            .add(SessionCommand(MUTE, android.os.Bundle.EMPTY))
-            .add(SessionCommand(VOL_UP, android.os.Bundle.EMPTY))
-            .add(SessionCommand(VOL_DOWN, android.os.Bundle.EMPTY))
+    /** Idle ExoPlayer drops Play; Auto then has no start control. */
+    fun availableCommands(exo: Player.Commands): Player.Commands {
+        val b = Player.Commands.Builder()
+        advertisedPlayerCommands().forEach { b.add(it) }
+        if (exo.contains(Player.COMMAND_GET_VOLUME)) b.add(Player.COMMAND_GET_VOLUME)
+        if (exo.contains(Player.COMMAND_SET_VOLUME)) b.add(Player.COMMAND_SET_VOLUME)
+        return b.build()
+    }
+
+    fun sessionCommands(): SessionCommands =
+        MediaSession.ConnectionResult.DEFAULT_SESSION_AND_LIBRARY_COMMANDS
+            .buildUpon()
+            .add(SessionCommand(FAVE, Bundle.EMPTY))
+            .add(SessionCommand(MUTE, Bundle.EMPTY))
+            .add(SessionCommand(VOL_UP, Bundle.EMPTY))
+            .add(SessionCommand(VOL_DOWN, Bundle.EMPTY))
+            .remove(SessionCommand.COMMAND_CODE_LIBRARY_SEARCH)
             .build()
 
+    /**
+     * Settings rows are function items. Auto still follows a tap with Play.
+     * Swallow that only while paused — not with a timer, and not a later user Play.
+     */
+    fun skipFollowUpPlayAfterSettingsTap(wantPlay: Boolean): Boolean = !wantPlay
+
+    /**
+     * Play reconnects Icecast. A second Play while we already want play and are
+     * not idle/ended must not replace or re-prepare the live GET.
+     */
+    fun shouldRestartLive(wantPlay: Boolean, exoState: Int): Boolean =
+        !wantPlay || exoState == Player.STATE_IDLE || exoState == Player.STATE_ENDED
+
+    fun shouldPrepare(wantPlay: Boolean, exoState: Int): Boolean =
+        wantPlay && (exoState == Player.STATE_IDLE || exoState == Player.STATE_ENDED)
+
+    fun shouldApplyLiveMediaItem(wantPlay: Boolean, alreadyHasLive: Boolean): Boolean =
+        !wantPlay && !alreadyHasLive
+
+    /** Same live item across Play; a new MediaItem makes Auto leave now-playing. */
+    fun shouldSetMediaItemOnPlay(alreadyHasLive: Boolean): Boolean = !alreadyHasLive
+
     fun pauseStops(): Boolean = true
+
+    /** Auto remaining bar uses session buffer fields; Icecast bytes are not the song. */
+    fun songBufferedPositionMs(positionMs: Long): Long = positionMs
+
+    fun songBufferedPercentage(positionMs: Long, durationMs: Long): Int {
+        if (durationMs == C.TIME_UNSET || durationMs <= 0L) return 0
+        return ((positionMs.coerceAtLeast(0L) * 100L) / durationMs).toInt().coerceIn(0, 100)
+    }
+
+    fun totalBufferedDurationMs(): Long = 0L
+
+    fun isSeekable(): Boolean = false
+
+    /**
+     * `song_progress` with local_at_fetch=0 adds unix `current` and clamps to duration
+     * (Auto bar stuck full). A snapshot applied now uses now as fetch time.
+     */
+    fun localAtFetchSecs(nowSecs: Long, storedFetchedAtSecs: Long): Long =
+        if (storedFetchedAtSecs <= 0L) nowSecs else storedFetchedAtSecs
 
     fun seekRejected(): Boolean = true
 

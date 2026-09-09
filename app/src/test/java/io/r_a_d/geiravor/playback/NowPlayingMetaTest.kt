@@ -41,6 +41,20 @@ class NowPlayingMetaTest {
     }
 
     @Test
+    fun liveItemIsPlayableNotBrowsable() {
+        val f = NowPlayingMeta.fields("ninelie", "Aimer", "Aimer - ninelie", "Hanyuu-sama")
+        val meta = NowPlayingMeta.sessionMetadata(
+            f,
+            180_000,
+            null,
+            NowPlayingMeta.extras("Aimer", "Hanyuu-sama", 0L, 0L, 180_000),
+        )
+        assertEquals(true, meta.isPlayable)
+        assertEquals(false, meta.isBrowsable)
+        assertEquals("ninelie", meta.displayTitle.toString())
+    }
+
+    @Test
     fun liveOnlyWhenDurationUnknown() {
         assertTrue(NowPlayingMeta.isLive(C.TIME_UNSET))
         assertFalse(NowPlayingMeta.isLive(180_000))

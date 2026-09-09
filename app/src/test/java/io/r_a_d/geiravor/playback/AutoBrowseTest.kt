@@ -14,6 +14,15 @@ class AutoBrowseTest {
     private val flags = AutoBrowse.Flags(vehicle = false, plug = true, version = "0.3.0")
 
     @Test
+    fun libraryRootIsBrowsableNotPlayable() {
+        val root = AutoBrowse.rootItem()
+        assertEquals(AutoBrowse.ROOT, root.mediaId)
+        assertTrue(root.mediaMetadata.isBrowsable == true)
+        assertTrue(root.mediaMetadata.isPlayable != true)
+        assertEquals("r/a/dio", root.mediaMetadata.title.toString())
+    }
+
+    @Test
     fun rootIsSongsAndSettings() {
         val kids = AutoBrowse.children(AutoBrowse.ROOT, null, flags)
         assertEquals(2, kids.size)
@@ -76,6 +85,7 @@ class AutoBrowseTest {
     @Test
     fun getItemReturnsLiveAndSettings() {
         assertTrue(AutoBrowse.isLiveId(LivePlaybackPolicy.STREAM_URL))
+        assertFalse(AutoBrowse.isLiveId(AutoBrowse.ROOT))
         assertTrue(AutoBrowse.isSettingsToggle(AutoBrowse.VEHICLE))
         assertFalse(AutoBrowse.isSettingsToggle(AutoBrowse.ABOUT))
         val about = AutoBrowse.item(AutoBrowse.ABOUT, null, flags)

@@ -1,5 +1,6 @@
 package io.r_a_d.geiravor.playback
 
+import androidx.media3.common.C
 import androidx.media3.common.Player
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -27,6 +28,24 @@ class LivePlaybackPolicyTest {
             Player.STATE_BUFFERING,
             LivePlaybackPolicy.reportedPlaybackState(true, Player.STATE_BUFFERING),
         )
+        assertEquals(
+            Player.STATE_READY,
+            LivePlaybackPolicy.reportedPlaybackState(false, Player.STATE_ENDED),
+        )
+        assertFalse(LivePlaybackPolicy.shouldSetMediaItemOnPlay(alreadyHasLive = true))
+        assertTrue(LivePlaybackPolicy.shouldSetMediaItemOnPlay(alreadyHasLive = false))
+    }
+
+    @Test
+    fun autoProgressBarIsApiWindowNotIcecast() {
+        assertEquals(65_000L, LivePlaybackPolicy.songBufferedPositionMs(65_000L))
+        assertEquals(0L, LivePlaybackPolicy.totalBufferedDurationMs())
+        assertFalse(LivePlaybackPolicy.isSeekable())
+        assertEquals(50, LivePlaybackPolicy.songBufferedPercentage(90_000, 180_000))
+        assertEquals(100, LivePlaybackPolicy.songBufferedPercentage(180_000, 180_000))
+        assertEquals(0, LivePlaybackPolicy.songBufferedPercentage(90_000, C.TIME_UNSET))
+        assertEquals(1_700_000_000L, LivePlaybackPolicy.localAtFetchSecs(1_700_000_000L, 0L))
+        assertEquals(50L, LivePlaybackPolicy.localAtFetchSecs(1_700_000_000L, 50L))
     }
 
     @Test
@@ -38,8 +57,27 @@ class LivePlaybackPolicyTest {
         assertFalse(Player.COMMAND_GET_TIMELINE in cmds)
         assertTrue(Player.COMMAND_PLAY_PAUSE in cmds)
         assertTrue(Player.COMMAND_STOP in cmds)
+        assertTrue(Player.COMMAND_PREPARE in cmds)
+        assertTrue(Player.COMMAND_SET_MEDIA_ITEM in cmds)
         assertTrue(LivePlaybackPolicy.seekRejected())
         assertTrue(LivePlaybackPolicy.pauseStops())
+    }
+
+    @Test
+    fun settingsTapDoesNotRestartPlayingStream() {
+        assertFalse(LivePlaybackPolicy.skipFollowUpPlayAfterSettingsTap(true))
+        assertTrue(LivePlaybackPolicy.skipFollowUpPlayAfterSettingsTap(false))
+        assertFalse(LivePlaybackPolicy.shouldRestartLive(true, Player.STATE_READY))
+        assertFalse(LivePlaybackPolicy.shouldRestartLive(true, Player.STATE_BUFFERING))
+        assertTrue(LivePlaybackPolicy.shouldRestartLive(false, Player.STATE_IDLE))
+        assertTrue(LivePlaybackPolicy.shouldRestartLive(true, Player.STATE_IDLE))
+        assertTrue(LivePlaybackPolicy.shouldRestartLive(true, Player.STATE_ENDED))
+        assertFalse(LivePlaybackPolicy.shouldPrepare(false, Player.STATE_IDLE))
+        assertFalse(LivePlaybackPolicy.shouldPrepare(true, Player.STATE_READY))
+        assertTrue(LivePlaybackPolicy.shouldPrepare(true, Player.STATE_IDLE))
+        assertFalse(LivePlaybackPolicy.shouldApplyLiveMediaItem(true, alreadyHasLive = false))
+        assertFalse(LivePlaybackPolicy.shouldApplyLiveMediaItem(false, alreadyHasLive = true))
+        assertTrue(LivePlaybackPolicy.shouldApplyLiveMediaItem(false, alreadyHasLive = false))
     }
 
     @Test

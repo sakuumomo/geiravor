@@ -3,25 +3,51 @@ package io.r_a_d.geiravor.playback
 import androidx.media3.common.C
 import androidx.media3.common.ForwardingPlayer
 import androidx.media3.common.MediaItem
+import androidx.media3.common.MediaMetadata
 import androidx.media3.common.Player
 import androidx.media3.exoplayer.ExoPlayer
+import java.util.IdentityHashMap
 
 /** Pause on a live stream stops: drop the buffer, keep the live item, do not reconnect. */
 class LiveStationPlayer(private val exo: ExoPlayer) : ForwardingPlayer(exo) {
     /** One-shot: swallow Auto connect/resume or a settings-tap Play. Not a timer. */
     var skipNextPlay = false
+    private val listeners = IdentityHashMap<Player.Listener, Player.Listener>()
+    @Volatile
+    private var sessionMeta: MediaMetadata? = null
+    @Volatile
+    private var progressElapsedMs = 0L
+    @Volatile
+    private var progressDurationMs = C.TIME_UNSET
+    @Volatile
+    private var progressAtMs = 0L
 
     fun playLive() {
         skipNextPlay = false
-        val item = MediaItem.fromUri(LivePlaybackPolicy.STREAM_URL)
-        exo.setMediaItem(item)
+        if (!LivePlaybackPolicy.shouldRestartLive(exo.playWhenReady, exo.playbackState)) {
+            return
+        }
+        if (LivePlaybackPolicy.shouldSetMediaItemOnPlay(currentIsLive())) {
+            exo.setMediaItem(MediaItem.fromUri(LivePlaybackPolicy.STREAM_URL))
+        }
         exo.prepare()
         exo.playWhenReady = true
     }
 
     fun pauseStops() {
-        exo.stop()
         exo.playWhenReady = false
+        exo.stop()
+    }
+
+    /** /api paints the live card in place. Do not replace the Icecast item. */
+    fun publishMetadata(meta: MediaMetadata, elapsedMs: Long, durationMs: Long) {
+        progressElapsedMs = elapsedMs
+        progressDurationMs = durationMs
+        progressAtMs = System.currentTimeMillis()
+        if (sessionMeta == meta) return
+        sessionMeta = meta
+        exo.setPlaylistMetadata(meta)
+        listeners.values.forEach { it.onMediaMetadataChanged(meta) }
     }
 
     override fun pause() {
@@ -40,6 +66,11 @@ class LiveStationPlayer(private val exo: ExoPlayer) : ForwardingPlayer(exo) {
     override fun setPlayWhenReady(playWhenReady: Boolean) {
         if (playWhenReady && takeSkip()) return
         if (playWhenReady) playLive() else pauseStops()
+    }
+
+    override fun prepare() {
+        if (!LivePlaybackPolicy.shouldPrepare(exo.playWhenReady, exo.playbackState)) return
+        super.prepare()
     }
 
     override fun setMediaItem(mediaItem: MediaItem) {
@@ -79,23 +110,90 @@ class LiveStationPlayer(private val exo: ExoPlayer) : ForwardingPlayer(exo) {
         super.setMediaItems(mediaItems, startIndex, startPositionMs)
     }
 
+    override fun addListener(listener: Player.Listener) {
+        val wrapped = object : Player.Listener by listener {
+            override fun onPlaybackStateChanged(playbackState: Int) {
+                listener.onPlaybackStateChanged(getPlaybackState())
+            }
+
+            override fun onIsPlayingChanged(isPlaying: Boolean) {
+                listener.onIsPlayingChanged(isPlaying())
+            }
+
+            override fun onPlayWhenReadyChanged(playWhenReady: Boolean, reason: Int) {
+                listener.onPlayWhenReadyChanged(getPlayWhenReady(), reason)
+            }
+
+            override fun onAvailableCommandsChanged(availableCommands: Player.Commands) {
+                listener.onAvailableCommandsChanged(getAvailableCommands())
+            }
+
+            override fun onMediaMetadataChanged(mediaMetadata: MediaMetadata) {
+                listener.onMediaMetadataChanged(sessionMeta ?: mediaMetadata)
+            }
+        }
+        listeners[listener] = wrapped
+        super.addListener(wrapped)
+    }
+
+    override fun removeListener(listener: Player.Listener) {
+        super.removeListener(listeners.remove(listener) ?: listener)
+    }
+
+    override fun getAvailableCommands(): Player.Commands =
+        LivePlaybackPolicy.availableCommands(super.getAvailableCommands())
+
+    override fun isCommandAvailable(command: Int): Boolean =
+        getAvailableCommands().contains(command)
+
     override fun getPlaybackState(): Int =
         LivePlaybackPolicy.reportedPlaybackState(playWhenReady, super.getPlaybackState())
 
     override fun isPlaying(): Boolean =
         playWhenReady && super.getPlaybackState() == Player.STATE_READY
 
-    override fun isCurrentMediaItemLive(): Boolean =
-        NowPlayingMeta.isLive(NowPlayingMeta.songDurationMs(mediaMetadata))
+    override fun getMediaMetadata(): MediaMetadata = sessionMeta ?: super.getMediaMetadata()
 
-    override fun getDuration(): Long = NowPlayingMeta.songDurationMs(mediaMetadata)
+    override fun getCurrentMediaItem(): MediaItem? {
+        val current = super.getCurrentMediaItem() ?: return null
+        val meta = sessionMeta ?: return current
+        if (current.mediaMetadata == meta) return current
+        return current.buildUpon().setMediaMetadata(meta).build()
+    }
+
+    override fun isCurrentMediaItemLive(): Boolean =
+        NowPlayingMeta.isLive(duration)
+
+    override fun getDuration(): Long =
+        if (progressDurationMs != C.TIME_UNSET && progressDurationMs > 0L) {
+            progressDurationMs
+        } else {
+            NowPlayingMeta.songDurationMs(mediaMetadata)
+        }
 
     override fun getCurrentPosition(): Long =
-        NowPlayingMeta.songPositionMs(mediaMetadata, System.currentTimeMillis())
+        NowPlayingMeta.songPositionMs(
+            progressElapsedMs,
+            progressAtMs,
+            duration,
+            System.currentTimeMillis(),
+        )
 
     override fun getContentDuration(): Long = duration
 
     override fun getContentPosition(): Long = currentPosition
+
+    override fun getBufferedPosition(): Long =
+        LivePlaybackPolicy.songBufferedPositionMs(currentPosition)
+
+    override fun getContentBufferedPosition(): Long = bufferedPosition
+
+    override fun getTotalBufferedDuration(): Long = LivePlaybackPolicy.totalBufferedDurationMs()
+
+    override fun getBufferedPercentage(): Int =
+        LivePlaybackPolicy.songBufferedPercentage(currentPosition, duration)
+
+    override fun isCurrentMediaItemSeekable(): Boolean = LivePlaybackPolicy.isSeekable()
 
     override fun seekTo(positionMs: Long) {}
 
@@ -130,6 +228,17 @@ class LiveStationPlayer(private val exo: ExoPlayer) : ForwardingPlayer(exo) {
         val uri = item.localConfiguration?.uri?.toString()
         val live = uri == LivePlaybackPolicy.STREAM_URL ||
             item.mediaId == LivePlaybackPolicy.STREAM_URL
-        return !(live && exo.isPlaying)
+        if (!live) return true
+        return LivePlaybackPolicy.shouldApplyLiveMediaItem(
+            exo.playWhenReady,
+            currentIsLive(),
+        )
+    }
+
+    private fun currentIsLive(): Boolean {
+        val item = exo.currentMediaItem ?: return false
+        val uri = item.localConfiguration?.uri?.toString()
+        return uri == LivePlaybackPolicy.STREAM_URL ||
+            item.mediaId == LivePlaybackPolicy.STREAM_URL
     }
 }

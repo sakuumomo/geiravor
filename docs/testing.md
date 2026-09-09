@@ -34,6 +34,6 @@ Fake UniFFI core. Cover pause→stop, notification/Auto session with the Activit
 
 Waydroid is the phone. Discover the emulator serial from `adb devices`. Never install to an `unauthorized` physical phone. Do not install rewrite APKs on the daily driver until 1.0.0.
 
-DHU is the Auto rig (`scripts/dhu.sh`): discovers the Waydroid/adb serial, waits for Head Unit Server on `:5277`, faketime wrap, do **not** kill `:5277` / force-stop the Auto app. `--stop` ends desktop-head-unit only. **Not a merge gate.** CI does not run DHU.
+DHU is the Auto rig (`scripts/dhu.sh`): discovers the Waydroid/adb serial, waits for Head Unit Server on the device `:5277`, talks to that port **directly** (not adb-forward localhost), keeps stdin open, faketime wrap. Do **not** kill `:5277` / force-stop the Auto app. `--stop` ends desktop-head-unit only. **Not a merge gate.** CI does not run DHU.
 
 Manual: play/stop, volume, unplug, notification, AFK vs live DJ, Board sections, themes, Auto play/stop with no skip. Phone features must not wait on DHU.

@@ -38,6 +38,25 @@ object NowPlayingMeta {
         )
     }
 
+    fun sessionMetadata(
+        fields: Fields,
+        durationMs: Long,
+        artworkUri: android.net.Uri?,
+        extras: Bundle,
+    ): MediaMetadata =
+        MediaMetadata.Builder()
+            .setDisplayTitle(fields.title)
+            .setTitle(fields.title)
+            .setArtist(fields.subtitle)
+            .setDescription(fields.description)
+            .setAlbumArtist(fields.dj)
+            .setDurationMs(durationMs)
+            .setArtworkUri(artworkUri)
+            .setIsPlayable(true)
+            .setIsBrowsable(false)
+            .setExtras(extras)
+            .build()
+
     fun extras(
         artist: String,
         dj: String,
