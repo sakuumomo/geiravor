@@ -4,11 +4,14 @@ updates:
     directory: /
     schedule:
       interval: monthly
+    rebase-strategy: auto
   - package-ecosystem: cargo
     directory: /
     schedule:
       interval: monthly
+    rebase-strategy: auto
   - package-ecosystem: nix
     directory: /
     schedule:
       interval: monthly
+    rebase-strategy: auto
