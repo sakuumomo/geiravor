@@ -132,6 +132,20 @@ impl Store {
         .map_err(|e| ApiError::Network {
             detail: e.to_string(),
         })?;
+        db.execute(
+            "DELETE FROM kv WHERE key = ?1",
+            [format!("overlay_plus:{nick}")],
+        )
+        .map_err(|e| ApiError::Network {
+            detail: e.to_string(),
+        })?;
+        db.execute(
+            "DELETE FROM kv WHERE key = ?1",
+            [format!("overlay_minus:{nick}")],
+        )
+        .map_err(|e| ApiError::Network {
+            detail: e.to_string(),
+        })?;
         Ok(())
     }
 }

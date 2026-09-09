@@ -255,9 +255,9 @@ class UiState {
     fun membershipNicks(): List<String> {
         val out = ArrayList<String>(2)
         val list = committedListNick.trim()
-        val connection = committedNick.trim()
-        if (list.isNotEmpty()) out.add(list)
-        if (connection.isNotEmpty() && connection != list) out.add(connection)
+        val connection = committedNick.trim().ifEmpty { list }
+        if (connection.isNotEmpty()) out.add(connection)
+        if (list.isNotEmpty() && list != connection) out.add(list)
         return out
     }
 

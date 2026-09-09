@@ -229,19 +229,34 @@ private fun runFave(
     val nicks = ui.membershipNicks()
     ui.offMain {
         val result = core.addFave(cfg, job.unfave, job.catalog, job.np, job.isAfk, job.trackId)
-        if (result.kind == FaveKind.SUCCESS) {
-            nicks.forEach { nick -> runCatching { core.revalidateMembership(nick) } }
+        val status = ui.status
+        val catalog = if (status?.isAfk == true) status.trackId else 0L
+        val np = status?.np.orEmpty()
+        val hit = result.kind == FaveKind.SUCCESS && nicks.any { nick ->
+            runCatching { core.membershipHas(nick, catalog, np) }.getOrDefault(false)
+        }
+        val listNick = ui.listNickOrConnection()
+        val fit = ui.faveFit
+        val page = if (result.kind == FaveKind.SUCCESS && listNick.isNotEmpty() && fit > 0u) {
+            runCatching { core.favesWindow(listNick, ui.favePage, fit) }.getOrNull()
+        } else {
+            null
         }
         ui.onMain {
             when (result.kind) {
                 FaveKind.SUCCESS -> {
                     ui.faveError = null
                     ui.faveErrorFading = false
+                    page?.let {
+                        ui.faveRows = it.rows
+                        ui.favePage = it.page
+                        ui.faveLast = it.lastPage
+                    }
                     val next = ui.faveQueue.removeFirstOrNull()
                     if (next != null) {
                         runFave(ui, core, secrets, next, onHeart)
                     } else {
-                        ui.heartFilled = result.favorited
+                        ui.heartFilled = hit || result.favorited
                         ui.faveBusy = false
                         ui.faveTaps = 0
                     }

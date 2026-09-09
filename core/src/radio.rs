@@ -1,6 +1,6 @@
 //! Process-wide domain. UniFFI constructor takes `files_dir` from the shell.
 
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::sync::{Arc, Mutex};
 use std::thread;
 use std::time::Duration;
@@ -57,6 +57,7 @@ struct Inner<C: HttpClient> {
 struct FaveOverlay {
     plus: HashMap<String, Vec<FaveRow>>,
     minus: HashMap<String, Vec<FaveRow>>,
+    hydrated: HashSet<String>,
 }
 
 struct FaveBusy<'a>(&'a Mutex<bool>);
@@ -126,15 +127,49 @@ const PREF_CONN_NICK: &str = "nick";
 
 fn overlay_nicks(cfg: &FaveConfig) -> Vec<String> {
     let mut nicks = Vec::new();
-    let list = cfg.list_nick.trim();
     let irc = irc_nick(cfg);
-    if !list.is_empty() {
-        nicks.push(list.to_string());
-    }
-    if !irc.is_empty() && !nicks.iter().any(|n| n == irc) {
+    let list = cfg.list_nick.trim();
+    if !irc.is_empty() {
         nicks.push(irc.to_string());
     }
+    if !list.is_empty() && !nicks.iter().any(|n| n == list) {
+        nicks.push(list.to_string());
+    }
     nicks
+}
+
+fn membership_text_to_rows(raw: &str) -> Vec<FaveRow> {
+    raw.lines()
+        .filter_map(|line| {
+            let (id_s, meta) = line.split_once('\t')?;
+            let id: i64 = id_s.parse().ok()?;
+            let (artist, title) = crate::parse::split_np(meta);
+            Some(FaveRow {
+                tracks_id: id,
+                artist,
+                title,
+                lastrequested: 0,
+                lastplayed: 0,
+                requestcount: 0,
+            })
+        })
+        .collect()
+}
+
+fn overlay_apply(rows: &mut Vec<FaveRow>, plus: &[FaveRow], minus: &[FaveRow]) {
+    rows.retain(|r| {
+        !minus
+            .iter()
+            .any(|m| row_is_song(r, m.tracks_id, &row_meta(m)))
+    });
+    for p in plus.iter().rev() {
+        if !rows
+            .iter()
+            .any(|r| row_is_song(r, p.tracks_id, &row_meta(p)))
+        {
+            rows.insert(0, p.clone());
+        }
+    }
 }
 
 /// Named UniFFI surface. Kotlin must not call this on the main thread for GET/sqlite.
@@ -588,7 +623,8 @@ impl RadioCore {
             return Ok(false);
         }
         {
-            let overlay = self.inner.overlay.lock().expect("overlay");
+            let mut overlay = self.inner.overlay.lock().expect("overlay");
+            self.hydrate_overlay_nick(&mut overlay, &nick);
             if overlay
                 .plus
                 .get(&nick)
@@ -626,21 +662,29 @@ impl RadioCore {
         for page in 1..=last {
             rows.extend(self.fetch_faves(nick.clone(), page)?);
         }
-        self.remember_membership(nick.clone(), rows.clone())?;
-        let mut overlay = self.inner.overlay.lock().expect("overlay");
-        if let Some(plus) = overlay.plus.get_mut(&nick) {
-            plus.retain(|r| {
-                !rows
-                    .iter()
-                    .any(|g| row_is_song(g, r.tracks_id, &row_meta(r)))
-            });
+        {
+            let mut overlay = self.inner.overlay.lock().expect("overlay");
+            self.hydrate_overlay_nick(&mut overlay, &nick);
+            if let Some(plus) = overlay.plus.get_mut(&nick) {
+                plus.retain(|r| {
+                    !rows
+                        .iter()
+                        .any(|g| row_is_song(g, r.tracks_id, &row_meta(r)))
+                });
+            }
+            if let Some(minus) = overlay.minus.get_mut(&nick) {
+                minus.retain(|r| {
+                    rows.iter()
+                        .any(|g| row_is_song(g, r.tracks_id, &row_meta(r)))
+                });
+            }
+            let plus = overlay.plus.get(&nick).cloned().unwrap_or_default();
+            let minus = overlay.minus.get(&nick).cloned().unwrap_or_default();
+            drop(overlay);
+            self.write_overlay_nick(&nick, &plus, &minus)?;
+            overlay_apply(&mut rows, &plus, &minus);
         }
-        if let Some(minus) = overlay.minus.get_mut(&nick) {
-            minus.retain(|r| {
-                rows.iter()
-                    .any(|g| row_is_song(g, r.tracks_id, &row_meta(r)))
-            });
-        }
+        self.remember_membership(nick, rows)?;
         Ok(())
     }
 
@@ -977,27 +1021,78 @@ impl RadioCore {
     }
 
     fn apply_fave_overlay(&self, nick: &str, ui_page: u32, mut rows: Vec<FaveRow>) -> Vec<FaveRow> {
-        let overlay = self.inner.overlay.lock().expect("overlay");
-        if let Some(minus) = overlay.minus.get(nick) {
-            rows.retain(|r| {
-                !minus
-                    .iter()
-                    .any(|m| row_is_song(r, m.tracks_id, &row_meta(m)))
-            });
-        }
-        if ui_page <= 1
-            && let Some(plus) = overlay.plus.get(nick)
-        {
-            for p in plus.iter().rev() {
-                if !rows
-                    .iter()
-                    .any(|r| row_is_song(r, p.tracks_id, &row_meta(p)))
-                {
-                    rows.insert(0, p.clone());
-                }
-            }
-        }
+        let mut overlay = self.inner.overlay.lock().expect("overlay");
+        self.hydrate_overlay_nick(&mut overlay, nick);
+        let minus = overlay.minus.get(nick).cloned().unwrap_or_default();
+        let plus = if ui_page <= 1 {
+            overlay.plus.get(nick).cloned().unwrap_or_default()
+        } else {
+            Vec::new()
+        };
+        overlay_apply(&mut rows, &plus, &minus);
         rows
+    }
+
+    fn hydrate_overlay_nick(&self, overlay: &mut FaveOverlay, nick: &str) {
+        if !overlay.hydrated.insert(nick.to_string()) {
+            return;
+        }
+        if let Ok(Some(raw)) = self.inner.store.get(&format!("overlay_plus:{nick}")) {
+            overlay
+                .plus
+                .entry(nick.to_string())
+                .or_insert_with(|| membership_text_to_rows(&raw));
+        }
+        if let Ok(Some(raw)) = self.inner.store.get(&format!("overlay_minus:{nick}")) {
+            overlay
+                .minus
+                .entry(nick.to_string())
+                .or_insert_with(|| membership_text_to_rows(&raw));
+        }
+    }
+
+    fn write_overlay_nick(
+        &self,
+        nick: &str,
+        plus: &[FaveRow],
+        minus: &[FaveRow],
+    ) -> Result<(), ApiError> {
+        let plus_raw = plus
+            .iter()
+            .map(|r| format!("{}\t{}", r.tracks_id, row_meta(r)))
+            .collect::<Vec<_>>()
+            .join("\n");
+        let minus_raw = minus
+            .iter()
+            .map(|r| format!("{}\t{}", r.tracks_id, row_meta(r)))
+            .collect::<Vec<_>>()
+            .join("\n");
+        self.inner
+            .store
+            .put_if_changed(&format!("overlay_plus:{nick}"), &plus_raw)?;
+        self.inner
+            .store
+            .put_if_changed(&format!("overlay_minus:{nick}"), &minus_raw)?;
+        Ok(())
+    }
+
+    fn persist_overlay_membership(&self, nick: &str) -> Result<(), ApiError> {
+        let raw = self
+            .inner
+            .store
+            .get(&format!("membership:{nick}"))?
+            .unwrap_or_default();
+        let mut rows = membership_text_to_rows(&raw);
+        let (plus, minus) = {
+            let overlay = self.inner.overlay.lock().expect("overlay");
+            (
+                overlay.plus.get(nick).cloned().unwrap_or_default(),
+                overlay.minus.get(nick).cloned().unwrap_or_default(),
+            )
+        };
+        self.write_overlay_nick(nick, &plus, &minus)?;
+        overlay_apply(&mut rows, &plus, &minus);
+        self.remember_membership(nick.to_string(), rows)
     }
 
     fn catalog_id_for(&self, nicks: &[String], tap: &TapSnapshot) -> Option<i64> {
@@ -1069,6 +1164,7 @@ impl RadioCore {
                 .entry(nick.clone())
                 .or_default()
                 .retain(|r| !row_is_song(r, id, &tap.np));
+            overlay.hydrated.insert(nick.clone());
             if favorited {
                 overlay
                     .plus
@@ -1082,6 +1178,10 @@ impl RadioCore {
                     .or_default()
                     .push(row.clone());
             }
+        }
+        drop(overlay);
+        for nick in nicks {
+            let _ = self.persist_overlay_membership(nick);
         }
     }
 
@@ -1158,6 +1258,9 @@ impl RadioCore {
             Ok(r) => {
                 if r.kind == crate::irc::FaveKind::Success {
                     self.remember_toggle(&nicks, &tap, catalog, r.favorited);
+                    for nick in &nicks {
+                        let _ = self.revalidate_membership(nick.clone());
+                    }
                 }
                 r
             }
@@ -1254,6 +1357,32 @@ mod tests {
     }
 
     #[test]
+    fn overlay_nicks_are_irc_first() {
+        let cfg = FaveConfig {
+            nick: "Bob".into(),
+            list_nick: "Alice".into(),
+            profile: IrcProfile::Rizon,
+            nickserv_password: String::new(),
+            bouncer_host: String::new(),
+            bouncer_port: 0,
+            bouncer_pass: String::new(),
+            allow_insecure_tls: false,
+            sasl_username: String::new(),
+            sasl_password: String::new(),
+            client_cert_pem: String::new(),
+            client_key_pem: String::new(),
+            tls_fingerprint: String::new(),
+        };
+        assert_eq!(
+            overlay_nicks(&cfg),
+            vec!["Bob".to_string(), "Alice".to_string()]
+        );
+        let mut only_list = cfg.clone();
+        only_list.nick.clear();
+        assert_eq!(overlay_nicks(&only_list), vec!["Alice".to_string()]);
+    }
+
+    #[test]
     fn overlay_fills_before_membership_get() {
         let dir = std::env::temp_dir().join(format!("geiravor-ov-{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&dir);
@@ -1274,6 +1403,48 @@ mod tests {
                 .membership_has("Alice".into(), 42, "Artist - Title".into())
                 .unwrap()
         );
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn fave_toggle_writes_membership_and_survives_reopen() {
+        let dir = std::env::temp_dir().join(format!("geiravor-fave-disk-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        let path = dir.to_str().unwrap();
+        let tap = TapSnapshot {
+            is_afk: true,
+            track_id: 42,
+            np: "Artist - Title".into(),
+        };
+        {
+            let core = RadioCore::new(path.into()).unwrap();
+            core.remember_toggle(&["Bob".into()], &tap, Some(42), true);
+            assert!(
+                core.membership_has("Bob".into(), 42, "Artist - Title".into())
+                    .unwrap()
+            );
+            let raw = core.inner.store.get("membership:Bob").unwrap().unwrap();
+            assert!(raw.contains("42\tArtist - Title"), "{raw}");
+            let ov = core.inner.store.get("overlay_plus:Bob").unwrap().unwrap();
+            assert!(ov.contains("42\tArtist - Title"), "{ov}");
+            let page = core.cached_faves_window("Bob".into(), 1, 20).unwrap();
+            assert_eq!(page.rows[0].tracks_id, 42);
+            assert_eq!(page.rows[0].title, "Title");
+        }
+        let core = RadioCore::new(path.into()).unwrap();
+        assert!(
+            core.membership_has("Bob".into(), 42, "Artist - Title".into())
+                .unwrap(),
+            "overlay+membership must survive a new process"
+        );
+        core.remember_toggle(&["Bob".into()], &tap, Some(42), false);
+        assert!(
+            !core
+                .membership_has("Bob".into(), 42, "Artist - Title".into())
+                .unwrap()
+        );
+        let raw = core.inner.store.get("membership:Bob").unwrap().unwrap();
+        assert!(!raw.contains("42\tArtist - Title"), "{raw}");
         let _ = std::fs::remove_dir_all(&dir);
     }
 
