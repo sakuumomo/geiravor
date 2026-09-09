@@ -34,7 +34,7 @@ jobs:
             '<link rel="canonical" href="geiravor_core/">' \
             > target/doc/index.html
           touch target/doc/.nojekyll
-      - uses: actions/upload-pages-artifact@v3
+      - uses: actions/upload-pages-artifact@v5
         with:
           path: target/doc
       - id: deploy
