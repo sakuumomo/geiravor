@@ -164,6 +164,7 @@ fun SettingsScreen(ui: UiState, core: RadioCore, secrets: SecretsStore) {
                         "Nick *",
                         ui.nick,
                         onCommit = {
+                            ui.committedNick = ui.nick
                             ui.offMain { runCatching { core.commitConnectionNick(ui.nick) } }
                         },
                     ) {
@@ -324,7 +325,7 @@ fun SettingsScreen(ui: UiState, core: RadioCore, secrets: SecretsStore) {
                     }
                     ui.alertError?.let { Text(it, color = t.red) }
                     Text(
-                        "DJ and fave notices check every 15 minutes and use battery. Denied notification permission shows here.",
+                        "DJ and fave notices check every 15 minutes and use battery. Fave currently playing does not notify while this app is playing. Denied notification permission shows here.",
                         color = t.muted,
                         modifier = Modifier.padding(top = 8.dp),
                     )

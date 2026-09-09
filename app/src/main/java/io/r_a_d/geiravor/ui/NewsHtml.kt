@@ -77,12 +77,11 @@ fun commentListIndex(ids: List<Long>, id: Long, headerItems: Int = 1): Int? {
     return headerItems + i
 }
 
-/** `#id` quotes `>>id` into the composer. `docs/spec/news.md`. */
+/** `#id` quotes `>>id` after a newline or space. `docs/spec/news.md`. */
 fun quoteComment(draft: String, id: Long, max: Int = 500): String {
-    val next = if (draft.isEmpty() || draft.endsWith('\n')) {
-        "$draft>>$id\n"
-    } else {
-        "$draft >>$id "
+    val next = when {
+        draft.isEmpty() || draft.endsWith('\n') || draft.endsWith(' ') -> "$draft>>$id"
+        else -> "$draft\n>>$id"
     }
     return if (next.length <= max) next else next.take(max)
 }

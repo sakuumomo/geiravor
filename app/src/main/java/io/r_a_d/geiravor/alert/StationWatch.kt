@@ -29,8 +29,16 @@ object StationWatch {
     var firstFave = true
     @Volatile
     var lastFaveKey: String = ""
+    @Volatile
+    private var wasDjOn = false
+    @Volatile
+    private var wasFaveOn = false
 
     fun sync(context: Context, djOn: Boolean, faveOn: Boolean) {
+        if (djOn && !wasDjOn) firstDj = true
+        if (faveOn && !wasFaveOn) firstFave = true
+        wasDjOn = djOn
+        wasFaveOn = faveOn
         val wm = WorkManager.getInstance(context)
         if (!djOn && !faveOn) {
             wm.cancelUniqueWork(WORK)

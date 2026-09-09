@@ -99,7 +99,7 @@ pub fn parse_news_list(html: &str, page: u32) -> Result<NewsList, ApiError> {
             .trim_start_matches("on ")
             .to_string();
         let header = between(chunk, "message-body", "</div>")
-            .map(strip_tags)
+            .map(|s| strip_tags(after_open(s)))
             .unwrap_or_default();
         if title.is_empty() {
             continue;
@@ -372,6 +372,11 @@ mod tests {
         assert_eq!(list.cards[0].role, RoleColor::None);
         assert!(list.last_page >= 4);
         assert!(!list.cards[0].header.is_empty());
+        assert!(
+            !list.cards[0].header.contains("has-background")
+                && !list.cards[0].header.contains("disable-message")
+        );
+        assert!(list.cards[0].header.contains("old"));
     }
 
     #[test]

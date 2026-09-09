@@ -60,7 +60,7 @@ fun GeiravorRoot(
     LaunchedEffect(ui.pack) {
         setApplicationNightMode(ctx, themePackIsNight(ui.pack))
     }
-    LaunchedEffect(ui.status?.np, ui.listNick, ui.nick) {
+    LaunchedEffect(ui.status?.np, ui.committedListNick, ui.committedNick) {
         val nicks = ui.membershipNicks()
         val s = ui.status
         ui.offMain {

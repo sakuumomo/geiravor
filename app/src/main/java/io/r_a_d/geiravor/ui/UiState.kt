@@ -41,7 +41,9 @@ class UiState {
     var autoStartPlug by mutableStateOf(false)
     var autoStartVehicle by mutableStateOf(false)
     var listNick by mutableStateOf("")
+    var committedListNick by mutableStateOf("")
     var nick by mutableStateOf("")
+    var committedNick by mutableStateOf("")
     var profile by mutableStateOf(IrcProfile.RIZON)
     var bouncerHost by mutableStateOf("")
     var bouncerPort by mutableStateOf("6697")
@@ -74,6 +76,7 @@ class UiState {
     var boardSection by mutableStateOf(BoardSection.News)
     var settingsSection by mutableStateOf(SettingsSection.General)
     var tagsOpen by mutableStateOf(false)
+    var icyTags by mutableStateOf<List<String>>(emptyList())
     var query by mutableStateOf("")
     var search by mutableStateOf<SearchPage?>(null)
     var requestText by mutableStateOf<String?>(null)
@@ -96,7 +99,7 @@ class UiState {
     }
     private val main = Handler(Looper.getMainLooper())
 
-    fun load(core: RadioCore, secrets: SecretsStore) {
+    fun load(core: RadioCore, secrets: SecretsStore, onReady: () -> Unit = {}) {
         worker.execute {
             fun flag(key: String) = core.pref(key) == "1"
             val pick = themePackFromPref(core.pref(Prefs.THEME))
@@ -152,7 +155,9 @@ class UiState {
                 autoStartPlug = plug
                 autoStartVehicle = vehicle
                 listNick = list
+                committedListNick = list
                 nick = n
+                committedNick = n
                 profile = prof
                 bouncerHost = host
                 bouncerPort = port
@@ -174,6 +179,8 @@ class UiState {
                 sleepMinutes = slMin
                 applyStatus(snap, streamDown, playing)
                 paintHeart(member)
+                scheduleHolidaySniff(core)
+                onReady()
             }
         }
     }
@@ -186,6 +193,7 @@ class UiState {
         streamDown = down
         playing = isPlaying
         fetchedAt = System.currentTimeMillis() / 1000
+        if (next != null && next.tags.isNotEmpty()) icyTags = emptyList()
     }
 
     fun setPref(core: RadioCore, key: String, value: String) {
@@ -211,8 +219,8 @@ class UiState {
     fun faveConfig(secrets: SecretsStore): FaveConfig {
         val port = bouncerPort.toUShortOrNull() ?: 0u
         return FaveConfig(
-            nick = nick,
-            listNick = listNick,
+            nick = committedNick,
+            listNick = committedListNick,
             profile = profile,
             nickservPassword = secrets.get(SecretKeys.NICKSERV),
             bouncerHost = bouncerHost,
@@ -246,8 +254,8 @@ class UiState {
 
     fun membershipNicks(): List<String> {
         val out = ArrayList<String>(2)
-        val list = listNick.trim()
-        val connection = nick.trim()
+        val list = committedListNick.trim()
+        val connection = committedNick.trim()
         if (list.isNotEmpty()) out.add(list)
         if (connection.isNotEmpty() && connection != list) out.add(connection)
         return out
@@ -260,9 +268,33 @@ class UiState {
             val day = cal.get(Calendar.DAY_OF_MONTH).toUByte()
             val sniffed = sniffName(core, holidayOptOut, month, day, processStart = false)
             val decided = decideTheme(userPick, holidayOptOut, month, day, sniffed)
-            main.post { pack = decided }
+            main.post {
+                pack = decided
+                scheduleHolidaySniff(core)
+            }
         }
     }
+
+    private fun scheduleHolidaySniff(core: RadioCore) {
+        sniffCore = core
+        main.removeCallbacks(sniffHourly)
+        worker.execute {
+            val cal = Calendar.getInstance()
+            val month = (cal.get(Calendar.MONTH) + 1).toUByte()
+            val day = cal.get(Calendar.DAY_OF_MONTH).toUByte()
+            val now = System.currentTimeMillis() / 1000
+            val last = core.pref(Prefs.SNIFF_AT).toLongOrNull() ?: 0L
+            val seen = holidayWindow(month, day)?.let { themePackPref(it) } ==
+                core.pref(Prefs.SNIFF_SEEN)
+            if (shouldSniffHome(holidayOptOut, month, day, now, last, seen, false)) {
+                main.postDelayed(sniffHourly, 3_600_000L)
+            }
+        }
+    }
+
+    @Volatile
+    private var sniffCore: RadioCore? = null
+    private val sniffHourly = Runnable { sniffCore?.let { redecide(it) } }
 
     private fun sniffName(
         core: RadioCore,

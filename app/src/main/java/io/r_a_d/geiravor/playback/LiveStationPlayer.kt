@@ -85,10 +85,17 @@ class LiveStationPlayer(private val exo: ExoPlayer) : ForwardingPlayer(exo) {
     override fun isPlaying(): Boolean =
         playWhenReady && super.getPlaybackState() == Player.STATE_READY
 
-    override fun isCurrentMediaItemLive(): Boolean {
-        val dur = mediaMetadata.durationMs ?: C.TIME_UNSET
-        return NowPlayingMeta.isLive(dur)
-    }
+    override fun isCurrentMediaItemLive(): Boolean =
+        NowPlayingMeta.isLive(NowPlayingMeta.songDurationMs(mediaMetadata))
+
+    override fun getDuration(): Long = NowPlayingMeta.songDurationMs(mediaMetadata)
+
+    override fun getCurrentPosition(): Long =
+        NowPlayingMeta.songPositionMs(mediaMetadata, System.currentTimeMillis())
+
+    override fun getContentDuration(): Long = duration
+
+    override fun getContentPosition(): Long = currentPosition
 
     override fun seekTo(positionMs: Long) {}
 

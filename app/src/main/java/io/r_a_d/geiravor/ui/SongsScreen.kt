@@ -89,7 +89,9 @@ private fun RequestPane(ui: UiState, core: RadioCore) {
         val q = ui.query
         val n = fit
         ui.offMain {
-            runCatching { core.canRequest() }.onSuccess { ok -> ui.onMain { ui.canRequest = ok } }
+            runCatching { core.canRequest() }.onSuccess { ok ->
+                ui.onMain { ui.canRequest = ok && ui.status?.requesting != false }
+            }
             val result = runCatching { core.searchWindow(q, page, n) }.getOrNull()
             ui.onMain { ui.search = result }
         }
@@ -173,6 +175,9 @@ private fun FavoritesPane(ui: UiState, core: RadioCore) {
                 }
                 return@offMain
             }
+            runCatching { core.canRequest() }.onSuccess { ok ->
+                ui.onMain { ui.canRequest = ok && ui.status?.requesting != false }
+            }
             val cached = runCatching { core.cachedFavesWindow(nick, page, n) }.getOrNull()
             cached?.let {
                 ui.onMain {
@@ -201,6 +206,7 @@ private fun FavoritesPane(ui: UiState, core: RadioCore) {
             keyboardActions = KeyboardActions(
                 onDone = {
                     val nick = ui.listNick
+                    ui.committedListNick = nick
                     ui.offMain { runCatching { core.commitListNick(nick) } }
                     ui.favePage = 1u
                     load(1u)
@@ -237,16 +243,24 @@ private fun FavoritesPane(ui: UiState, core: RadioCore) {
                 }
             }
         }
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-            Button(
-                onClick = {
+        Button(
+            modifier = Modifier.fillMaxWidth(),
+            onClick = {
                     val nick = ui.listNickOrConnection()
                     ui.offMain {
                         val all = mutableListOf<FaveRow>()
                         val last = runCatching { core.favesLastPage(nick) }.getOrDefault(1u)
                         var p = 1u
+                        var prev = emptyList<FaveRow>()
                         while (p <= last) {
-                            all += runCatching { core.fetchFaves(nick, p) }.getOrDefault(emptyList())
+                            val page = runCatching { core.fetchFaves(nick, p) }.getOrDefault(emptyList())
+                            val rows = if (p == last && prev.isNotEmpty()) {
+                                FavesPolicy.dropOverlap(prev, page)
+                            } else {
+                                page
+                            }
+                            all += rows
+                            prev = page
                             p++
                         }
                         val pick = all.filter {
@@ -270,9 +284,8 @@ private fun FavoritesPane(ui: UiState, core: RadioCore) {
                 },
                 enabled = afk && ui.canRequest && ui.listNickOrConnection().isNotEmpty(),
                 colors = ButtonDefaults.buttonColors(containerColor = t.accent),
-            ) { Text("Request random") }
-            PagerBar(page = ui.favePage, last = ui.faveLast, onPage = { load(it) })
-        }
+        ) { Text("Request random") }
+        PagerBar(page = ui.favePage, last = ui.faveLast, onPage = { load(it) })
     }
 }
 

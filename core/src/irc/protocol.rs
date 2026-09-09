@@ -129,9 +129,11 @@ pub fn is_hanyuu_notice(line: &str) -> bool {
 pub fn named_song(notice: &str) -> Option<String> {
     let t = strip_colors(notice);
     let start = t.find('\'')?;
-    let rest = &t[start + 1..];
-    let end = rest.find('\'')?;
-    Some(rest[..end].to_string())
+    let end = t.rfind('\'')?;
+    if end <= start {
+        return None;
+    }
+    Some(t[start + 1..end].to_string())
 }
 
 pub fn hanyuu_added(notice: &str) -> bool {
@@ -141,7 +143,7 @@ pub fn hanyuu_added(notice: &str) -> bool {
 
 pub fn hanyuu_already(notice: &str) -> bool {
     let t = strip_colors(notice).to_ascii_lowercase();
-    t.contains("already")
+    t.contains("already") && t.contains("favorite") && !t.contains("added")
 }
 
 pub fn hanyuu_removed(notice: &str) -> bool {
@@ -179,6 +181,12 @@ mod tests {
         let line = ":Hanyuu-sama NOTICE x :\x033Added 'Foo - Bar' to your favorites.";
         assert_eq!(named_song(line).as_deref(), Some("Foo - Bar"));
         assert!(hanyuu_added(line));
+        assert_eq!(
+            named_song("Added 'Don't Say Lazy' to your favorites.").as_deref(),
+            Some("Don't Say Lazy")
+        );
+        assert!(hanyuu_already("That's already in your favorites."));
+        assert!(!hanyuu_already("Added 'Already Gone' to your favorites."));
     }
 
     #[test]

@@ -110,7 +110,9 @@ class PlaybackService : MediaLibraryService() {
 
             override fun onPlayWhenReadyChanged(playWhenReady: Boolean, reason: Int) {
                 core().setPlaying(playWhenReady)
-                if (!playWhenReady) {
+                if (playWhenReady) {
+                    if (!playbackForeground) enterPlaybackForeground()
+                } else {
                     cancelReconnect()
                     cancelSleep(restore = true)
                     if (LivePlaybackPolicy.leaveForegroundOnStop(false, playbackForeground)) {
@@ -134,11 +136,18 @@ class PlaybackService : MediaLibraryService() {
 
             override fun onMetadata(metadata: Metadata) {
                 var icy = false
+                var icyRaw = ""
                 for (i in 0 until metadata.length()) {
-                    if (metadata.get(i) is IcyInfo) icy = true
+                    val entry = metadata.get(i)
+                    if (entry is IcyInfo) {
+                        icy = true
+                        icyRaw = String(entry.rawMetadata, Charsets.ISO_8859_1)
+                    }
                 }
                 if (icy) {
-                    (application as GeiravorApp).ui.offMain {
+                    val app = application as GeiravorApp
+                    app.ui.onMain { app.ui.icyTags = IcyTags.parse(icyRaw) }
+                    app.ui.offMain {
                         runCatching { core().fetchStatus() }
                     }
                 }
@@ -329,7 +338,15 @@ class PlaybackService : MediaLibraryService() {
             .setArtworkUri(
                 LivePlaybackPolicy.djImageUrl(status.dj.image)?.let { android.net.Uri.parse(it) },
             )
-            .setExtras(NowPlayingMeta.extras(fields.artist, fields.dj))
+            .setExtras(
+                NowPlayingMeta.extras(
+                    fields.artist,
+                    fields.dj,
+                    elapsedMs = if (progress.known) progress.elapsedSecs * 1000 else 0L,
+                    fetchedAtMs = System.currentTimeMillis(),
+                    durationMs = duration,
+                ),
+            )
             .build()
         val built = item.buildUpon().setMediaMetadata(meta)
         if (progress.known) {

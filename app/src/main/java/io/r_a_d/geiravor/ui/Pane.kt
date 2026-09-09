@@ -5,10 +5,13 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.requiredSize
@@ -102,12 +105,16 @@ fun Pane(
     val t = LocalTokens.current
     val gutter = if (t.wallpaper != null) 16.dp else 0.dp
     val shape = RoundedCornerShape(6.dp)
-    Box(
-        modifier.fillMaxWidth().then(if (hug) Modifier else Modifier.fillMaxSize()),
+    // Hug wraps short chrome at the top. Cap to the tab so nested
+    // verticalScroll is bounded; otherwise staff/schedule clip.
+    BoxWithConstraints(
+        modifier.fillMaxWidth().fillMaxHeight(),
         contentAlignment = Alignment.TopStart,
     ) {
+        val cap = maxHeight
         Box(
             paneSheetModifier(hug)
+                .then(if (hug) Modifier.heightIn(max = cap) else Modifier)
                 .padding(gutter)
                 .clip(shape)
                 .then(
@@ -122,7 +129,7 @@ fun Pane(
             }
             Column(
                 Modifier
-                    .then(if (hug) Modifier else Modifier.fillMaxSize())
+                    .then(if (hug) Modifier.heightIn(max = cap) else Modifier.fillMaxSize())
                     .padding(16.dp),
                 content = content,
             )

@@ -31,11 +31,13 @@ class NewsHtmlTest {
     }
 
     @Test
-    fun quoteInsertsSpaceWhenDraftHasNoTrailingNewline() {
-        assertEquals(">>12\n", quoteComment("", 12L))
-        assertEquals(">>12\n>>13\n", quoteComment(">>12\n", 13L))
-        assertEquals("hello >>12 ", quoteComment("hello", 12L))
-        assertEquals("hello\n>>12\n", quoteComment("hello\n", 12L))
+    fun quoteInsertsAfterNewlineOrSpace() {
+        assertEquals(">>12", quoteComment("", 12L))
+        assertEquals(">>12\n>>13", quoteComment(">>12\n", 13L))
+        assertEquals("hello\n>>12", quoteComment("hello", 12L))
+        assertEquals("hello\n>>12", quoteComment("hello\n", 12L))
+        assertEquals("hello >>12", quoteComment("hello ", 12L))
+        assertEquals(">>12\n>>13", quoteComment(">>12", 13L))
     }
 
     @Test

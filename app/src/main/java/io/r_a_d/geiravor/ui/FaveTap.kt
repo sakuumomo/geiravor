@@ -1,6 +1,13 @@
 package io.r_a_d.geiravor.ui
 
 /** Queue fave/unfave while one IRC session is in flight. `docs/spec/requests-faves.md`. */
+object FavesPolicy {
+    fun dropOverlap(prev: List<uniffi.geiravor_core.FaveRow>, last: List<uniffi.geiravor_core.FaveRow>) =
+        last.filter { row ->
+            prev.none { it.tracksId == row.tracksId && row.tracksId != 0L }
+        }
+}
+
 object FaveTap {
     const val WINDOW_MAX = 3
 

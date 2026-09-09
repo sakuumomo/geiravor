@@ -3,6 +3,7 @@
 //! Product rules: [`docs/spec/api.md`](../../docs/spec/api.md).
 
 use serde::Deserialize;
+use serde::Deserializer;
 
 use crate::error::ApiError;
 
@@ -70,16 +71,19 @@ struct RawMain {
     current: i64,
     start_time: i64,
     end_time: i64,
+    #[serde(default, deserialize_with = "null_as_default")]
     trackid: i64,
+    #[serde(default, deserialize_with = "null_as_default")]
     thread: String,
+    #[serde(default, deserialize_with = "null_as_default")]
     requesting: bool,
     dj: RawDj,
-    #[serde(default)]
+    #[serde(default, deserialize_with = "null_as_default")]
     queue: Vec<RawList>,
-    #[serde(default)]
+    #[serde(default, deserialize_with = "null_as_default")]
     lp: Vec<RawList>,
-    #[serde(default)]
-    tags: Option<Vec<String>>,
+    #[serde(default, deserialize_with = "null_as_default")]
+    tags: Vec<String>,
 }
 
 #[derive(Deserialize)]
@@ -107,7 +111,9 @@ pub fn check_bound(bytes: &[u8]) -> Result<(), ApiError> {
     Ok(())
 }
 
-/// Parse `GET /api` JSON. `tags: null` is empty, not a decode failure.
+/// Parse `GET /api` JSON. Live DJ may send `tags`/`queue`/`lp` as JSON `null`
+/// (no catalog track). That must not fail — a decode error would keep the last
+/// Hanyuu paint on screen.
 pub fn parse_status(bytes: &[u8]) -> Result<Status, ApiError> {
     check_bound(bytes)?;
     let text = std::str::from_utf8(bytes).map_err(|e| ApiError::Decode {
@@ -149,8 +155,16 @@ pub fn parse_status_str(text: &str) -> Result<Status, ApiError> {
         },
         queue,
         lp,
-        tags: m.tags.unwrap_or_default(),
+        tags: m.tags,
     })
+}
+
+fn null_as_default<'de, D, T>(deserializer: D) -> Result<T, D::Error>
+where
+    D: Deserializer<'de>,
+    T: Deserialize<'de> + Default,
+{
+    Ok(Option::<T>::deserialize(deserializer)?.unwrap_or_default())
 }
 
 fn list_entry(raw: RawList) -> ListEntry {

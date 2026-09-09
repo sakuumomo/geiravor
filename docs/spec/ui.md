@@ -29,7 +29,7 @@ Follow the live homepage order for player chrome: play + volume + mute, title, t
 
 Now Playing lists **Next** first (`queue[0]` when AFK; live DJ: `???`) and **Last played** second (`lp[0]`). Currently playing may wrap up to two lines. Next and last played are one line each, centered, ellipsized to the width of the screen. Hug panes sit at the **top** of the tab (wallpaper still shows below). Schedule rows always reserve the DJ-image slot so a day without an image (Friday) lines up with the others. DJ name is centered under the image. **Listeners** is centered on its line and labeled (`N listeners`); the AFK mm:ss clock stays on the right of that line. Full last-played and queue live on the Songs tab.
 
-Tags: one space-separated line from `tags[]`, collapsed behind +/- like the site.
+Tags: one space-separated line, collapsed behind +/- like the site. AFK: `/api` `tags[]`. Live DJ: `/api` tags are often null; then ICY `Icy-Tags` / `StreamTags` ([api.md](api.md)).
 
 Times: relative from `timestamp` vs `current` ([api.md](api.md)).
 

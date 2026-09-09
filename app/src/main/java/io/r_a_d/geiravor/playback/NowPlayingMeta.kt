@@ -13,6 +13,9 @@ import androidx.media3.common.MediaMetadata
 object NowPlayingMeta {
     const val EXTRA_ARTIST = "io.r_a_d.geiravor.artist"
     const val EXTRA_DJ = "io.r_a_d.geiravor.dj"
+    const val EXTRA_ELAPSED_MS = "io.r_a_d.geiravor.elapsed_ms"
+    const val EXTRA_FETCHED_AT_MS = "io.r_a_d.geiravor.fetched_at_ms"
+    const val EXTRA_DURATION_MS = "io.r_a_d.geiravor.duration_ms"
 
     data class Fields(
         val title: String,
@@ -35,11 +38,47 @@ object NowPlayingMeta {
         )
     }
 
-    fun extras(artist: String, dj: String): Bundle =
+    fun extras(
+        artist: String,
+        dj: String,
+        elapsedMs: Long = 0L,
+        fetchedAtMs: Long = 0L,
+        durationMs: Long = C.TIME_UNSET,
+    ): Bundle =
         Bundle().apply {
             putString(EXTRA_ARTIST, artist)
             putString(EXTRA_DJ, dj)
+            putLong(EXTRA_ELAPSED_MS, elapsedMs)
+            putLong(EXTRA_FETCHED_AT_MS, fetchedAtMs)
+            putLong(EXTRA_DURATION_MS, durationMs)
         }
+
+    fun songDurationMs(metadata: MediaMetadata): Long {
+        val extra = metadata.extras?.getLong(EXTRA_DURATION_MS, C.TIME_UNSET) ?: C.TIME_UNSET
+        if (extra != C.TIME_UNSET && extra > 0L) return extra
+        return metadata.durationMs ?: C.TIME_UNSET
+    }
+
+    fun songPositionMs(
+        elapsedMs: Long,
+        fetchedAtMs: Long,
+        durationMs: Long,
+        nowMs: Long,
+    ): Long {
+        if (isLive(durationMs)) return 0L
+        val pos = if (fetchedAtMs <= 0L) elapsedMs else elapsedMs + (nowMs - fetchedAtMs)
+        return pos.coerceIn(0L, durationMs)
+    }
+
+    fun songPositionMs(metadata: MediaMetadata, nowMs: Long): Long {
+        val extras = metadata.extras
+        return songPositionMs(
+            extras?.getLong(EXTRA_ELAPSED_MS, 0L) ?: 0L,
+            extras?.getLong(EXTRA_FETCHED_AT_MS, 0L) ?: 0L,
+            songDurationMs(metadata),
+            nowMs,
+        )
+    }
 
     fun rawArtist(metadata: MediaMetadata): String =
         metadata.extras?.getString(EXTRA_ARTIST).orEmpty()

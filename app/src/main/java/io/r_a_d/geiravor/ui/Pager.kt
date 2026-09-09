@@ -43,18 +43,23 @@ sealed class PagerSlot {
 fun pagerSlots(page: UInt, last: UInt): List<PagerSlot> {
     if (last <= 1u) return emptyList()
     val cur = page.coerceIn(1u, last)
-    val mid = linkedSetOf<UInt>()
-    mid.add(1u)
+    val nums = linkedSetOf<UInt>()
+    nums.add(1u)
     for (d in -1..1) {
         val n = cur.toInt() + d
-        if (n in 1..last.toInt() && n.toUInt() != last) mid.add(n.toUInt())
+        if (n in 1..last.toInt()) nums.add(n.toUInt())
     }
-    val sorted = mid.sorted()
+    nums.add(last)
+    val sorted = nums.sorted()
+    val gapAfterFirst = sorted.size >= 2 && sorted[1] > 2u
+    val gapBeforeLast = sorted[sorted.lastIndex - 1] < last - 1u
+    val ellipsisAfterFirst = gapAfterFirst && !gapBeforeLast
     val out = mutableListOf<PagerSlot>(PagerSlot.Prev)
-    sorted.forEach { out += PagerSlot.Page(it) }
-    val lastNearby = sorted.lastOrNull() ?: 1u
-    if (last > lastNearby + 1u) out += PagerSlot.Ellipsis
-    out += PagerSlot.Page(last)
+    sorted.forEachIndexed { i, n ->
+        if (i == 1 && ellipsisAfterFirst) out += PagerSlot.Ellipsis
+        if (i == sorted.lastIndex && gapBeforeLast) out += PagerSlot.Ellipsis
+        out += PagerSlot.Page(n)
+    }
     out += PagerSlot.Next
     return out
 }

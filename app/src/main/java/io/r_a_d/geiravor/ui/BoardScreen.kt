@@ -172,6 +172,7 @@ private fun ArticlePane(ui: UiState, core: RadioCore) {
     val article = ui.article ?: return
     val ctx = LocalContext.current
     var draft by remember { mutableStateOf("") }
+    var commentError by remember { mutableStateOf<String?>(null) }
     val listState = rememberLazyListState()
     val scope = rememberCoroutineScope()
     LaunchedEffect(article.id, article.body, article.comments) {
@@ -268,18 +269,25 @@ private fun ArticlePane(ui: UiState, core: RadioCore) {
         TextButton(
             onClick = {
                 val body = draft.trim()
-                if (body.isEmpty()) return@TextButton
+                if (body.isEmpty()) {
+                    commentError = "Comment is empty"
+                    return@TextButton
+                }
                 ui.offMain {
                     val live = runCatching { core.postComment(article.id, body) }.getOrNull()
                     ui.onMain {
                         if (live != null) {
                             ui.article = live
                             draft = ""
+                            commentError = null
+                        } else {
+                            commentError = "Comment failed"
                         }
                     }
                 }
             },
         ) { Text("Submit", color = t.accent) }
+        commentError?.let { Text(it, color = t.red) }
     }
 }
 

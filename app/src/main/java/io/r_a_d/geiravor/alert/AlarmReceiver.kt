@@ -23,11 +23,13 @@ class AlarmReceiver : BroadcastReceiver() {
                         posted = true
                         app.ui.onMain {
                             try {
+                                val snoozePref = app.core.pref(Prefs.SNOOZE_ON)
                                 Alerts.show(
                                     context,
                                     Alerts.ID_ALARM,
                                     "r/a/dio alarm",
                                     alarmActions = true,
+                                    snooze = snoozePref.isEmpty() || snoozePref == "1",
                                 )
                                 ContextCompat.startForegroundService(
                                     context,

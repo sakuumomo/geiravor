@@ -39,7 +39,7 @@ fun SectionTabs(
                     .weight(1f)
                     .background(
                         if (on) t.highlight.copy(alpha = if (t.glass) 0.92f else 0.35f)
-                        else t.surface.copy(alpha = if (t.glass) 0.8f else 1f),
+                        else t.border.copy(alpha = if (t.glass) 0.8f else 1f),
                         shape,
                     )
                     .border(InnerSection.BORDER_DP.dp, t.border, shape)

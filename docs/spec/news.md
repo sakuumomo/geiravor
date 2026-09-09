@@ -34,5 +34,5 @@ Show author (`Anonymous (abcd)` or nick, including `## staff`), `YYYY-MM-DD HH:M
 
 Imageboard clicks:
 
-- **`#id`** (the comment id) quotes `>>id\n` into the composer (append; keep a trailing newline). If the composer already has text that does not end in a newline, insert a space before `>>` and a space after the id instead of a newline.
+- **`#id`** (the comment id) appends `>>id` **after** a newline or space (never before). Empty composer: `>>id`. Already ends in newline or space: append `>>id`. Otherwise insert a newline, then `>>id`.
 - **`>>id`** in a body (`href="#comment-{id}"`) **jumps** to that comment. Do not open a browser.

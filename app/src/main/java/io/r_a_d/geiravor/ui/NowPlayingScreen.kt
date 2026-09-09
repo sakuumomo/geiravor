@@ -51,6 +51,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import io.r_a_d.geiravor.R
 import io.r_a_d.geiravor.compat.saveThreadStill
+import io.r_a_d.geiravor.playback.IcyTags
 import io.r_a_d.geiravor.playback.LivePlaybackPolicy
 import io.r_a_d.geiravor.theme.LocalTokens
 import kotlinx.coroutines.delay
@@ -164,7 +165,7 @@ fun NowPlayingScreen(
                     maxLines = 2,
                     overflow = TextOverflow.Ellipsis,
                 )
-                val tags = status?.tags.orEmpty()
+                val tags = IcyTags.shown(status?.tags.orEmpty(), ui.icyTags)
                 if (tags.isNotEmpty()) {
                     Text(
                         if (ui.tagsOpen) "−" else "+",

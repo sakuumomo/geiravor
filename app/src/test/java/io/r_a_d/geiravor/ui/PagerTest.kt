@@ -39,4 +39,21 @@ class PagerTest {
         val s = pagerSlots(1u, 8u)
         assertEquals(listOf(PagerSlot.Prev, PagerSlot.Page(1u), PagerSlot.Page(2u), PagerSlot.Ellipsis, PagerSlot.Page(8u), PagerSlot.Next), s)
     }
+
+    @Test
+    fun lastPageHasEllipsisAfterFirst() {
+        val s = pagerSlots(8u, 8u)
+        assertEquals(
+            listOf(
+                PagerSlot.Prev,
+                PagerSlot.Page(1u),
+                PagerSlot.Ellipsis,
+                PagerSlot.Page(7u),
+                PagerSlot.Page(8u),
+                PagerSlot.Next,
+            ),
+            s,
+        )
+        assertEquals(1, s.count { it == PagerSlot.Ellipsis })
+    }
 }

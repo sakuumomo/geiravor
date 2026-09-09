@@ -29,6 +29,7 @@ object Alerts {
         id: Int,
         body: String,
         alarmActions: Boolean = false,
+        snooze: Boolean = true,
         largeIcon: Bitmap? = null,
     ) {
         ensureChannel(context)
@@ -63,7 +64,8 @@ object Alerts {
                         ),
                     ).build(),
                 )
-                .addAction(
+            if (snooze) {
+                b.addAction(
                     NotificationCompat.Action.Builder(
                         R.drawable.ic_speaker,
                         "Snooze",
@@ -76,6 +78,7 @@ object Alerts {
                         ),
                     ).build(),
                 )
+            }
         }
         context.getSystemService(NotificationManager::class.java)?.notify(id, b.build())
     }

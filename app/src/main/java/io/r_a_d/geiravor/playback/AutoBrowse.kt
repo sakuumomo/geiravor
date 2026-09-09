@@ -116,7 +116,7 @@ object AutoBrowse {
                 MediaMetadata.Builder()
                     .setTitle("About")
                     .setSubtitle("Geiravor $version")
-                    .setIsBrowsable(true)
+                    .setIsBrowsable(false)
                     .setIsPlayable(false)
                     .build(),
             )

@@ -46,4 +46,17 @@ class NowPlayingMetaTest {
         assertFalse(NowPlayingMeta.isLive(180_000))
         assertFalse(NowPlayingMeta.isLive(1))
     }
+
+    @Test
+    fun afkPositionIsApiWindowNotPlayerBuffer() {
+        assertEquals(
+            40_000,
+            NowPlayingMeta.songPositionMs(30_000, 1_000_000, 180_000, 1_010_000),
+        )
+        assertEquals(
+            180_000,
+            NowPlayingMeta.songPositionMs(30_000, 1_000_000, 180_000, 2_000_000),
+        )
+        assertEquals(0, NowPlayingMeta.songPositionMs(30_000, 0, C.TIME_UNSET, 1_000_000))
+    }
 }

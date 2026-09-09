@@ -10,7 +10,7 @@ pub fn alarm_hour_12(hour24: u32) -> u32 {
     if h.is_multiple_of(12) { 12 } else { h % 12 }
 }
 
-/// Whether [hour24] is PM.
+/// Whether `hour24` is PM.
 #[uniffi::export]
 pub fn alarm_is_pm(hour24: u32) -> bool {
     hour24 % 24 >= 12

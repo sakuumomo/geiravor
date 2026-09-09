@@ -30,7 +30,7 @@ Top-level object `{ "main": { ... } }` — lowercase `main`.
 
 `np`, `listeners`, `isafkstream`, `current`, `start_time`, `end_time`, `trackid`, `thread`, `requesting`, `dj.id`, `dj.djname`, `dj.djimage`, `queue[].meta`, `queue[].timestamp`, `queue[].type`, `lp[].meta`, `lp[].timestamp`, `tags`
 
-`tags` may be a string array, `[]`, or **`null`** (live DJ). Treat null / missing as no tags. A `null` must not fail the snapshot parse — that would leave the last AFK paint on screen.
+`tags` may be a string array, `[]`, or **`null`** (live DJ with no catalog track). Treat null / missing as no `/api` tags. A `null` must not fail the snapshot parse — that would leave the last AFK paint on screen. Live DJ tags still show on Now Playing when the Icecast ICY metadata includes `Icy-Tags` / `StreamTags` (not StreamTitle). Catalog `/api` tags win when present.
 
 ### Ignore for UI
 

@@ -53,7 +53,7 @@ class AutoBrowseTest {
         assertTrue(kids[0].mediaMetadata.isBrowsable != true)
         assertTrue(kids[1].mediaMetadata.isPlayable == true)
         assertTrue(kids[2].mediaMetadata.isPlayable != true)
-        assertTrue(kids[2].mediaMetadata.isBrowsable == true)
+        assertTrue(kids[2].mediaMetadata.isBrowsable != true)
         assertEquals("Geiravor 0.3.0", kids[2].mediaMetadata.subtitle.toString())
         assertTrue(kids.none { it.mediaId == AutoBrowse.SETTINGS })
     }
