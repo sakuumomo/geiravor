@@ -5,6 +5,7 @@ use std::net::{Shutdown, TcpStream, ToSocketAddrs};
 use std::sync::Arc;
 use std::time::Duration;
 
+use rustls::pki_types::pem::PemObject;
 use rustls::pki_types::{CertificateDer, PrivateKeyDer, ServerName};
 use rustls::{ClientConfig, ClientConnection, RootCertStore, StreamOwned};
 
@@ -44,8 +45,8 @@ pub fn tcp_connect_timeout(remaining: usize) -> Duration {
 /// SHA-256 of the first certificate in a PEM blob (CertFP display).
 #[uniffi::export]
 pub fn certificate_fingerprint_sha256(pem: String) -> String {
-    let mut cursor = std::io::Cursor::new(pem.into_bytes());
-    let Ok(certs) = rustls_pemfile::certs(&mut cursor).collect::<Result<Vec<_>, _>>() else {
+    let Ok(certs) = CertificateDer::pem_slice_iter(pem.as_bytes()).collect::<Result<Vec<_>, _>>()
+    else {
         return String::new();
     };
     let Some(cert) = certs.first() else {
@@ -174,8 +175,7 @@ fn parse_client_pem(
     cert_pem: &str,
     key_pem: &str,
 ) -> Result<(Vec<CertificateDer<'static>>, PrivateKeyDer<'static>), IrcError> {
-    let mut cert_cur = std::io::Cursor::new(cert_pem.as_bytes());
-    let certs = rustls_pemfile::certs(&mut cert_cur)
+    let certs = CertificateDer::pem_slice_iter(cert_pem.as_bytes())
         .collect::<Result<Vec<_>, _>>()
         .map_err(|e| IrcError::Tls(e.to_string()))?;
     if certs.is_empty() {
@@ -186,10 +186,8 @@ fn parse_client_pem(
     } else {
         key_pem
     };
-    let mut key_cur = std::io::Cursor::new(key_src.as_bytes());
-    let key = rustls_pemfile::private_key(&mut key_cur)
-        .map_err(|e| IrcError::Tls(e.to_string()))?
-        .ok_or_else(|| IrcError::Tls("no client key".into()))?;
+    let key = PrivateKeyDer::from_pem_slice(key_src.as_bytes())
+        .map_err(|e| IrcError::Tls(e.to_string()))?;
     Ok((certs, key))
 }
 

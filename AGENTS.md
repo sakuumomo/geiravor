@@ -31,8 +31,10 @@ nix develop .#rust -c cargo clippy --all-targets -- -D warnings
 nix develop .#rust -c cargo test --manifest-path core/Cargo.toml
 RUSTDOCFLAGS='-D warnings' nix develop .#rust -c cargo doc --no-deps
 ./scripts/check-pins
+nix develop .#rust -c cargo deny check
 nix develop -c ./gradlew :app:testDebugUnitTest :app:assembleDebug
 ./scripts/dhu.sh          # discovers serial; --stop; never kill :5277
+./scripts/release-apks    # arm64 + x86_64 debug/release; --upload [tag]
 ```
 
 `git config core.hooksPath .githooks` once per clone.

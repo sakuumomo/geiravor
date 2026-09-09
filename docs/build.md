@@ -18,7 +18,7 @@ After 1.0.0:
 
 Do **not** bump the app for fmt, tests-only, agent docs, or `flake.lock` refresh. `nix flake update` is a `build:` commit.
 
-[`CHANGELOG.md`](../CHANGELOG.md) is this tree’s history (`[Unreleased]` then dated `[X.Y.Z]`). GitHub Release body = that section. Do not invent 0.1.0–0.3.0 sections here; that history is `legacy/0.3`.
+[`CHANGELOG.md`](../CHANGELOG.md) is this tree’s history (`[Unreleased]` then dated `[X.Y.Z]`). GitHub Release body = that section. Do not invent 0.1.0–0.3.0 sections here; that history is `legacy/0.3`. Each tagged GitHub Release also attaches Debug and Release APKs for `arm64-v8a` and `x86_64` (`scripts/release-apks`). Sign Release APKs with a local keystore via gitignored `keystore.properties` (see `keystore.properties.example`); never commit the store. RISC-V is not a ship ABI yet.
 
 ## Android
 
@@ -26,9 +26,9 @@ Do **not** bump the app for fmt, tests-only, agent docs, or `flake.lock` refresh
 - JDK 21
 - Kotlin 2.x, Compose (when `app/` exists)
 - NDK **r28+** (16 KB pages by default), **one** string in flake and Gradle (`28.2.13676358` / package `ndk-28-2-13676358`)
-- ABIs: `arm64-v8a`, `armeabi-v7a`, `x86_64`
+- ABIs: `arm64-v8a`, `x86_64`. GitHub APKs are one Debug and one Release per ABI. 32-bit ARM is not shipped.
 - cargo-ndk `--platform 26`
-- R8 on for release with UniFFI/JNA keep rules
+- R8 on for release with UniFFI/JNA keep rules. Release APKs are signed from `keystore.properties` when that file exists.
 
 No `rust-toolchain.toml`. Fenix in the flake owns rustc.
 
@@ -51,7 +51,7 @@ SDK: `cmdline-tools-16-0` (not `latest`: 23’s `android` CLI wrapper fails in N
 
 DHU 2.1 is the last Google extra; its TLS check fails on a 2026 clock. The wrap fakes the process clock (`DHU_FAKETIME`, default `@2024-06-01 12:00:00`, `FAKETIME_DONT_FAKE_MONOTONIC=1`). `buildFHSEnv` is Linux-only so Darwin `nix develop` still evals.
 
-Fenix stable + android `rust-std` for `aarch64-linux-android`, `armv7-linux-androideabi`, `x86_64-linux-android` in **default** only.
+Fenix stable + android `rust-std` for `aarch64-linux-android`, `x86_64-linux-android` in **default** only.
 
 Systems: `x86_64-linux`, `x86_64-darwin`, `aarch64-darwin`. Not `aarch64-linux`.
 
@@ -77,6 +77,4 @@ Repo files must not name out-of-tree scratch directories (including this machine
 
 ## CI
 
-Pinned Nix installer (not `@main`). `nix develop .#rust` for fmt, clippy `-D warnings`, `cargo test`, rustdoc `-D warnings`, `scripts/check-pins`. Gradle unit tests and `assembleDebug` **when `app/` exists**. Free unused runner Android/.NET/etc. so the SDK fits. No emulator, no DHU, no Icecast GET, no live `/api` or Rizon.
-
-Before the public 1.0.0 force-push, run that command set **locally**.
+Pinned Nix installer (not `@main`). `nix develop .#rust` for fmt, clippy `-D warnings`, `cargo test`, rustdoc `-D warnings`, `scripts/check-pins`, `cargo deny check`. Gradle unit tests and `assembleDebug` **when `app/` exists**. Tag `v*` also builds and uploads the four GitHub APKs. Free unused runner Android/.NET/etc. so the SDK fits. No emulator, no DHU, no Icecast GET, no live `/api` or Rizon. Actions Dependabot only (not Cargo or Nix). rustdoc deploys to GitHub Pages from `main`.

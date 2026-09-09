@@ -1,0 +1,42 @@
+#!/usr/bin/env bash
+# Build arm64-v8a + x86_64 Debug and Release APKs. Upload with --upload [tag].
+set -euo pipefail
+
+root="$(cd "$(dirname "$0")/.." && pwd)"
+cd "$root"
+
+[[ -f keystore.properties ]] || {
+  echo "release-apks: keystore.properties missing (see keystore.properties.example)" >&2
+  exit 1
+}
+
+version="$(sed -n 's/.*versionName = "\([0-9][^"]*\)".*/\1/p' app/build.gradle.kts | head -n1)"
+[[ -n "$version" ]] || {
+  echo "release-apks: versionName missing" >&2
+  exit 1
+}
+
+nix develop -c ./gradlew :app:assembleDebug :app:assembleRelease
+
+dest="$root/dist"
+mkdir -p "$dest"
+rm -f "$dest"/geiravor-"$version"-*.apk
+
+for kind in debug release; do
+  for abi in arm64-v8a x86_64; do
+    src="app/build/outputs/apk/$kind/app-$abi-$kind.apk"
+    [[ -f "$src" ]] || {
+      echo "release-apks: missing $src" >&2
+      exit 1
+    }
+    cp "$src" "$dest/geiravor-$version-$abi-$kind.apk"
+  done
+done
+
+ls -l "$dest"/geiravor-"$version"-*.apk
+
+if [[ "${1:-}" == "--upload" ]]; then
+  tag="${2:-v$version}"
+  gh release upload "$tag" "$dest"/geiravor-"$version"-*.apk --clobber
+  echo "release-apks: uploaded to $tag"
+fi

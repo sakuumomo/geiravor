@@ -7,6 +7,13 @@ License: MIT (`LICENSE.md`). Copyright © 2026 Sakurai Momoka.
 **1.0.0** is a from-scratch rewrite of 0.3.0. The last 0.3.0 source is `legacy/0.3` (tag `v0.3.0`).
 
 [![CI](https://github.com/sakuumomo/geiravor/actions/workflows/ci.yml/badge.svg)](https://github.com/sakuumomo/geiravor/actions/workflows/ci.yml)
+[![docs](https://img.shields.io/badge/docs-rustdoc-blue)](https://sakuumomo.github.io/geiravor/geiravor_core/)
+
+## Install
+
+GitHub Releases ship four sideload APKs: Debug and Release × `arm64-v8a` (phones) and `x86_64` (Waydroid / most emulators). Release is R8-minified and signed with the project sideload key (not Play). Debug is debug-signed. Same package (`io.r_a_d.geiravor`); installing one replaces the other.
+
+Latest: [v1.0.0](https://github.com/sakuumomo/geiravor/releases/tag/v1.0.0).
 
 ## Build
 
@@ -39,4 +46,4 @@ git config core.hooksPath .githooks
 | [`SECURITY.md`](SECURITY.md) | Vulnerability reports |
 | [`CHANGELOG.md`](CHANGELOG.md) | Version history of **this** tree |
 
-Generated crate docs: `nix develop .#rust -c cargo doc --no-deps --open` (not a second spec).
+Generated crate docs: [Pages](https://sakuumomo.github.io/geiravor/geiravor_core/) or `nix develop .#rust -c cargo doc --no-deps --open` (not a second spec).

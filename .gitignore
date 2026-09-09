@@ -15,6 +15,7 @@ local.properties
 captures/
 *.apk
 *.aab
+dist/
 *.ap_
 *.dex
 

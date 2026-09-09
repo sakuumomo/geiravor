@@ -4,6 +4,8 @@ User-visible changes to **this** tree. 0.3.0 history lives on `legacy/0.3`.
 
 ## [Unreleased]
 
+- GitHub Releases attach Debug and Release APKs for arm64-v8a and x86_64.
+
 ## [1.0.0] - 2026-09-09
 
 - From-scratch rewrite of 0.3.0; same listener surface.

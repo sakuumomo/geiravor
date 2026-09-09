@@ -43,7 +43,7 @@ Search listing stays off disk (process RAM). Peeks stay HTTP + RAM. News, schedu
 
 ## UniFFI on Android
 
-- `cargo ndk` for `arm64-v8a`, `armeabi-v7a`, `x86_64`, `--platform 26`
+- `cargo ndk` for `arm64-v8a`, `x86_64`, `--platform 26`
 - Output into `app/src/main/jniLibs/` (gitignored)
 - Depend on `net.java.dev.jna:jna` **AAR**
 - R8 keep rules for `uniffi` and JNA

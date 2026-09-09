@@ -1,0 +1,41 @@
+name: pages
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  rustdoc:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: DeterminateSystems/nix-installer-action@v22
+      - name: rustdoc
+        run: nix develop .#rust -c env RUSTDOCFLAGS='-D warnings' cargo doc --no-deps
+      - name: index
+        run: |
+          printf '%s\n' \
+            '<!DOCTYPE html>' \
+            '<meta charset="utf-8">' \
+            '<title>Geiravor</title>' \
+            '<meta http-equiv="refresh" content="0; url=geiravor_core/">' \
+            '<link rel="canonical" href="geiravor_core/">' \
+            > target/doc/index.html
+          touch target/doc/.nojekyll
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: target/doc
+      - id: deploy
+        uses: actions/deploy-pages@v4

@@ -63,7 +63,6 @@
               stable.rust-src
               stable.rust-analyzer
               targets.aarch64-linux-android.stable.rust-std
-              targets.armv7-linux-androideabi.stable.rust-std
               targets.x86_64-linux-android.stable.rust-std
             ]
           );
@@ -72,6 +71,7 @@
             packages = [
               rust-host
               pkgs.nixfmt
+              pkgs.cargo-deny
             ];
           };
 
@@ -153,6 +153,7 @@
               android-sdk
               rust-android
               pkgs.cargo-ndk
+              pkgs.cargo-deny
               pkgs.pkg-config
               pkgs.llvmPackages.libclang
               pkgs.nixfmt
