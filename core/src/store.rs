@@ -114,6 +114,32 @@ impl Store {
             })?;
         Ok(())
     }
+
+    /// Drop membership + listing pages for one nick. `_` in a nick is not a LIKE wildcard.
+    pub fn delete_nick_disk(&self, nick: &str) -> Result<(), ApiError> {
+        let db = self.db.lock().expect("store");
+        db.execute(
+            "DELETE FROM kv WHERE key = ?1",
+            [format!("membership:{nick}")],
+        )
+        .map_err(|e| ApiError::Network {
+            detail: e.to_string(),
+        })?;
+        db.execute(
+            "DELETE FROM kv WHERE key LIKE ?1 ESCAPE '\\'",
+            [format!("faves:{}:%", like_literal(nick))],
+        )
+        .map_err(|e| ApiError::Network {
+            detail: e.to_string(),
+        })?;
+        Ok(())
+    }
+}
+
+fn like_literal(s: &str) -> String {
+    s.replace('\\', "\\\\")
+        .replace('%', "\\%")
+        .replace('_', "\\_")
 }
 
 #[cfg(test)]
@@ -139,6 +165,26 @@ mod tests {
         assert!(store.get("news:list:1").unwrap().is_none());
         assert!(store.get("news:list:2").unwrap().is_none());
         assert_eq!(store.get("news:article:9").unwrap().as_deref(), Some("c"));
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn delete_nick_disk_does_not_treat_underscore_as_wildcard() {
+        let dir = std::env::temp_dir().join(format!("geiravor-nickdel-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        let store = Store::open(dir.to_str().unwrap()).unwrap();
+        store.put_if_changed("membership:foo_bar", "a").unwrap();
+        store.put_if_changed("faves:foo_bar:1", "b").unwrap();
+        store.put_if_changed("membership:fooXbar", "c").unwrap();
+        store.put_if_changed("faves:fooXbar:1", "d").unwrap();
+        store.delete_nick_disk("foo_bar").unwrap();
+        assert!(store.get("membership:foo_bar").unwrap().is_none());
+        assert!(store.get("faves:foo_bar:1").unwrap().is_none());
+        assert_eq!(
+            store.get("membership:fooXbar").unwrap().as_deref(),
+            Some("c")
+        );
+        assert_eq!(store.get("faves:fooXbar:1").unwrap().as_deref(), Some("d"));
         let _ = std::fs::remove_dir_all(&dir);
     }
 

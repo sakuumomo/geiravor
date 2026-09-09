@@ -26,6 +26,25 @@ object LivePlaybackPolicy {
 
     fun shouldReconnect(wantPlay: Boolean): Boolean = wantPlay
 
+    fun isVehicleController(packageName: String): Boolean {
+        val p = packageName.lowercase()
+        return p == "com.google.android.projection.gearhead" ||
+            p.startsWith("com.google.android.projection.gearhead:") ||
+            p.contains("android.projection") ||
+            p == "com.google.android.carassistant"
+    }
+
+    fun shouldAutoStartVehicle(
+        prefOn: Boolean,
+        packageName: String,
+        alreadyWantPlay: Boolean,
+    ): Boolean = prefOn && isVehicleController(packageName) && !alreadyWantPlay
+
+    fun leaveForegroundOnStop(wantPlay: Boolean, inForeground: Boolean): Boolean =
+        !wantPlay && inForeground
+
+    fun skipMedia3Notification(): Boolean = true
+
     fun stepGain(current: Float, delta: Float): Float =
         (current + delta).coerceIn(0f, 1f)
 
@@ -114,6 +133,8 @@ object LivePlaybackPolicy {
             .build()
 
     fun pauseStops(): Boolean = true
+
+    fun seekRejected(): Boolean = true
 
     /**
      * After pause/stop Icecast is torn down (`IDLE`) but the session must stay

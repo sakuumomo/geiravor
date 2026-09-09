@@ -73,7 +73,7 @@ fun GeiravorRoot(
                     }.getOrDefault(false)
                 }
             }
-            ui.onMain { if (!ui.faveBusy) ui.heartFilled = hit }
+            ui.onMain { ui.paintHeart(hit) }
         }
     }
     GeiravorTheme(ui.pack) {
@@ -200,8 +200,15 @@ fun tapFave(
     val was = ui.heartFilled
     ui.heartFilled = !was
     onHeart()
-    val catalog = ui.status?.let { if (it.isAfk) it.trackId else 0L } ?: 0L
-    val job = FaveTap.Job(unfave = was, catalog = catalog)
+    val status = ui.status
+    val catalog = status?.let { if (it.isAfk) it.trackId else 0L } ?: 0L
+    val job = FaveTap.Job(
+        unfave = was,
+        catalog = catalog,
+        np = status?.np.orEmpty(),
+        isAfk = status?.isAfk == true,
+        trackId = status?.trackId ?: 0L,
+    )
     ui.faveTaps = FaveTap.afterAccept(ui.faveBusy, ui.faveTaps)
     if (ui.faveBusy) {
         ui.faveQueue.addLast(job)
@@ -221,7 +228,7 @@ private fun runFave(
     val cfg = ui.faveConfig(secrets)
     val nicks = ui.membershipNicks()
     ui.offMain {
-        val result = core.addFave(cfg, job.unfave, job.catalog)
+        val result = core.addFave(cfg, job.unfave, job.catalog, job.np, job.isAfk, job.trackId)
         if (result.kind == FaveKind.SUCCESS) {
             nicks.forEach { nick -> runCatching { core.revalidateMembership(nick) } }
         }

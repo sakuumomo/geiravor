@@ -32,6 +32,7 @@ import io.r_a_d.geiravor.R
 import io.r_a_d.geiravor.compat.loadCoilStill
 import io.r_a_d.geiravor.compat.mysteryDjBitmap
 import io.r_a_d.geiravor.compat.startMediaPlaybackForeground
+import io.r_a_d.geiravor.notify.Alerts
 import io.r_a_d.geiravor.ui.Prefs
 import io.r_a_d.geiravor.ui.tapFave
 import uniffi.geiravor_core.Status
@@ -49,6 +50,7 @@ class PlaybackService : MediaLibraryService() {
     private var lastSongsSig = ""
     private var playbackForeground = false
     private var shadePosted = false
+    private var shadeDismissed = false
     private var shadeArt: Bitmap? = null
     private var shadeArtUrl: String? = null
     private val sleepHandler = Handler(Looper.getMainLooper())
@@ -96,19 +98,25 @@ class PlaybackService : MediaLibraryService() {
         player.volume = lastGain
         player.addListener(object : Player.Listener {
             override fun onIsPlayingChanged(isPlaying: Boolean) {
-                core().setPlaying(isPlaying)
                 if (isPlaying) {
+                    core().setPlayerPlaying()
                     alarmRing = false
                     fallback?.release()
                     fallback = null
                     cancelReconnect()
-                } else {
-                    cancelSleep(restore = true)
+                    Alerts.cancel(this@PlaybackService, Alerts.ID_ALARM)
                 }
             }
 
             override fun onPlayWhenReadyChanged(playWhenReady: Boolean, reason: Int) {
-                if (!playWhenReady) cancelReconnect()
+                core().setPlaying(playWhenReady)
+                if (!playWhenReady) {
+                    cancelReconnect()
+                    cancelSleep(restore = true)
+                    if (LivePlaybackPolicy.leaveForegroundOnStop(false, playbackForeground)) {
+                        leavePlaybackForeground()
+                    }
+                }
             }
 
             override fun onPlayerError(error: androidx.media3.common.PlaybackException) {
@@ -161,7 +169,7 @@ class PlaybackService : MediaLibraryService() {
         session
 
     override fun onUpdateNotification(session: MediaSession, startInForegroundRequired: Boolean) {
-        if (shadePosted) return
+        if (LivePlaybackPolicy.skipMedia3Notification()) return
         super.onUpdateNotification(session, false)
     }
 
@@ -171,9 +179,10 @@ class PlaybackService : MediaLibraryService() {
             ACTION_STOP -> {
                 cancelReconnect()
                 cancelSleep(restore = true)
+                Alerts.cancel(this, Alerts.ID_ALARM)
                 live.pauseStops()
-                leavePlaybackForeground()
             }
+            ACTION_CANCEL_SLEEP -> cancelSleep(restore = true)
             ACTION_ALARM -> {
                 alarmRing = true
                 playLiveNow()
@@ -196,6 +205,7 @@ class PlaybackService : MediaLibraryService() {
             ACTION_VOL_DOWN ->
                 applyGain(LivePlaybackPolicy.stepGain(player.volume, -LivePlaybackPolicy.VOL_STEP))
             ACTION_DISMISS -> {
+                shadeDismissed = true
                 shadePosted = false
                 playbackForeground = false
                 getSystemService(android.app.NotificationManager::class.java)
@@ -232,6 +242,7 @@ class PlaybackService : MediaLibraryService() {
     }
 
     private fun playLiveNow() {
+        shadeDismissed = false
         if (!playbackForeground) enterPlaybackForeground()
         live.playLive()
     }
@@ -259,10 +270,11 @@ class PlaybackService : MediaLibraryService() {
     }
 
     private fun postShade(playing: Boolean) {
-        if (!shadePosted) return
+        if (shadeDismissed || !shadePosted) return
         val nm = getSystemService(android.app.NotificationManager::class.java) ?: return
         if (!playing && nm.activeNotifications.none { it.id == PlaybackNotice.ID }) {
             shadePosted = false
+            shadeDismissed = true
             return
         }
         nm.notify(PlaybackNotice.ID, shadeNotice(playing))
@@ -284,6 +296,7 @@ class PlaybackService : MediaLibraryService() {
     }
 
     private fun enterPlaybackForeground() {
+        shadeDismissed = false
         startMediaPlaybackForeground(PlaybackNotice.ID, shadeNotice(playing = true))
         playbackForeground = true
         shadePosted = true
@@ -291,9 +304,12 @@ class PlaybackService : MediaLibraryService() {
     }
 
     private fun leavePlaybackForeground() {
-        playbackForeground = false
+        if (playbackForeground) {
+            stopForeground(android.app.Service.STOP_FOREGROUND_DETACH)
+            playbackForeground = false
+        }
+        if (shadeDismissed) return
         shadePosted = true
-        stopForeground(android.app.Service.STOP_FOREGROUND_DETACH)
         getSystemService(android.app.NotificationManager::class.java)
             ?.notify(PlaybackNotice.ID, shadeNotice(playing = false))
     }
@@ -344,9 +360,18 @@ class PlaybackService : MediaLibraryService() {
     }
 
     private fun cancelSleep(restore: Boolean) {
+        val wasArmed = sleepAt != 0L
         sleepAt = 0L
         sleepHandler.removeCallbacks(sleepTick)
         if (restore) player.volume = lastGain
+        if (!wasArmed) return
+        val app = application as GeiravorApp
+        app.ui.onMain {
+            if (sleepAt == 0L && app.ui.sleepOn) {
+                app.ui.sleepOn = false
+                app.ui.setFlag(app.core, Prefs.SLEEP_ON, false)
+            }
+        }
     }
 
     private fun scheduleReconnect() {
@@ -446,12 +471,28 @@ class PlaybackService : MediaLibraryService() {
             val sessionCommands = LivePlaybackPolicy.sessionCommands()
             val playerCommands = LivePlaybackPolicy.playerCommands()
             val app = application as GeiravorApp
-            if (app.ui.autoStartVehicle) {
+            if (LivePlaybackPolicy.shouldAutoStartVehicle(
+                    app.ui.autoStartVehicle,
+                    controller.packageName,
+                    player.playWhenReady || playbackForeground,
+                )
+            ) {
                 playLiveNow()
             }
             app.ui.offMain {
                 app.ui.membershipNicks().forEach { nick ->
                     runCatching { core().revalidateMembership(nick) }
+                }
+                val s = core().snapshot()
+                val nicks = app.ui.membershipNicks()
+                val hit = s != null && nicks.any { nick ->
+                    runCatching {
+                        core().membershipHas(nick, if (s.isAfk) s.trackId else 0, s.np)
+                    }.getOrDefault(false)
+                }
+                app.ui.onMain {
+                    app.ui.paintHeart(hit)
+                    refreshButtons()
                 }
             }
             refreshButtons()
@@ -555,7 +596,13 @@ class PlaybackService : MediaLibraryService() {
             controller: MediaSession.ControllerInfo,
         ): ListenableFuture<MediaSession.MediaItemsWithStartPosition> {
             ensureLiveItem()
-            if ((application as GeiravorApp).ui.autoStartVehicle) {
+            val app = application as GeiravorApp
+            if (LivePlaybackPolicy.shouldAutoStartVehicle(
+                    app.ui.autoStartVehicle,
+                    controller.packageName,
+                    player.playWhenReady || playbackForeground,
+                )
+            ) {
                 playLiveNow()
             } else {
                 live.skipNextPlay = true
@@ -581,6 +628,7 @@ class PlaybackService : MediaLibraryService() {
         const val ACTION_GAIN = "io.r_a_d.geiravor.GAIN"
         const val ACTION_ALARM = "io.r_a_d.geiravor.ALARM"
         const val ACTION_SLEEP = "io.r_a_d.geiravor.SLEEP"
+        const val ACTION_CANCEL_SLEEP = "io.r_a_d.geiravor.CANCEL_SLEEP"
         const val EXTRA_GAIN = "gain"
         const val EXTRA_SLEEP_MIN = "sleep_min"
 
@@ -612,6 +660,9 @@ class PlaybackService : MediaLibraryService() {
             Intent(context, PlaybackService::class.java)
                 .setAction(ACTION_SLEEP)
                 .putExtra(EXTRA_SLEEP_MIN, minutes)
+
+        fun cancelSleepIntent(context: Context): Intent =
+            Intent(context, PlaybackService::class.java).setAction(ACTION_CANCEL_SLEEP)
 
         fun gainIntent(context: Context, gain: Float): Intent =
             Intent(context, PlaybackService::class.java)

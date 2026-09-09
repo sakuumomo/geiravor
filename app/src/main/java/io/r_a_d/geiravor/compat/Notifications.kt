@@ -11,6 +11,9 @@ import androidx.core.content.ContextCompat
  * Compat: POST_NOTIFICATIONS. Remove when minSdk >= 33.
  */
 object Notifications {
+    const val DENIED =
+        "Allow notifications in Settings to get DJ and fave alerts."
+
     val needed: Boolean
         get() = Build.VERSION.SDK_INT >= 33
 
@@ -19,6 +22,8 @@ object Notifications {
 
     fun shouldRequest(needsRuntimePermission: Boolean, alreadyGranted: Boolean): Boolean =
         needsRuntimePermission && !alreadyGranted
+
+    fun deniedCopy(granted: Boolean): String? = if (granted) null else DENIED
 
     fun granted(context: Context): Boolean {
         if (!needed) return true

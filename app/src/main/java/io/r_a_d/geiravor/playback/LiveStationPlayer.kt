@@ -90,6 +90,26 @@ class LiveStationPlayer(private val exo: ExoPlayer) : ForwardingPlayer(exo) {
         return NowPlayingMeta.isLive(dur)
     }
 
+    override fun seekTo(positionMs: Long) {}
+
+    override fun seekTo(mediaItemIndex: Int, positionMs: Long) {}
+
+    override fun seekToDefaultPosition() {}
+
+    override fun seekToDefaultPosition(mediaItemIndex: Int) {}
+
+    override fun seekToNext() {}
+
+    override fun seekToPrevious() {}
+
+    override fun seekToNextMediaItem() {}
+
+    override fun seekToPreviousMediaItem() {}
+
+    override fun seekBack() {}
+
+    override fun seekForward() {}
+
     private fun takeSkip(): Boolean {
         if (!skipNextPlay) return false
         skipNextPlay = false

@@ -132,14 +132,16 @@ class UiState {
             val slHr = core.pref(Prefs.SLEEP_HOURS).ifBlank { "0" }
             val slMin = core.pref(Prefs.SLEEP_MINUTES).ifBlank { "30" }
             secrets.get(SecretKeys.NICKSERV)
+            val nicks = listOf(list, n).map { it.trim() }.filter { it.isNotEmpty() }.distinct()
+            val member = snap != null && nicks.any { nick ->
+                runCatching {
+                    core.membershipHas(nick, if (snap.isAfk) snap.trackId else 0, snap.np)
+                }.getOrDefault(false)
+            }
             worker.execute {
-                listOf(list, n)
-                    .map { it.trim() }
-                    .filter { it.isNotEmpty() }
-                    .distinct()
-                    .forEach { nick ->
-                        runCatching { core.revalidateMembership(nick) }
-                    }
+                nicks.forEach { nick ->
+                    runCatching { core.revalidateMembership(nick) }
+                }
             }
             main.post {
                 userPick = pick
@@ -171,6 +173,7 @@ class UiState {
                 sleepHours = slHr
                 sleepMinutes = slMin
                 applyStatus(snap, streamDown, playing)
+                paintHeart(member)
             }
         }
     }
@@ -236,6 +239,10 @@ class UiState {
 
     fun listNickOrConnection(): String =
         listNick.trim().ifEmpty { nick.trim() }
+
+    fun paintHeart(member: Boolean) {
+        if (!faveBusy) heartFilled = member
+    }
 
     fun membershipNicks(): List<String> {
         val out = ArrayList<String>(2)

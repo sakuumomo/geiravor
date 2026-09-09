@@ -32,4 +32,4 @@ Empty nick = fave no-op and empty list.
 - Launcher label: `r/a/dio`
 - License: MIT (`LICENSE.md`), copyright Sakurai Momoka
 
-How those strings are bumped is repo documentation (`docs/build.md` when written). App versions are **semver**, not the site’s `/v1/` path.
+How those strings are bumped is repo documentation (`docs/build.md`). App versions are **semver**, not the site’s `/v1/` path.

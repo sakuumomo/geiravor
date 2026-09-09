@@ -73,13 +73,15 @@ Same split applies to `queue[].meta` and `lp[].meta`.
 
 ## Poll
 
-Pure function of `(ui_visible, playing, last_error)`:
+Pure function of `(ui_visible, playing, last_error)`. `playing` is whether the user wants play (`playWhenReady`), not ExoPlayer `isPlaying` during buffer.
 
 | State | Interval |
 |---|---|
 | UI visible or playing, last fetch ok | **2s** (floor; matches server cache) |
 | Background, stopped, last fetch ok | 15s |
 | Consecutive failures | exponential backoff, cap 60s |
+
+GET immediately on poller start, then sleep. Re-read visibility/playing when choosing the **next** interval.
 
 ICY title change → immediate refetch. ICY string does **not** replace `np`.
 

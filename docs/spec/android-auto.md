@@ -54,7 +54,7 @@ Last Played / Queue **rows are reference only**: not playable, not browsable. Au
 
 Settings auto-start rows are playable **function** items (not the live stream). Tap flips the persisted flag. While the stream is actually playing, do not replace or re-prepare the live item. After pause (real idle), Play must be allowed to `setMediaItem`/`prepare` again. Do not swallow that Play with a timer. Auto may still open now-playing; suppress only the follow-up Play from that settings tap while paused. Back shows the updated On/Off subtitle. About is display-only. `getChildren` is read-only and must not return a node as a child of itself. `notifyChildrenChanged` only when that parent’s children actually changed. A `/api` poll with the same Last Played / Queue must not reload those lists. Settings is not notified from a status poll.
 
-When **Auto-start in vehicle** is on, projected Auto session connect starts the live stream. Connect with the setting off must not play.
+When **Auto-start in vehicle** is on, projected Auto session connect starts the live stream. Connect with the setting off must not play. Do not start for every MediaSession controller (notification, Bluetooth, this app); only a projected Auto / car package, and only if play is not already wanted.
 
 Do not advertise `COMMAND_GET_TIMELINE` (hides Auto’s empty Queue button). Do not add-to-playlist.
 

@@ -8,8 +8,16 @@ import io.r_a_d.geiravor.compat.ExactAlarms
 import io.r_a_d.geiravor.ui.Prefs
 import uniffi.geiravor_core.RadioCore
 import java.util.Calendar
+import java.util.concurrent.Executors
 
 object AlarmScheduler {
+    private val io = Executors.newSingleThreadExecutor { r ->
+        Thread(r, "geiravor-alarm").apply { isDaemon = true }
+    }
+
+    fun offMain(block: () -> Unit) {
+        io.execute { runCatching(block) }
+    }
     fun pending(context: Context): PendingIntent =
         PendingIntent.getBroadcast(
             context,
@@ -35,17 +43,23 @@ object AlarmScheduler {
         }
         val hour = core.pref(Prefs.ALARM_HOUR).toIntOrNull()?.coerceIn(0, 23) ?: 7
         val minute = core.pref(Prefs.ALARM_MINUTE).toIntOrNull()?.coerceIn(0, 59) ?: 0
+        val at = nextFireMillis(System.currentTimeMillis(), hour, minute)
+        val am = context.getSystemService(AlarmManager::class.java) ?: return
+        am.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, at, pending(context))
+    }
+
+    fun nextFireMillis(nowMillis: Long, hour: Int, minute: Int): Long {
         val cal = Calendar.getInstance().apply {
-            set(Calendar.HOUR_OF_DAY, hour)
-            set(Calendar.MINUTE, minute)
+            timeInMillis = nowMillis
+            set(Calendar.HOUR_OF_DAY, hour.coerceIn(0, 23))
+            set(Calendar.MINUTE, minute.coerceIn(0, 59))
             set(Calendar.SECOND, 0)
             set(Calendar.MILLISECOND, 0)
-            if (timeInMillis <= System.currentTimeMillis()) {
+            if (timeInMillis <= nowMillis) {
                 add(Calendar.DAY_OF_YEAR, 1)
             }
         }
-        val am = context.getSystemService(AlarmManager::class.java) ?: return
-        am.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, cal.timeInMillis, pending(context))
+        return cal.timeInMillis
     }
 
     fun snooze(context: Context, core: RadioCore) {

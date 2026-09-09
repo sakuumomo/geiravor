@@ -4,7 +4,13 @@ package io.r_a_d.geiravor.ui
 object FaveTap {
     const val WINDOW_MAX = 3
 
-    data class Job(val unfave: Boolean, val catalog: Long)
+    data class Job(
+        val unfave: Boolean,
+        val catalog: Long,
+        val np: String,
+        val isAfk: Boolean,
+        val trackId: Long,
+    )
 
     fun accept(busy: Boolean, tapsInWindow: Int): Boolean =
         if (!busy) true else tapsInWindow < WINDOW_MAX

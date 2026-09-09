@@ -38,6 +38,8 @@ class LivePlaybackPolicyTest {
         assertFalse(Player.COMMAND_GET_TIMELINE in cmds)
         assertTrue(Player.COMMAND_PLAY_PAUSE in cmds)
         assertTrue(Player.COMMAND_STOP in cmds)
+        assertTrue(LivePlaybackPolicy.seekRejected())
+        assertTrue(LivePlaybackPolicy.pauseStops())
     }
 
     @Test
@@ -70,6 +72,47 @@ class LivePlaybackPolicyTest {
         assertTrue(LivePlaybackPolicy.muted(0f))
         assertFalse(LivePlaybackPolicy.muted(0.1f))
         assertTrue(LivePlaybackPolicy.shadeCompactActionIndices().contentEquals(intArrayOf(0, 1, 2)))
+    }
+
+    @Test
+    fun autoStartIsProjectedAutoOnly() {
+        assertTrue(
+            LivePlaybackPolicy.isVehicleController("com.google.android.projection.gearhead"),
+        )
+        assertFalse(LivePlaybackPolicy.isVehicleController("io.r_a_d.geiravor"))
+        assertFalse(LivePlaybackPolicy.isVehicleController("com.android.bluetooth"))
+        assertTrue(
+            LivePlaybackPolicy.shouldAutoStartVehicle(
+                true,
+                "com.google.android.projection.gearhead",
+                false,
+            ),
+        )
+        assertFalse(
+            LivePlaybackPolicy.shouldAutoStartVehicle(
+                true,
+                "com.google.android.projection.gearhead",
+                true,
+            ),
+        )
+        assertFalse(
+            LivePlaybackPolicy.shouldAutoStartVehicle(
+                true,
+                "io.r_a_d.geiravor",
+                false,
+            ),
+        )
+        assertFalse(
+            LivePlaybackPolicy.shouldAutoStartVehicle(
+                false,
+                "com.google.android.projection.gearhead",
+                false,
+            ),
+        )
+        assertTrue(LivePlaybackPolicy.leaveForegroundOnStop(false, true))
+        assertFalse(LivePlaybackPolicy.leaveForegroundOnStop(true, true))
+        assertFalse(LivePlaybackPolicy.leaveForegroundOnStop(false, false))
+        assertTrue(LivePlaybackPolicy.skipMedia3Notification())
     }
 
     @Test

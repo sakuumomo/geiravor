@@ -54,9 +54,7 @@ pub fn parse_schedule(html: &str) -> Result<Vec<ScheduleDay>, ApiError> {
             .rfind("class=\"cell")
             .and_then(|i| html[..i].rfind("<div"))
             .unwrap_or_else(|| html[..at].rfind("<div").unwrap_or(at));
-        // One `.cell` only (desktop copy). Next cell is the mobile duplicate or
-        // the next day — never walk to the next weekday marker (that stole
-        // Saturday's image, which sits *before* Saturday's marker).
+        // Take only this day's `.cell` (desktop copy); do not extend to the next weekday marker.
         let after_open = html[start..]
             .find('>')
             .map(|i| start + i + 1)

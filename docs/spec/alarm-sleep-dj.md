@@ -2,15 +2,15 @@
 
 ## Alarm
 
-Exact alarm via `AlarmManager` + compat. On fire: start the live stream through the same play path ([playback.md](playback.md)) — pause still **stops**. If the stream cannot start (no network / player error), play a **committed local** fallback sound in `res/raw` — not a network asset at ring time. Do not GET Icecast in tests.
+Exact alarm via `AlarmManager` + compat. On fire: start the live stream through the same play path ([playback.md](playback.md)) — pause still **stops**. If the stream cannot start (no network / player error), play a **committed local** fallback sound in `res/raw` — not a network asset at ring time. Do not GET Icecast in tests. After fire, reschedule the next daily exact alarm while the toggle is still on. FIRE/SNOOZE are explicit app broadcasts (not exported); only `BOOT_COMPLETED` is exported.
 
 Alarm time is stored as 0–23 hours. Settings → Alerts lets the listener pick **AM/PM** or **24-hour** for that field (default AM/PM). Changing the time while the alarm is on reschedules.
 
-Snooze: optional disable; duration is a custom hours + minutes (1 minute–12 hours, default 10 minutes). Notification while ringing uses large labeled actions (not icon-only).
+Snooze: optional disable; duration is a custom hours + minutes (1 minute–12 hours, default 10 minutes). Notification while ringing uses large labeled actions (not icon-only). Cancel that notification on Stop, Snooze, and when the stream is actually playing.
 
 ## Sleep timer
 
-One-shot timer to stop playback through the same play/stop path ([playback.md](playback.md)). Settings → Alerts: toggle (default **off**) and a custom hours + minutes duration (1 minute–12 hours, default **30** minutes). Arming stores a deadline. The last **15 seconds** fade player gain to 0; do **not** persist the faded gain. Then stop (pause still **stops**). Manual stop (pause/stop, unplug, audio-focus loss) cancels the timer. Changing duration while armed restarts the deadline. Not on Auto. Do not GET Icecast in tests.
+One-shot timer to stop playback through the same play/stop path ([playback.md](playback.md)). Settings → Alerts: toggle (default **off**) and a custom hours + minutes duration (1 minute–12 hours, default **30** minutes). Arming stores a deadline. The last **15 seconds** fade player gain to 0; do **not** persist the faded gain. Then stop (pause still **stops**). Toggle off cancels the timer without stopping Icecast. Manual stop (pause/stop, unplug, audio-focus loss) cancels the timer and turns the toggle off. Changing duration while armed restarts the deadline. Not on Auto. Do not GET Icecast in tests.
 
 ## DJ-online notifier
 

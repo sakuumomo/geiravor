@@ -7,25 +7,45 @@ import androidx.core.content.ContextCompat
 import io.r_a_d.geiravor.GeiravorApp
 import io.r_a_d.geiravor.notify.Alerts
 import io.r_a_d.geiravor.playback.PlaybackService
+import io.r_a_d.geiravor.ui.Prefs
 
 class AlarmReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
-        when (intent.action) {
-            FIRE, Intent.ACTION_BOOT_COMPLETED -> {
-                val app = context.applicationContext
-                if (app is GeiravorApp) {
-                    if (intent.action == Intent.ACTION_BOOT_COMPLETED) {
+        val app = context.applicationContext as? GeiravorApp ?: return
+        val pending = goAsync()
+        AlarmScheduler.offMain {
+            var posted = false
+            try {
+                when (intent.action) {
+                    FIRE -> {
+                        if (app.core.pref(Prefs.ALARM_ON) != "1") return@offMain
                         AlarmScheduler.schedule(context, app.core) {}
-                        return
+                        posted = true
+                        app.ui.onMain {
+                            try {
+                                Alerts.show(
+                                    context,
+                                    Alerts.ID_ALARM,
+                                    "r/a/dio alarm",
+                                    alarmActions = true,
+                                )
+                                ContextCompat.startForegroundService(
+                                    context,
+                                    PlaybackService.alarmIntent(context),
+                                )
+                            } finally {
+                                pending.finish()
+                            }
+                        }
+                    }
+                    SNOOZE -> {
+                        Alerts.cancel(context, Alerts.ID_ALARM)
+                        context.startService(PlaybackService.stopIntent(context))
+                        AlarmScheduler.snooze(context, app.core)
                     }
                 }
-                Alerts.show(context, Alerts.ID_ALARM, "r/a/dio alarm", alarmActions = true)
-                ContextCompat.startForegroundService(context, PlaybackService.alarmIntent(context))
-            }
-            SNOOZE -> {
-                val app = context.applicationContext as? GeiravorApp ?: return
-                context.startService(PlaybackService.stopIntent(context))
-                AlarmScheduler.snooze(context, app.core)
+            } finally {
+                if (!posted) pending.finish()
             }
         }
     }

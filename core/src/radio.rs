@@ -101,6 +101,29 @@ fn membership_text_has(raw: &str, track_id: i64, np: &str) -> bool {
     })
 }
 
+fn resolve_tap(
+    tap_np: String,
+    tap_is_afk: bool,
+    tap_track_id: i64,
+    snapshot: Option<&Status>,
+) -> Option<TapSnapshot> {
+    if !tap_np.is_empty() {
+        return Some(TapSnapshot {
+            is_afk: tap_is_afk,
+            track_id: tap_track_id,
+            np: tap_np,
+        });
+    }
+    snapshot.map(|s| TapSnapshot {
+        is_afk: s.is_afk,
+        track_id: s.track_id,
+        np: s.np.clone(),
+    })
+}
+
+const PREF_LIST_NICK: &str = "list_nick";
+const PREF_CONN_NICK: &str = "nick";
+
 fn overlay_nicks(cfg: &FaveConfig) -> Vec<String> {
     let mut nicks = Vec::new();
     let list = cfg.list_nick.trim();
@@ -180,14 +203,17 @@ impl RadioCore {
     pub fn set_playing(&self, playing: bool) {
         let state = {
             let mut state = self.inner.state.lock().expect("state");
-            reduce_in_place(
-                &mut state,
-                if playing {
-                    NowPlayingEvent::PlayerPlaying
-                } else {
-                    NowPlayingEvent::Playing(false)
-                },
-            );
+            reduce_in_place(&mut state, NowPlayingEvent::Playing(playing));
+            state.clone()
+        };
+        self.fanout(&state);
+    }
+
+    /// Icecast is actually playing. Clears stream-down; does not mean a buffer blip.
+    pub fn set_player_playing(&self) {
+        let state = {
+            let mut state = self.inner.state.lock().expect("state");
+            reduce_in_place(&mut state, NowPlayingEvent::PlayerPlaying);
             state.clone()
         };
         self.fanout(&state);
@@ -243,6 +269,16 @@ impl RadioCore {
     pub fn set_pref(&self, key: String, value: String) -> Result<(), ApiError> {
         self.inner.store.put_if_changed(&key, &value)?;
         Ok(())
+    }
+
+    /// IME Done on the Favorites nick. Drops the previous nick's disk unless it is still Connection.
+    pub fn commit_list_nick(&self, nick: String) -> Result<(), ApiError> {
+        self.commit_nick_pref(PREF_LIST_NICK, nick)
+    }
+
+    /// Settings → Connection nick. Drops the previous nick's disk unless it is still Favorites.
+    pub fn commit_connection_nick(&self, nick: String) -> Result<(), ApiError> {
+        self.commit_nick_pref(PREF_CONN_NICK, nick)
     }
 
     /// `GET /` and read `/assets/{name}/css/`. Not the main thread. Not every poll.
@@ -509,13 +545,8 @@ impl RadioCore {
         if nick.is_empty() {
             return Ok(Vec::new());
         }
-        let bytes = self.inner.http.get(&faves_json_url(&nick, page))?;
-        let rows = parse_faves_json(&bytes)?;
-        let _ = self.inner.store.put_if_changed(
-            &format!("faves:{nick}:{page}"),
-            &String::from_utf8_lossy(&bytes),
-        )?;
-        Ok(rows)
+        let persist = self.nick_is_committed(&nick);
+        self.fetch_faves_inner(nick, page, persist)
     }
 
     pub fn faves_last_page(&self, nick: String) -> Result<u32, ApiError> {
@@ -523,14 +554,8 @@ impl RadioCore {
         if nick.is_empty() {
             return Ok(1);
         }
-        let bytes = self.inner.http.get(&faves_html_url(&nick))?;
-        let html = String::from_utf8_lossy(&bytes);
-        let n = faves_html_last_page(&html);
-        let _ = self
-            .inner
-            .store
-            .put_if_changed(&format!("faves:{nick}:html_last"), &n.to_string())?;
-        Ok(n)
+        let persist = self.nick_is_committed(&nick);
+        self.faves_last_page_inner(nick, persist)
     }
 
     /// Disk-only favorites UI window.
@@ -593,7 +618,7 @@ impl RadioCore {
     /// Overlay rows stay until the GET agrees.
     pub fn revalidate_membership(&self, nick: String) -> Result<(), ApiError> {
         let nick = nick.trim().to_string();
-        if nick.is_empty() {
+        if nick.is_empty() || !self.nick_is_committed(&nick) {
             return Ok(());
         }
         let last = self.faves_last_page(nick.clone())?.max(1);
@@ -626,7 +651,7 @@ impl RadioCore {
         }
         let raw = rows
             .iter()
-            .map(|r| format!("{}\t{} - {}", r.tracks_id, r.artist, r.title))
+            .map(|r| format!("{}\t{}", r.tracks_id, row_meta(r)))
             .collect::<Vec<_>>()
             .join("\n");
         self.inner
@@ -682,7 +707,16 @@ impl RadioCore {
     }
 
     /// IRC add/remove fave. Empty nick is a no-op. Worker-thread only.
-    pub fn add_fave(&self, cfg: FaveConfig, unfave: bool, catalog_id: i64) -> FaveResult {
+    /// `tap_np` nonempty is the snapshot at tap (`docs/spec/requests-faves.md`).
+    pub fn add_fave(
+        &self,
+        cfg: FaveConfig,
+        unfave: bool,
+        catalog_id: i64,
+        tap_np: String,
+        tap_is_afk: bool,
+        tap_track_id: i64,
+    ) -> FaveResult {
         {
             let mut busy = self.inner.fave_busy.lock().expect("fave");
             if *busy {
@@ -691,11 +725,75 @@ impl RadioCore {
             *busy = true;
         }
         let _guard = FaveBusy(&self.inner.fave_busy);
-        self.add_fave_inner(cfg, unfave, catalog_id)
+        self.add_fave_inner(cfg, unfave, catalog_id, tap_np, tap_is_afk, tap_track_id)
     }
 }
 
 impl RadioCore {
+    fn nick_is_committed(&self, nick: &str) -> bool {
+        let nick = nick.trim();
+        if nick.is_empty() {
+            return false;
+        }
+        let list = self.pref(PREF_LIST_NICK.into()).unwrap_or_default();
+        let conn = self.pref(PREF_CONN_NICK.into()).unwrap_or_default();
+        nick == list.trim() || nick == conn.trim()
+    }
+
+    fn prune_nick_if_unused(&self, old: &str) -> Result<(), ApiError> {
+        let old = old.trim();
+        if old.is_empty() || self.nick_is_committed(old) {
+            return Ok(());
+        }
+        self.inner.store.delete_nick_disk(old)
+    }
+
+    fn commit_nick_pref(&self, key: &str, nick: String) -> Result<(), ApiError> {
+        let nick = nick.trim().to_string();
+        let old = self.pref(key.to_string())?;
+        self.set_pref(key.to_string(), nick)?;
+        self.prune_nick_if_unused(&old)
+    }
+
+    fn fetch_faves_inner(
+        &self,
+        nick: String,
+        page: u32,
+        persist: bool,
+    ) -> Result<Vec<FaveRow>, ApiError> {
+        let nick = nick.trim().to_string();
+        let page = page.max(1);
+        if nick.is_empty() {
+            return Ok(Vec::new());
+        }
+        let bytes = self.inner.http.get(&faves_json_url(&nick, page))?;
+        let rows = parse_faves_json(&bytes)?;
+        if persist {
+            let _ = self.inner.store.put_if_changed(
+                &format!("faves:{nick}:{page}"),
+                &String::from_utf8_lossy(&bytes),
+            )?;
+        }
+        Ok(rows)
+    }
+
+    fn faves_last_page_inner(&self, nick: String, persist: bool) -> Result<u32, ApiError> {
+        let nick = nick.trim().to_string();
+        if nick.is_empty() {
+            return Ok(1);
+        }
+        let bytes = self.inner.http.get(&faves_html_url(&nick))?;
+        let html = String::from_utf8_lossy(&bytes);
+        let n = faves_html_last_page(&html);
+        if persist {
+            let _ = self
+                .inner
+                .store
+                .put_if_changed(&format!("faves:{nick}:html_last"), &n.to_string())?;
+        }
+        Ok(n)
+    }
+
     fn csrf_token(&self) -> Result<String, ApiError> {
         let bytes = self.inner.http.get(SEARCH_HTML_URL)?;
         let html = String::from_utf8_lossy(&bytes);
@@ -780,6 +878,7 @@ impl RadioCore {
         page: u32,
         live: bool,
         force_get: bool,
+        persist: bool,
     ) -> Result<Vec<FaveRow>, ApiError> {
         if !force_get
             && self
@@ -791,7 +890,7 @@ impl RadioCore {
             return self.cached_faves(nick.to_string(), page);
         }
         if live {
-            return self.fetch_faves(nick.to_string(), page);
+            return self.fetch_faves_inner(nick.to_string(), page, persist);
         }
         self.cached_faves(nick.to_string(), page)
     }
@@ -822,28 +921,29 @@ impl RadioCore {
                 rows: Vec::new(),
             });
         }
+        let persist = self.nick_is_committed(&nick);
         let stored_last = self
             .inner
             .store
             .get(&format!("faves:{nick}:html_last"))?
             .and_then(|s| s.parse().ok());
         let mut last_server = if live && ui_page <= 1 {
-            self.faves_last_page(nick.clone())?
+            self.faves_last_page_inner(nick.clone(), persist)?
         } else {
             stored_last.unwrap_or(if live {
-                self.faves_last_page(nick.clone())?
+                self.faves_last_page_inner(nick.clone(), persist)?
             } else {
                 1
             })
         }
         .max(1);
-        let first = self.faves_json_page(&nick, 1, live, live && ui_page <= 1)?;
+        let first = self.faves_json_page(&nick, 1, live, live && ui_page <= 1, persist)?;
         let mut pages = HashMap::new();
         pages.insert(1u32, first.clone());
         if last_server > 1 {
             loop {
-                let last_rows = self.faves_json_page(&nick, last_server, live, false)?;
-                let prev = self.faves_json_page(&nick, last_server - 1, live, false)?;
+                let last_rows = self.faves_json_page(&nick, last_server, live, false, persist)?;
+                let prev = self.faves_json_page(&nick, last_server - 1, live, false, persist)?;
                 let trimmed = trim_faves_overlap(&prev, last_rows);
                 if !trimmed.is_empty() || last_server == 1 || !live {
                     pages.insert(last_server, trimmed);
@@ -863,7 +963,7 @@ impl RadioCore {
         let spans = server_spans(ui, fit, total, FAVES_SERVER_SIZE);
         for span in &spans {
             if let std::collections::hash_map::Entry::Vacant(e) = pages.entry(span.page) {
-                let rows = self.faves_json_page(&nick, span.page, live, false)?;
+                let rows = self.faves_json_page(&nick, span.page, live, false, persist)?;
                 e.insert(rows);
             }
         }
@@ -985,16 +1085,20 @@ impl RadioCore {
         }
     }
 
-    fn add_fave_inner(&self, cfg: FaveConfig, unfave: bool, catalog_id: i64) -> FaveResult {
+    fn add_fave_inner(
+        &self,
+        cfg: FaveConfig,
+        unfave: bool,
+        catalog_id: i64,
+        tap_np: String,
+        tap_is_afk: bool,
+        tap_track_id: i64,
+    ) -> FaveResult {
         if nick_is_empty(irc_nick(&cfg)) {
             return FaveResult::noop();
         }
-        let tap = match self.snapshot() {
-            Some(s) => TapSnapshot {
-                is_afk: s.is_afk,
-                track_id: s.track_id,
-                np: s.np,
-            },
+        let tap = match resolve_tap(tap_np, tap_is_afk, tap_track_id, self.snapshot().as_ref()) {
+            Some(t) => t,
             None => match self.fetch_status() {
                 Ok(s) => TapSnapshot {
                     is_afk: s.is_afk,
@@ -1091,10 +1195,6 @@ impl RadioCore {
 
 fn poll_loop(inner: Arc<Inner<ReqwestClient>>) {
     loop {
-        let ui = *inner.ui_visible.lock().expect("ui");
-        let playing = inner.state.lock().expect("state").playing;
-        let fails = *inner.failures.lock().expect("fail");
-        thread::sleep(Duration::from_secs(poll_interval(ui, playing, fails)));
         match inner.http.get(API_URL) {
             Ok(bytes) => match parse_status(&bytes) {
                 Ok(status) => {
@@ -1124,6 +1224,10 @@ fn poll_loop(inner: Arc<Inner<ReqwestClient>>) {
                 *inner.failures.lock().expect("fail") += 1;
             }
         }
+        let ui = *inner.ui_visible.lock().expect("ui");
+        let playing = inner.state.lock().expect("state").playing;
+        let fails = *inner.failures.lock().expect("fail");
+        thread::sleep(Duration::from_secs(poll_interval(ui, playing, fails)));
     }
 }
 
@@ -1170,6 +1274,85 @@ mod tests {
                 .membership_has("Alice".into(), 42, "Artist - Title".into())
                 .unwrap()
         );
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn tap_np_wins_over_later_snapshot() {
+        let json = include_str!("../tests/fixtures/api_snapshot.json");
+        let status = parse_status_str(json).unwrap();
+        let tap = resolve_tap("Tapped - Song".into(), true, 42, Some(&status)).unwrap();
+        assert_eq!(tap.np, "Tapped - Song");
+        assert_eq!(tap.track_id, 42);
+        assert!(tap.is_afk);
+        assert_ne!(tap.np, status.np);
+        assert_ne!(tap.track_id, status.track_id);
+    }
+
+    #[test]
+    fn membership_persists_row_meta_without_empty_artist_dash() {
+        let dir = std::env::temp_dir().join(format!("geiravor-mem-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        let core = RadioCore::new(dir.to_str().unwrap().into()).unwrap();
+        core.remember_membership(
+            "Alice".into(),
+            vec![FaveRow {
+                tracks_id: 7,
+                artist: String::new(),
+                title: "Solo".into(),
+                lastrequested: 0,
+                lastplayed: 0,
+                requestcount: 0,
+            }],
+        )
+        .unwrap();
+        let raw = core.inner.store.get("membership:Alice").unwrap().unwrap();
+        assert_eq!(raw, "7\tSolo");
+        assert!(
+            core.membership_has("Alice".into(), 0, "Solo".into())
+                .unwrap()
+        );
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn changing_list_nick_drops_old_disk_unless_still_connection() {
+        let dir = std::env::temp_dir().join(format!("geiravor-nick-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        let core = RadioCore::new(dir.to_str().unwrap().into()).unwrap();
+        core.remember_membership(
+            "Alice".into(),
+            vec![FaveRow {
+                tracks_id: 1,
+                artist: "A".into(),
+                title: "T".into(),
+                lastrequested: 0,
+                lastplayed: 0,
+                requestcount: 0,
+            }],
+        )
+        .unwrap();
+        core.set_pref("list_nick".into(), "Alice".into()).unwrap();
+        core.commit_list_nick("Bob".into()).unwrap();
+        assert!(core.inner.store.get("membership:Alice").unwrap().is_none());
+        assert_eq!(core.pref("list_nick".into()).unwrap(), "Bob");
+
+        core.remember_membership(
+            "Alice".into(),
+            vec![FaveRow {
+                tracks_id: 1,
+                artist: "A".into(),
+                title: "T".into(),
+                lastrequested: 0,
+                lastplayed: 0,
+                requestcount: 0,
+            }],
+        )
+        .unwrap();
+        core.set_pref("nick".into(), "Alice".into()).unwrap();
+        core.set_pref("list_nick".into(), "Alice".into()).unwrap();
+        core.commit_list_nick("Carol".into()).unwrap();
+        assert!(core.inner.store.get("membership:Alice").unwrap().is_some());
         let _ = std::fs::remove_dir_all(&dir);
     }
 }

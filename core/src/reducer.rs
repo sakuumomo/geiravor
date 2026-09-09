@@ -54,4 +54,15 @@ mod tests {
         assert!(!up.stream_down);
         assert!(up.playing);
     }
+
+    #[test]
+    fn want_play_does_not_clear_stream_down() {
+        let down = reduce(NowPlayingState::default(), NowPlayingEvent::PlayerError);
+        let want = reduce(down, NowPlayingEvent::Playing(true));
+        assert!(want.playing);
+        assert!(want.stream_down);
+        let live = reduce(want, NowPlayingEvent::PlayerPlaying);
+        assert!(live.playing);
+        assert!(!live.stream_down);
+    }
 }

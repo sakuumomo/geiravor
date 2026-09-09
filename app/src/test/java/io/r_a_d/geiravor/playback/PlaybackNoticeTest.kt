@@ -22,6 +22,7 @@ class PlaybackNoticeTest {
         assertFalse(PlaybackNotice.needsImmediateForeground(PlaybackService.ACTION_STOP))
         assertFalse(PlaybackNotice.needsImmediateForeground(PlaybackService.ACTION_GAIN))
         assertFalse(PlaybackNotice.needsImmediateForeground(PlaybackService.ACTION_SLEEP))
+        assertFalse(PlaybackNotice.needsImmediateForeground(PlaybackService.ACTION_CANCEL_SLEEP))
         assertFalse(PlaybackNotice.needsImmediateForeground(PlaybackService.ACTION_FAVE))
         assertFalse(PlaybackNotice.needsImmediateForeground(PlaybackService.ACTION_MUTE))
         assertFalse(PlaybackNotice.needsImmediateForeground(PlaybackService.ACTION_VOL_UP))

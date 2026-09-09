@@ -48,8 +48,28 @@ class MainActivity : ComponentActivity() {
         (application as GeiravorApp).core.setUiVisible(true)
     }
 
+    override fun onResume() {
+        super.onResume()
+        refreshAlertPermission()
+    }
+
     override fun onStop() {
         (application as GeiravorApp).core.setUiVisible(false)
         super.onStop()
+    }
+
+    private fun refreshAlertPermission() {
+        val app = application as GeiravorApp
+        val want = app.ui.djNotifier || app.ui.favePlaying
+        if (!want) {
+            if (app.ui.alertError == Notifications.DENIED) app.ui.alertError = null
+            return
+        }
+        val denied = Notifications.deniedCopy(Notifications.granted(this))
+        if (denied != null) {
+            app.ui.alertError = denied
+        } else if (app.ui.alertError == Notifications.DENIED) {
+            app.ui.alertError = null
+        }
     }
 }

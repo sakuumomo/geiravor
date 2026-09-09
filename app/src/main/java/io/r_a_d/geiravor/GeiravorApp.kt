@@ -50,6 +50,8 @@ class GeiravorApp : Application(), ImageLoaderFactory {
                 }
                 Handler(Looper.getMainLooper()).post {
                     ui.applyStatus(status, streamDown, playing)
+                    ui.paintHeart(member)
+                    heartPaint?.invoke()
                     StationWatch.onSnapshot(
                         this@GeiravorApp,
                         status,

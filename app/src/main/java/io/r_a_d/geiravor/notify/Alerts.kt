@@ -79,4 +79,8 @@ object Alerts {
         }
         context.getSystemService(NotificationManager::class.java)?.notify(id, b.build())
     }
+
+    fun cancel(context: Context, id: Int) {
+        context.getSystemService(NotificationManager::class.java)?.cancel(id)
+    }
 }

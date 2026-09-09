@@ -89,7 +89,7 @@ fun PagerBar(page: UInt, last: UInt, onPage: (UInt) -> Unit) {
                 PagerSlot.Ellipsis -> Box(
                     Modifier
                         .background(
-                            t.surface.copy(alpha = if (t.glass) 0.8f else 1f),
+                            t.border.copy(alpha = if (t.glass) 0.8f else 1f),
                             RoundedCornerShape(6.dp),
                         )
                         .border(InnerSection.BORDER_DP.dp, t.border, RoundedCornerShape(6.dp))
@@ -107,7 +107,7 @@ fun PagerBar(page: UInt, last: UInt, onPage: (UInt) -> Unit) {
                             .widthIn(min = slotDp)
                             .background(
                                 if (on) t.highlight.copy(alpha = if (t.glass) 0.92f else 0.35f)
-                                else t.surface.copy(alpha = if (t.glass) 0.8f else 1f),
+                                else t.border.copy(alpha = if (t.glass) 0.8f else 1f),
                                 shape,
                             )
                             .border(InnerSection.BORDER_DP.dp, t.border, shape)

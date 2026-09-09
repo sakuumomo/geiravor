@@ -233,8 +233,81 @@ fn empty_nick_is_noop_without_irc() {
     let core = RadioCore::new(dir.to_str().unwrap().into()).unwrap();
     let mut cfg = afk_config(true, 1);
     cfg.nick.clear();
-    let r = core.add_fave(cfg, false, 0);
+    let r = core.add_fave(cfg, false, 0, String::new(), false, 0);
     assert_eq!(r.kind, FaveKind::Noop);
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+fn serve_bouncer_capture() -> (u16, thread::JoinHandle<Vec<String>>) {
+    install_ring();
+    let listener = TcpListener::bind("127.0.0.1:0").expect("bind");
+    let port = listener.local_addr().expect("addr").port();
+    let (cert, key) = self_signed();
+    let config = Arc::new(
+        ServerConfig::builder()
+            .with_no_client_auth()
+            .with_single_cert(vec![cert], key)
+            .expect("server cert"),
+    );
+    let handle = thread::spawn(move || {
+        let (tcp, _) = listener.accept().expect("accept");
+        tcp.set_read_timeout(Some(Duration::from_secs(5))).ok();
+        let conn = ServerConnection::new(config).expect("server conn");
+        let mut tls = StreamOwned::new(conn, tcp);
+        let mut got = Vec::new();
+        let mut buf = String::new();
+        let mut reader = BufReader::new(&mut tls);
+        let mut nick = String::from("geiravor-test");
+        let mut welcomed = false;
+        while let Ok(n) = {
+            buf.clear();
+            reader.read_line(&mut buf)
+        } {
+            if n == 0 {
+                break;
+            }
+            let line = buf.trim_end().to_string();
+            got.push(line.clone());
+            if let Some(rest) = line.strip_prefix("NICK ") {
+                nick = rest.trim().to_string();
+            }
+            if !welcomed && line.starts_with("USER ") {
+                welcomed = true;
+                let stream = reader.get_mut();
+                let _ = stream.write_all(format!(":irc 001 {nick} :welcome\r\n").as_bytes());
+                let _ = stream.flush();
+            }
+            if line.contains("PRIVMSG Hanyuu-sama") {
+                let stream = reader.get_mut();
+                let _ = stream.write_all(
+                    b":Hanyuu-sama!b@r NOTICE x :Added 'Tapped - Song' to your favorites.\r\n",
+                );
+                let _ = stream.flush();
+            }
+        }
+        got
+    });
+    (port, handle)
+}
+
+#[test]
+fn add_fave_uses_tap_snapshot_not_later_domain_np() {
+    let dir = std::env::temp_dir().join(format!("geiravor-tap-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&dir);
+    let core = RadioCore::new(dir.to_str().unwrap().into()).unwrap();
+    let json = include_str!("fixtures/api_snapshot.json");
+    core.restore_snapshot(json.into()).unwrap();
+    assert_eq!(core.snapshot().unwrap().track_id, 15358);
+    let (port, server) = serve_bouncer_capture();
+    let cfg = afk_config(true, port);
+    let r = core.add_fave(cfg, false, 0, "Tapped - Song".into(), true, 42);
+    assert_eq!(r.kind, FaveKind::Success, "{r:?}");
+    let got = server.join().expect("server");
+    assert!(
+        got.iter().any(|l| l == "PRIVMSG Hanyuu-sama :.fave 42"),
+        "{got:?}"
+    );
+    assert!(!got.iter().any(|l| l.contains(".fave 15358")), "{got:?}");
     let _ = std::fs::remove_dir_all(&dir);
 }
 

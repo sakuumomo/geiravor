@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.foundation.verticalScroll
@@ -30,6 +31,7 @@ import androidx.compose.material3.TextField
 import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -42,6 +44,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalTextToolbar
 import androidx.compose.ui.platform.TextToolbar
 import androidx.compose.ui.platform.TextToolbarStatus
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
@@ -157,9 +160,14 @@ fun SettingsScreen(ui: UiState, core: RadioCore, secrets: SecretsStore) {
                         )
                         Text("Bouncer", color = t.text)
                     }
-                    PrefField("Nick *", ui.nick) {
+                    PrefField(
+                        "Nick *",
+                        ui.nick,
+                        onCommit = {
+                            ui.offMain { runCatching { core.commitConnectionNick(ui.nick) } }
+                        },
+                    ) {
                         ui.nick = it
-                        ui.setPref(core, Prefs.NICK, it)
                     }
                     }
                     InnerCard {
@@ -238,6 +246,9 @@ fun SettingsScreen(ui: UiState, core: RadioCore, secrets: SecretsStore) {
                     }
                 }
                 SettingsSection.Alerts -> {
+                    LaunchedEffect(ui.djNotifier, ui.favePlaying) {
+                        applyAlertPermission(ctx, ui)
+                    }
                     InnerCard {
                     FlagRow("Alarm", ui.alarmOn) {
                         ui.alarmOn = it
@@ -282,7 +293,13 @@ fun SettingsScreen(ui: UiState, core: RadioCore, secrets: SecretsStore) {
                     FlagRow("Sleep timer", ui.sleepOn) {
                         ui.sleepOn = it
                         ui.setFlag(core, Prefs.SLEEP_ON, it)
-                        if (it) armSleep(ctx, ui)
+                        if (it) {
+                            armSleep(ctx, ui)
+                        } else {
+                            ctx.startService(
+                                io.r_a_d.geiravor.playback.PlaybackService.cancelSleepIntent(ctx),
+                            )
+                        }
                     }
                     DurationRow("Sleep after", ui.sleepHours, ui.sleepMinutes) { h, m ->
                         ui.sleepHours = h
@@ -297,11 +314,13 @@ fun SettingsScreen(ui: UiState, core: RadioCore, secrets: SecretsStore) {
                         ui.djNotifier = it
                         ui.setFlag(core, Prefs.DJ_NOTIFIER, it)
                         io.r_a_d.geiravor.alert.StationWatch.sync(ctx, it, ui.favePlaying)
+                        applyAlertPermission(ctx, ui)
                     }
                     FlagRow("Fave currently playing", ui.favePlaying) {
                         ui.favePlaying = it
                         ui.setFlag(core, Prefs.FAVE_PLAYING, it)
                         io.r_a_d.geiravor.alert.StationWatch.sync(ctx, ui.djNotifier, it)
+                        applyAlertPermission(ctx, ui)
                     }
                     ui.alertError?.let { Text(it, color = t.red) }
                     Text(
@@ -313,6 +332,27 @@ fun SettingsScreen(ui: UiState, core: RadioCore, secrets: SecretsStore) {
                 }
             }
         }
+    }
+}
+
+private fun applyAlertPermission(ctx: android.content.Context, ui: UiState) {
+    val want = ui.djNotifier || ui.favePlaying
+    if (!want) {
+        if (ui.alertError == io.r_a_d.geiravor.compat.Notifications.DENIED) {
+            ui.alertError = null
+        }
+        return
+    }
+    (ctx as? android.app.Activity)?.let {
+        io.r_a_d.geiravor.compat.Notifications.requestIfNeeded(it, 2)
+    }
+    val denied = io.r_a_d.geiravor.compat.Notifications.deniedCopy(
+        io.r_a_d.geiravor.compat.Notifications.granted(ctx),
+    )
+    if (denied != null) {
+        ui.alertError = denied
+    } else if (ui.alertError == io.r_a_d.geiravor.compat.Notifications.DENIED) {
+        ui.alertError = null
     }
 }
 
@@ -433,6 +473,7 @@ private fun PrefField(
     value: String,
     type: KeyboardType = KeyboardType.Text,
     placeholder: String? = null,
+    onCommit: (() -> Unit)? = null,
     onChange: (String) -> Unit,
 ) {
     val t = LocalTokens.current
@@ -446,7 +487,11 @@ private fun PrefField(
             null
         },
         singleLine = true,
-        keyboardOptions = KeyboardOptions(keyboardType = type),
+        keyboardOptions = KeyboardOptions(
+            keyboardType = type,
+            imeAction = if (onCommit != null) ImeAction.Done else ImeAction.Default,
+        ),
+        keyboardActions = KeyboardActions(onDone = { onCommit?.invoke() }),
         modifier = Modifier
             .fillMaxWidth()
             .padding(vertical = 4.dp),

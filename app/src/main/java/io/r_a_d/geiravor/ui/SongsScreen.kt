@@ -198,7 +198,8 @@ private fun FavoritesPane(ui: UiState, core: RadioCore) {
             keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
             keyboardActions = KeyboardActions(
                 onDone = {
-                    ui.setPref(core, Prefs.LIST_NICK, ui.listNick)
+                    val nick = ui.listNick
+                    ui.offMain { runCatching { core.commitListNick(nick) } }
                     ui.favePage = 1u
                     load(1u)
                 },
