@@ -85,8 +85,14 @@ class AutoBrowseTest {
     @Test
     fun getItemReturnsLiveAndSettings() {
         assertTrue(AutoBrowse.isLiveId(LivePlaybackPolicy.STREAM_URL))
+        assertTrue(
+            AutoBrowse.isLiveStream(LivePlaybackPolicy.STREAM_URL, LivePlaybackPolicy.STREAM_URL),
+        )
+        assertFalse(AutoBrowse.isLiveStream(AutoBrowse.SONGS, null))
         assertFalse(AutoBrowse.isLiveId(AutoBrowse.ROOT))
         assertTrue(AutoBrowse.isSettingsToggle(AutoBrowse.VEHICLE))
+        assertTrue(AutoBrowse.isFunctionItem(AutoBrowse.ABOUT))
+        assertFalse(AutoBrowse.isFunctionItem(AutoBrowse.SONGS))
         assertFalse(AutoBrowse.isSettingsToggle(AutoBrowse.ABOUT))
         val about = AutoBrowse.item(AutoBrowse.ABOUT, null, flags)
         assertEquals("About", about?.mediaMetadata?.title.toString())

@@ -28,7 +28,7 @@ class LiveStationPlayer(private val exo: ExoPlayer) : ForwardingPlayer(exo) {
             return
         }
         if (LivePlaybackPolicy.shouldSetMediaItemOnPlay(currentIsLive())) {
-            exo.setMediaItem(MediaItem.fromUri(LivePlaybackPolicy.STREAM_URL))
+            exo.setMediaItem(LivePlaybackPolicy.liveItem())
         }
         exo.prepare()
         exo.playWhenReady = true
@@ -222,13 +222,9 @@ class LiveStationPlayer(private val exo: ExoPlayer) : ForwardingPlayer(exo) {
     }
 
     private fun shouldApplyMediaItem(item: MediaItem): Boolean {
-        if (AutoBrowse.isSettingsToggle(item.mediaId) || item.mediaId == AutoBrowse.ABOUT) {
-            return false
-        }
+        if (AutoBrowse.isFunctionItem(item.mediaId)) return false
         val uri = item.localConfiguration?.uri?.toString()
-        val live = uri == LivePlaybackPolicy.STREAM_URL ||
-            item.mediaId == LivePlaybackPolicy.STREAM_URL
-        if (!live) return true
+        if (!AutoBrowse.isLiveStream(item.mediaId, uri)) return false
         return LivePlaybackPolicy.shouldApplyLiveMediaItem(
             exo.playWhenReady,
             currentIsLive(),
@@ -237,8 +233,6 @@ class LiveStationPlayer(private val exo: ExoPlayer) : ForwardingPlayer(exo) {
 
     private fun currentIsLive(): Boolean {
         val item = exo.currentMediaItem ?: return false
-        val uri = item.localConfiguration?.uri?.toString()
-        return uri == LivePlaybackPolicy.STREAM_URL ||
-            item.mediaId == LivePlaybackPolicy.STREAM_URL
+        return AutoBrowse.isLiveStream(item.mediaId, item.localConfiguration?.uri?.toString())
     }
 }

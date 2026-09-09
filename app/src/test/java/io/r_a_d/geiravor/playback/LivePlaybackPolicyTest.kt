@@ -83,6 +83,7 @@ class LivePlaybackPolicyTest {
     @Test
     fun reconnectsAfterTwoSecondsOnlyWhileWantingPlay() {
         assertEquals(2000L, LivePlaybackPolicy.RECONNECT_DELAY_MS)
+        assertEquals(15_000L, LivePlaybackPolicy.SLEEP_FADE_MS)
         assertTrue(LivePlaybackPolicy.shouldReconnect(true))
         assertFalse(LivePlaybackPolicy.shouldReconnect(false))
     }
@@ -117,6 +118,7 @@ class LivePlaybackPolicyTest {
         assertTrue(
             LivePlaybackPolicy.isVehicleController("com.google.android.projection.gearhead"),
         )
+        assertFalse(LivePlaybackPolicy.isVehicleController("com.evil.android.projection.other"))
         assertFalse(LivePlaybackPolicy.isVehicleController("io.r_a_d.geiravor"))
         assertFalse(LivePlaybackPolicy.isVehicleController("com.android.bluetooth"))
         assertTrue(

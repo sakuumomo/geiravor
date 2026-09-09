@@ -2,6 +2,7 @@ package io.r_a_d.geiravor.playback
 
 import android.os.Bundle
 import androidx.media3.common.C
+import androidx.media3.common.MediaItem
 import androidx.media3.common.Player
 import androidx.media3.session.CommandButton
 import androidx.media3.session.MediaSession
@@ -19,6 +20,7 @@ object LivePlaybackPolicy {
     const val DEFAULT_GAIN = 0.8f
     const val VOL_STEP = 0.05f
     const val RECONNECT_DELAY_MS = 2000L
+    const val SLEEP_FADE_MS = 15_000L
 
     data class MediaButtonSpec(
         val action: String,
@@ -34,7 +36,6 @@ object LivePlaybackPolicy {
         val p = packageName.lowercase()
         return p == "com.google.android.projection.gearhead" ||
             p.startsWith("com.google.android.projection.gearhead:") ||
-            p.contains("android.projection") ||
             p == "com.google.android.carassistant"
     }
 
@@ -102,7 +103,7 @@ object LivePlaybackPolicy {
         val buttons = mediaButtonSpecs(heartFilled, muted).map { spec ->
             val b = CommandButton.Builder(spec.icon)
                 .setDisplayName(spec.displayName)
-                .setSessionCommand(SessionCommand(spec.action, android.os.Bundle.EMPTY))
+                .setSessionCommand(SessionCommand(spec.action, Bundle.EMPTY))
                 .setSlots(spec.slot)
             if (spec.customIcon != 0) {
                 b.setCustomIconResId(spec.customIcon)
@@ -118,6 +119,8 @@ object LivePlaybackPolicy {
         return "https://r-a-d.io/api/dj-image/$name"
     }
 
+    fun liveItem(): MediaItem = MediaItem.fromUri(STREAM_URL)
+
     /** Command ints the session advertises. Skip/seek are never in this list. */
     fun advertisedPlayerCommands(): IntArray =
         intArrayOf(
@@ -128,12 +131,6 @@ object LivePlaybackPolicy {
             Player.COMMAND_GET_CURRENT_MEDIA_ITEM,
             Player.COMMAND_GET_METADATA,
         )
-
-    fun playerCommands(): Player.Commands {
-        val b = Player.Commands.Builder()
-        advertisedPlayerCommands().forEach { b.add(it) }
-        return b.build()
-    }
 
     /** Idle ExoPlayer drops Play; Auto then has no start control. */
     fun availableCommands(exo: Player.Commands): Player.Commands {

@@ -8,7 +8,6 @@ import android.os.Bundle
 import androidx.media3.common.AudioAttributes
 import androidx.media3.common.C
 import androidx.media3.common.MediaItem
-
 import androidx.media3.common.Metadata
 import androidx.media3.common.Player
 import androidx.media3.common.util.UnstableApi
@@ -69,8 +68,8 @@ class PlaybackService : MediaLibraryService() {
                 live.pauseStops()
                 return
             }
-            if (left <= 15_000L) {
-                player.volume = lastGain * (left / 15_000f)
+            if (left <= LivePlaybackPolicy.SLEEP_FADE_MS) {
+                player.volume = lastGain * (left / LivePlaybackPolicy.SLEEP_FADE_MS.toFloat())
             }
             sleepHandler.postDelayed(this, 250)
         }
@@ -223,7 +222,7 @@ class PlaybackService : MediaLibraryService() {
             ACTION_GAIN -> {
                 val g = intent.getFloatExtra(EXTRA_GAIN, lastGain).coerceIn(0f, 1f)
                 if (g > 0f) lastGain = g
-                if (sleepAt == 0L || sleepAt - System.currentTimeMillis() > 15_000L) {
+                if (sleepAt == 0L || sleepAt - System.currentTimeMillis() > LivePlaybackPolicy.SLEEP_FADE_MS) {
                     player.volume = g
                     postShade(playbackForeground)
                 }
@@ -245,8 +244,8 @@ class PlaybackService : MediaLibraryService() {
     private fun core() = (application as GeiravorApp).core
 
     private fun ensureLiveItem() {
-        if (player.mediaItemCount == 0) {
-            player.setMediaItem(MediaItem.fromUri(LivePlaybackPolicy.STREAM_URL))
+        if (live.mediaItemCount == 0) {
+            live.setMediaItem(LivePlaybackPolicy.liveItem())
         }
     }
 
@@ -322,7 +321,7 @@ class PlaybackService : MediaLibraryService() {
     }
 
     private fun applyStatus(status: Status) {
-        if (player.currentMediaItem == null) return
+        if (live.currentMediaItem == null) return
         val nowSecs = System.currentTimeMillis() / 1000
         val fetched = LivePlaybackPolicy.localAtFetchSecs(
             nowSecs,
@@ -569,8 +568,7 @@ class PlaybackService : MediaLibraryService() {
             }
             if (AutoBrowse.isLiveId(mediaId) || mediaId == live.currentMediaItem?.mediaId) {
                 ensureLiveItem()
-                val item = live.currentMediaItem
-                    ?: MediaItem.fromUri(LivePlaybackPolicy.STREAM_URL)
+                val item = live.currentMediaItem ?: LivePlaybackPolicy.liveItem()
                 return Futures.immediateFuture(LibraryResult.ofItem(item, null))
             }
             val found = AutoBrowse.item(mediaId, core().snapshot(), autoFlags())
@@ -587,14 +585,13 @@ class PlaybackService : MediaLibraryService() {
             mediaItems: MutableList<MediaItem>,
         ): ListenableFuture<MutableList<MediaItem>> {
             val id = mediaItems.firstOrNull()?.mediaId.orEmpty()
-            if (AutoBrowse.isSettingsToggle(id) || id == AutoBrowse.ABOUT) {
+            if (AutoBrowse.isFunctionItem(id)) {
                 if (AutoBrowse.isSettingsToggle(id)) toggleSetting(id)
                 if (LivePlaybackPolicy.skipFollowUpPlayAfterSettingsTap(player.playWhenReady)) {
                     live.skipNextPlay = true
                 }
                 ensureLiveItem()
-                val current = live.currentMediaItem
-                    ?: MediaItem.fromUri(LivePlaybackPolicy.STREAM_URL)
+                val current = live.currentMediaItem ?: LivePlaybackPolicy.liveItem()
                 return Futures.immediateFuture(mutableListOf(current))
             }
             return super.onAddMediaItems(session, controller, mediaItems)
@@ -618,7 +615,7 @@ class PlaybackService : MediaLibraryService() {
             }
             return Futures.immediateFuture(
                 MediaSession.MediaItemsWithStartPosition(
-                    listOf(live.currentMediaItem ?: MediaItem.fromUri(LivePlaybackPolicy.STREAM_URL)),
+                    listOf(live.currentMediaItem ?: LivePlaybackPolicy.liveItem()),
                     0,
                     C.TIME_UNSET,
                 ),

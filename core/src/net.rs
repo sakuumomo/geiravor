@@ -222,11 +222,11 @@ mod tests {
         }));
         let a = {
             let c = c.clone();
-            thread::spawn(move || c.get("https://r-a-d.io/api"))
+            thread::spawn(move || c.get(crate::API_URL))
         };
         let b = {
             let c = c.clone();
-            thread::spawn(move || c.get("https://r-a-d.io/api"))
+            thread::spawn(move || c.get(crate::API_URL))
         };
         assert_eq!(a.join().unwrap().unwrap(), b"ok");
         assert_eq!(b.join().unwrap().unwrap(), b"ok");

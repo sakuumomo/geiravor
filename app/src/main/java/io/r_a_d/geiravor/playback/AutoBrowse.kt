@@ -5,6 +5,7 @@ import androidx.media3.common.MediaItem
 import androidx.media3.common.MediaMetadata
 import androidx.media3.session.MediaConstants
 import com.google.common.collect.ImmutableList
+import uniffi.geiravor_core.ListEntry
 import uniffi.geiravor_core.Status
 
 /** Auto browse tree: Songs + Settings. Rows are not playable. */
@@ -29,8 +30,13 @@ object AutoBrowse {
     fun isSettingsToggle(mediaId: String): Boolean =
         mediaId == VEHICLE || mediaId == PLUG
 
-    fun isLiveId(mediaId: String): Boolean =
-        mediaId == LivePlaybackPolicy.STREAM_URL
+    fun isFunctionItem(mediaId: String): Boolean =
+        isSettingsToggle(mediaId) || mediaId == ABOUT
+
+    fun isLiveStream(mediaId: String?, uri: String?): Boolean =
+        mediaId == LivePlaybackPolicy.STREAM_URL || uri == LivePlaybackPolicy.STREAM_URL
+
+    fun isLiveId(mediaId: String): Boolean = isLiveStream(mediaId, null)
 
     fun rootItem(): MediaItem {
         val extras = Bundle().apply {
@@ -77,10 +83,10 @@ object AutoBrowse {
                 if (shouldShowQueue(status)) list += folder(QUEUE, "Queue")
                 list
             }
-            LAST -> status?.lp.orEmpty().map { row(it.artist, it.title) }
+            LAST -> status?.lp.orEmpty().map { row("lp", it) }
             QUEUE ->
                 if (shouldShowQueue(status)) {
-                    status?.queue.orEmpty().map { row(it.artist, it.title) }
+                    status?.queue.orEmpty().map { row("queue", it) }
                 } else {
                     emptyList()
                 }
@@ -148,13 +154,13 @@ object AutoBrowse {
             )
             .build()
 
-    private fun row(artist: String, title: String): MediaItem =
+    private fun row(kind: String, entry: ListEntry): MediaItem =
         MediaItem.Builder()
-            .setMediaId("row-$artist-$title")
+            .setMediaId("$kind-${entry.timestamp}-${entry.artist}-${entry.title}")
             .setMediaMetadata(
                 MediaMetadata.Builder()
-                    .setTitle(title)
-                    .setArtist(artist)
+                    .setTitle(entry.title)
+                    .setArtist(entry.artist)
                     .setIsBrowsable(false)
                     .setIsPlayable(false)
                     .build(),
