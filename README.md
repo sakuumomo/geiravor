@@ -13,7 +13,7 @@ License: MIT (`LICENSE.md`). Copyright © 2026 Sakurai Momoka.
 
 GitHub Releases ship four sideload APKs: Debug and Release × `arm64-v8a` (phones) and `x86_64` (Waydroid / most emulators). Release is R8-minified and signed with the project sideload key (not Play). Debug is debug-signed. Same package (`io.r_a_d.geiravor`); installing one replaces the other.
 
-Latest: [v1.0.0](https://github.com/sakuumomo/geiravor/releases/tag/v1.0.0).
+Latest: [v1.0.1](https://github.com/sakuumomo/geiravor/releases/tag/v1.0.1).
 
 ## Build
 
