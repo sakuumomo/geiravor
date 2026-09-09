@@ -47,7 +47,9 @@ Cite the spec. Run the tests; do not claim they passed without the log. Domain i
 
 GPG-signed Conventional Commits (`feat:`, `fix:`, `docs:`, `test:`, `ci:`, `build:`, `refactor:`, `chore:`). One logical change. No AI trailers.
 
-Never push unless the human says `push`. Never force-push `main`. After origin has this tree, land on `main` only through a PR (merge queue). Do not `git push origin main`.
+Never push unless the human says `push`. Never force-push `main`. After origin has this tree, land on `main` only through a squash PR. Do not `git push origin main`.
+
+To bring a PR up to date with `main`, rebase. Do **not** call `PUT /pulls/{n}/update-branch` or `gh pr update-branch` without `--rebase` — that merge-commits `main` into the PR. Use `gh pr update-branch N --rebase`, or for Dependabot `@dependabot rebase` / `@dependabot recreate`.
 
 Do not commit `local.properties`, `jniLibs/`, `target/`, or keystores.
 
