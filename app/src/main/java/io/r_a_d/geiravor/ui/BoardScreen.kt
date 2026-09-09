@@ -41,10 +41,13 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import io.r_a_d.geiravor.compat.evictNewsImages
@@ -171,8 +174,9 @@ private fun ArticlePane(ui: UiState, core: RadioCore) {
     val t = LocalTokens.current
     val article = ui.article ?: return
     val ctx = LocalContext.current
-    var draft by remember { mutableStateOf("") }
+    var draft by remember { mutableStateOf(TextFieldValue("")) }
     var commentError by remember { mutableStateOf<String?>(null) }
+    val commentFocus = remember { FocusRequester() }
     val listState = rememberLazyListState()
     val scope = rememberCoroutineScope()
     LaunchedEffect(article.id, article.body, article.comments) {
@@ -231,6 +235,7 @@ private fun ArticlePane(ui: UiState, core: RadioCore) {
                                 color = t.link,
                                 modifier = Modifier.clickable {
                                     draft = quoteComment(draft, c.id)
+                                    commentFocus.requestFocus()
                                 },
                             )
                         }
@@ -262,13 +267,15 @@ private fun ArticlePane(ui: UiState, core: RadioCore) {
         }
         TextField(
             value = draft,
-            onValueChange = { if (it.length <= 500) draft = it },
-            modifier = Modifier.fillMaxWidth(),
+            onValueChange = { if (it.text.length <= 500) draft = it },
+            modifier = Modifier
+                .fillMaxWidth()
+                .focusRequester(commentFocus),
             label = { Text("Comment") },
         )
         TextButton(
             onClick = {
-                val body = draft.trim()
+                val body = draft.text.trim()
                 if (body.isEmpty()) {
                     commentError = "Comment is empty"
                     return@TextButton
@@ -278,7 +285,7 @@ private fun ArticlePane(ui: UiState, core: RadioCore) {
                     ui.onMain {
                         if (live != null) {
                             ui.article = live
-                            draft = ""
+                            draft = TextFieldValue("")
                             commentError = null
                         } else {
                             commentError = "Comment failed"

@@ -11,6 +11,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.text.TextRange
+import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.text.HtmlCompat
@@ -77,13 +79,37 @@ fun commentListIndex(ids: List<Long>, id: Long, headerItems: Int = 1): Int? {
     return headerItems + i
 }
 
-/** `#id` quotes `>>id` after a newline or space. `docs/spec/news.md`. */
-fun quoteComment(draft: String, id: Long, max: Int = 500): String {
-    val next = when {
-        draft.isEmpty() || draft.endsWith('\n') || draft.endsWith(' ') -> "$draft>>$id"
-        else -> "$draft\n>>$id"
+data class QuoteEdit(val text: String, val cursor: Int)
+
+/** `#id` inserts `>>id` at the caret. `docs/spec/news.md`. */
+fun quoteComment(
+    draft: String,
+    id: Long,
+    cursor: Int = draft.length,
+    max: Int = 500,
+): QuoteEdit {
+    val pos = cursor.coerceIn(0, draft.length)
+    val before = draft.substring(0, pos)
+    val after = draft.substring(pos)
+    val prefix = when {
+        before.isEmpty() || before.endsWith('\n') || before.endsWith(' ') -> ""
+        else -> " "
     }
-    return if (next.length <= max) next else next.take(max)
+    val suffix = when {
+        after.isNotEmpty() -> if (after.startsWith('\n') || after.startsWith(' ')) "" else " "
+        before.isEmpty() || before.endsWith('\n') -> "\n"
+        else -> " "
+    }
+    val insert = "$prefix>>$id$suffix"
+    if (draft.length + insert.length > max) {
+        return QuoteEdit(draft, pos)
+    }
+    return QuoteEdit(before + insert + after, pos + insert.length)
+}
+
+fun quoteComment(value: TextFieldValue, id: Long, max: Int = 500): TextFieldValue {
+    val edit = quoteComment(value.text, id, cursor = value.selection.end, max = max)
+    return TextFieldValue(edit.text, TextRange(edit.cursor))
 }
 
 /** Rest is a fraction of the opaque film so the chip is never fully clear. */

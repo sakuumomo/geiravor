@@ -34,5 +34,5 @@ Show author (`Anonymous (abcd)` or nick, including `## staff`), `YYYY-MM-DD HH:M
 
 Imageboard clicks:
 
-- **`#id`** (the comment id) appends `>>id` **after** a newline or space (never before). Empty composer: `>>id`. Already ends in newline or space: append `>>id`. Otherwise insert a newline, then `>>id`.
+- **`#id`** (the comment id) inserts `>>id` **at the caret** and leaves the caret **after** the insert (never before). Empty composer: `>>id` then a newline. Caret after text on a line (trailing space or not): a space, `>>id`, a space (reuse an existing trailing space). Caret after a newline: `>>id` then a newline. Caret at the start of a line that already has text: `>>id` then a space. Do not glue `>>id` to neighboring non-whitespace. Skip the insert if it would exceed 500.
 - **`>>id`** in a body (`href="#comment-{id}"`) **jumps** to that comment. Do not open a browser.

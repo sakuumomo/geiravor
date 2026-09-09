@@ -31,13 +31,43 @@ class NewsHtmlTest {
     }
 
     @Test
-    fun quoteInsertsAfterNewlineOrSpace() {
-        assertEquals(">>12", quoteComment("", 12L))
-        assertEquals(">>12\n>>13", quoteComment(">>12\n", 13L))
-        assertEquals("hello\n>>12", quoteComment("hello", 12L))
-        assertEquals("hello\n>>12", quoteComment("hello\n", 12L))
-        assertEquals("hello >>12", quoteComment("hello ", 12L))
-        assertEquals(">>12\n>>13", quoteComment(">>12", 13L))
+    fun quoteInsertsAtCaretAfterToken() {
+        val empty = quoteComment("", 12L)
+        assertEquals(">>12\n", empty.text)
+        assertEquals(5, empty.cursor)
+
+        val afterText = quoteComment("hello", 12L)
+        assertEquals("hello >>12 ", afterText.text)
+        assertEquals("hello >>12 ".length, afterText.cursor)
+
+        val afterSpace = quoteComment("hello ", 12L)
+        assertEquals("hello >>12 ", afterSpace.text)
+        assertEquals("hello >>12 ".length, afterSpace.cursor)
+
+        val afterNewline = quoteComment("hello\n", 12L)
+        assertEquals("hello\n>>12\n", afterNewline.text)
+        assertEquals("hello\n>>12\n".length, afterNewline.cursor)
+
+        val beforeText = quoteComment("hello\nworld", 12L, cursor = 6)
+        assertEquals("hello\n>>12 world", beforeText.text)
+        assertEquals("hello\n>>12 ".length, beforeText.cursor)
+
+        val atStart = quoteComment("hello", 12L, cursor = 0)
+        assertEquals(">>12 hello", atStart.text)
+        assertEquals(">>12 ".length, atStart.cursor)
+
+        val mid = quoteComment("hello", 12L, cursor = 3)
+        assertEquals("hel >>12 lo", mid.text)
+        assertEquals("hel >>12 ".length, mid.cursor)
+
+        val stacked = quoteComment(">>12\n", 13L)
+        assertEquals(">>12\n>>13\n", stacked.text)
+        assertEquals(">>12\n>>13\n".length, stacked.cursor)
+
+        val full = "x".repeat(498)
+        val skipped = quoteComment(full, 12L)
+        assertEquals(full, skipped.text)
+        assertEquals(498, skipped.cursor)
     }
 
     @Test
