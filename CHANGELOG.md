@@ -4,7 +4,12 @@ User-visible changes to **this** tree. 0.3.0 history lives on `legacy/0.3`.
 
 ## [Unreleased]
 
+## [1.0.1] - 2026-09-09
+
 - GitHub Releases attach Debug and Release APKs for arm64-v8a and x86_64.
+- rustdoc publishes to GitHub Pages.
+- cargo-deny in CI; Dependabot for Actions, Cargo, and Nix.
+- UniFFI 0.32, rusqlite 0.40, rcgen 0.14, base64 0.23.
 
 ## [1.0.0] - 2026-09-09
 
