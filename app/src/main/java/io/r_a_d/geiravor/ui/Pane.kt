@@ -43,6 +43,7 @@ object InnerSection {
     const val BORDER_DP = 1
     const val SONG_ROW_DP = 68
     const val NEWS_ROW_DP = 88
+    const val ARTICLE_COMMENT_GAP_DP = 20
 }
 
 @Composable
@@ -64,16 +65,17 @@ fun InnerCard(
 }
 
 @Composable
-fun innerChrome(): Modifier {
+fun innerChrome(border: Color? = null): Modifier {
     val t = LocalTokens.current
     val shape = RoundedCornerShape(6.dp)
     return Modifier
-        .border(InnerSection.BORDER_DP.dp, t.border, shape)
+        .border(InnerSection.BORDER_DP.dp, border ?: t.border, shape)
         .padding(horizontal = InnerSection.ROW_PAD_DP.dp, vertical = 6.dp)
 }
 
 @Composable
-fun innerRowModifier(): Modifier = Modifier.fillMaxWidth().then(innerChrome())
+fun innerRowModifier(border: Color? = null): Modifier =
+    Modifier.fillMaxWidth().then(innerChrome(border))
 
 /**
  * Hug panes wrap height and sit at the top of the tab. `wrapContentHeight()`

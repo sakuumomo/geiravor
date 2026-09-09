@@ -196,34 +196,62 @@ fun tapFave(
     secrets: SecretsStore,
     onHeart: () -> Unit = {},
 ) {
-    if (ui.faveBusy) return
-    ui.faveBusy = true
+    if (!FaveTap.accept(ui.faveBusy, ui.faveTaps)) return
     val was = ui.heartFilled
     ui.heartFilled = !was
     onHeart()
-    val cfg = ui.faveConfig(secrets)
     val catalog = ui.status?.let { if (it.isAfk) it.trackId else 0L } ?: 0L
+    val job = FaveTap.Job(unfave = was, catalog = catalog)
+    ui.faveTaps = FaveTap.afterAccept(ui.faveBusy, ui.faveTaps)
+    if (ui.faveBusy) {
+        ui.faveQueue.addLast(job)
+        return
+    }
+    ui.faveBusy = true
+    runFave(ui, core, secrets, job, onHeart)
+}
+
+private fun runFave(
+    ui: UiState,
+    core: RadioCore,
+    secrets: SecretsStore,
+    job: FaveTap.Job,
+    onHeart: () -> Unit,
+) {
+    val cfg = ui.faveConfig(secrets)
     val nicks = ui.membershipNicks()
     ui.offMain {
-        val result = core.addFave(cfg, was, catalog)
+        val result = core.addFave(cfg, job.unfave, job.catalog)
         if (result.kind == FaveKind.SUCCESS) {
             nicks.forEach { nick -> runCatching { core.revalidateMembership(nick) } }
         }
         ui.onMain {
-            ui.faveBusy = false
             when (result.kind) {
                 FaveKind.SUCCESS -> {
-                    ui.heartFilled = result.favorited
                     ui.faveError = null
                     ui.faveErrorFading = false
+                    val next = ui.faveQueue.removeFirstOrNull()
+                    if (next != null) {
+                        runFave(ui, core, secrets, next, onHeart)
+                    } else {
+                        ui.heartFilled = result.favorited
+                        ui.faveBusy = false
+                        ui.faveTaps = 0
+                    }
                 }
                 FaveKind.NOOP -> {
-                    ui.heartFilled = was
+                    ui.heartFilled = job.unfave
+                    ui.faveQueue.clear()
+                    ui.faveBusy = false
+                    ui.faveTaps = 0
                     ui.faveErrorFading = false
                     ui.faveError = if (result.message.isBlank()) "Set a nick in Settings" else result.message
                 }
                 FaveKind.FAILED -> {
-                    ui.heartFilled = was
+                    ui.heartFilled = job.unfave
+                    ui.faveQueue.clear()
+                    ui.faveBusy = false
+                    ui.faveTaps = 0
                     ui.faveErrorFading = false
                     ui.faveError = result.message.ifBlank { "Fave failed" }
                 }

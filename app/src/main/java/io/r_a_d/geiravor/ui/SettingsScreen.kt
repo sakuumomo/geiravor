@@ -161,10 +161,6 @@ fun SettingsScreen(ui: UiState, core: RadioCore, secrets: SecretsStore) {
                         ui.nick = it
                         ui.setPref(core, Prefs.NICK, it)
                     }
-                    PrefField("Favorites nick", ui.listNick) {
-                        ui.listNick = it
-                        ui.setPref(core, Prefs.LIST_NICK, it)
-                    }
                     }
                     InnerCard {
                     if (ui.profile == IrcProfile.BOUNCER) {

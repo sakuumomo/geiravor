@@ -67,14 +67,19 @@ class LivePlaybackPolicyTest {
         assertEquals(0f, LivePlaybackPolicy.nextGainAfterMute(0.8f, 0.8f), 0.0001f)
         assertEquals(0.4f, LivePlaybackPolicy.nextGainAfterMute(0f, 0.4f), 0.0001f)
         assertEquals(0.8f, LivePlaybackPolicy.nextGainAfterMute(0f, 0f), 0.0001f)
+        assertTrue(LivePlaybackPolicy.muted(0f))
+        assertFalse(LivePlaybackPolicy.muted(0.1f))
+        assertTrue(LivePlaybackPolicy.shadeCompactActionIndices().contentEquals(intArrayOf(0, 1, 2)))
     }
 
     @Test
     fun mediaButtonsAreMuteFaveVol() {
-        val outline = LivePlaybackPolicy.mediaButtonSpecs(heartFilled = false)
+        val outline = LivePlaybackPolicy.mediaButtonSpecs(heartFilled = false, muted = false)
         assertEquals(4, outline.size)
         assertEquals(LivePlaybackPolicy.MUTE, outline[0].action)
         assertEquals(androidx.media3.session.CommandButton.SLOT_BACK, outline[0].slot)
+        assertEquals(androidx.media3.session.CommandButton.ICON_VOLUME_UP, outline[0].icon)
+        assertEquals("Mute", outline[0].displayName)
         assertEquals(LivePlaybackPolicy.FAVE, outline[1].action)
         assertEquals(androidx.media3.session.CommandButton.SLOT_FORWARD, outline[1].slot)
         assertEquals(
@@ -82,8 +87,12 @@ class LivePlaybackPolicyTest {
             outline[1].icon,
         )
         assertEquals(androidx.media3.session.CommandButton.SLOT_BACK_SECONDARY, outline[2].slot)
+        assertEquals(io.r_a_d.geiravor.R.drawable.ic_vol_down, outline[2].customIcon)
         assertEquals(androidx.media3.session.CommandButton.SLOT_FORWARD_SECONDARY, outline[3].slot)
-        val filled = LivePlaybackPolicy.mediaButtonSpecs(heartFilled = true)
+        assertEquals(io.r_a_d.geiravor.R.drawable.ic_vol_up, outline[3].customIcon)
+        val filled = LivePlaybackPolicy.mediaButtonSpecs(heartFilled = true, muted = true)
+        assertEquals(androidx.media3.session.CommandButton.ICON_VOLUME_OFF, filled[0].icon)
+        assertEquals("Unmute", filled[0].displayName)
         assertEquals(androidx.media3.session.CommandButton.ICON_HEART_FILLED, filled[1].icon)
         assertEquals("Fave", filled[1].displayName)
         assertFalse(filled.any { it.displayName.contains("Faves") })

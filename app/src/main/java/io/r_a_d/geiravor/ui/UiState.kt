@@ -65,6 +65,8 @@ class UiState {
     var probeText by mutableStateOf<String?>(null)
     var heartFilled by mutableStateOf(false)
     var faveBusy by mutableStateOf(false)
+    var faveTaps = 0
+    val faveQueue = ArrayDeque<FaveTap.Job>()
     var faveError by mutableStateOf<String?>(null)
     var faveErrorFading by mutableStateOf(false)
     var tab by mutableStateOf(BottomTab.NowPlaying)

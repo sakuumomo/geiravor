@@ -106,11 +106,10 @@ fun NowPlayingScreen(
                     contentScale = ContentScale.Fit,
                 )
             }
-            InnerCard {
-                Row(
-                    Modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
+            Row(
+                Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
                     IconButton(onClick = { if (ui.playing) onStop() else onPlay() }) {
                         Icon(
                             if (ui.playing) Icons.Filled.Stop else Icons.Filled.PlayArrow,
@@ -148,19 +147,17 @@ fun NowPlayingScreen(
                             tint = t.accent,
                         )
                     }
-                    IconButton(onClick = onFave, enabled = !ui.faveBusy) {
+                    IconButton(onClick = onFave) {
                         Icon(
                             painterResource(if (ui.heartFilled) R.drawable.ic_fave_filled else R.drawable.ic_fave),
                             contentDescription = "Fave",
                             tint = t.accent,
                         )
                     }
-                }
             }
             val title = status?.title?.ifBlank { status.np } ?: "…"
             val artist = status?.artist.orEmpty()
-            InnerCard(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
-                Text(
+            Text(
                     if (artist.isBlank()) title else "$artist - $title",
                     color = t.text,
                     textAlign = TextAlign.Center,
@@ -217,10 +214,8 @@ fun NowPlayingScreen(
                         textAlign = TextAlign.End,
                     )
                 }
-            }
-            InnerCard(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
-                val djUrl = LivePlaybackPolicy.djImageUrl(status?.dj?.image)
-                StationMedia(
+            val djUrl = LivePlaybackPolicy.djImageUrl(status?.dj?.image)
+            StationMedia(
                     url = djUrl,
                     autoplay = true,
                     contentDescription = status?.dj?.name,
@@ -235,50 +230,43 @@ fun NowPlayingScreen(
                     textAlign = TextAlign.Center,
                     modifier = Modifier.padding(top = 8.dp),
                 )
-            }
             val next = when {
                 status == null -> ""
                 status.isAfk -> status.queue.firstOrNull()?.let { "${it.artist} - ${it.title}" }.orEmpty()
                 else -> "???"
             }
             val prev = status?.lp?.firstOrNull()?.let { "${it.artist} - ${it.title}" }.orEmpty()
-            InnerCard(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
-                Text(
-                    "Next",
-                    color = t.muted,
-                    textAlign = TextAlign.Center,
-                    modifier = Modifier.fillMaxWidth(),
-                )
-                Text(
-                    next,
-                    color = t.text,
-                    textAlign = TextAlign.Center,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                    modifier = Modifier.fillMaxWidth(),
-                )
-            }
-            InnerCard(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
-                Text(
-                    "Last played",
-                    color = t.muted,
-                    textAlign = TextAlign.Center,
-                    modifier = Modifier.fillMaxWidth(),
-                )
-                Text(
-                    prev,
-                    color = t.text,
-                    textAlign = TextAlign.Center,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                    modifier = Modifier.fillMaxWidth(),
-                )
-            }
+            Text(
+                "Next",
+                color = t.muted,
+                textAlign = TextAlign.Center,
+                modifier = Modifier.fillMaxWidth(),
+            )
+            Text(
+                next,
+                color = t.text,
+                textAlign = TextAlign.Center,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.fillMaxWidth(),
+            )
+            Text(
+                "Last played",
+                color = t.muted,
+                textAlign = TextAlign.Center,
+                modifier = Modifier.fillMaxWidth(),
+            )
+            Text(
+                prev,
+                color = t.text,
+                textAlign = TextAlign.Center,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.fillMaxWidth(),
+            )
             val thread = status?.thread.orEmpty()
             if (showThread && status != null && threadIsVisible(status.isAfk, thread)) {
-                InnerCard {
-                    ThreadLine(ui, thread, status.isAfk)
-                }
+                ThreadLine(ui, thread, status.isAfk)
             }
             ui.faveError?.let { msg ->
                 val fade = remember(msg) { Animatable(1f) }

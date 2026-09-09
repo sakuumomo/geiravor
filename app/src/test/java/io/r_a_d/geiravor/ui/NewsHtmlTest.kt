@@ -31,6 +31,21 @@ class NewsHtmlTest {
     }
 
     @Test
+    fun quoteInsertsSpaceWhenDraftHasNoTrailingNewline() {
+        assertEquals(">>12\n", quoteComment("", 12L))
+        assertEquals(">>12\n>>13\n", quoteComment(">>12\n", 13L))
+        assertEquals("hello >>12\n", quoteComment("hello", 12L))
+        assertEquals("hello\n>>12\n", quoteComment("hello\n", 12L))
+    }
+
+    @Test
+    fun newsFilmIsTransparentUntilHover() {
+        val opaque = androidx.compose.ui.graphics.Color.Black.copy(alpha = 0.5f)
+        assertEquals(androidx.compose.ui.graphics.Color.Transparent, newsFilmFill(false, opaque))
+        assertEquals(opaque, newsFilmFill(true, opaque))
+    }
+
+    @Test
     fun commentJumpIndexSkipsHeaderItem() {
         assertEquals(1, commentListIndex(listOf(5279L, 5282L), 5279L))
         assertEquals(2, commentListIndex(listOf(5279L, 5282L), 5282L))

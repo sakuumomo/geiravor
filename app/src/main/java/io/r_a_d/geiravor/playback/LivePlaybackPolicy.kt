@@ -21,6 +21,7 @@ object LivePlaybackPolicy {
         val displayName: String,
         val icon: Int,
         val slot: Int,
+        val customIcon: Int = 0,
     )
 
     fun shouldReconnect(wantPlay: Boolean): Boolean = wantPlay
@@ -34,9 +35,19 @@ object LivePlaybackPolicy {
     fun nextGainAfterMute(current: Float, lastNonZero: Float): Float =
         if (current > 0f) 0f else unmuteGain(lastNonZero)
 
-    fun mediaButtonSpecs(heartFilled: Boolean): List<MediaButtonSpec> =
+    fun muted(gain: Float): Boolean = gain <= 0f
+
+    /** Compact shade: play/stop, mute, Fave. Expanded adds Vol − / Vol +. */
+    fun shadeCompactActionIndices(): IntArray = intArrayOf(0, 1, 2)
+
+    fun mediaButtonSpecs(heartFilled: Boolean, muted: Boolean = false): List<MediaButtonSpec> =
         listOf(
-            MediaButtonSpec(MUTE, "Mute", CommandButton.ICON_VOLUME_OFF, CommandButton.SLOT_BACK),
+            MediaButtonSpec(
+                MUTE,
+                if (muted) "Unmute" else "Mute",
+                if (muted) CommandButton.ICON_VOLUME_OFF else CommandButton.ICON_VOLUME_UP,
+                CommandButton.SLOT_BACK,
+            ),
             MediaButtonSpec(
                 FAVE,
                 "Fave",
@@ -46,24 +57,29 @@ object LivePlaybackPolicy {
             MediaButtonSpec(
                 VOL_DOWN,
                 "Vol −",
-                CommandButton.ICON_VOLUME_DOWN,
+                CommandButton.ICON_UNDEFINED,
                 CommandButton.SLOT_BACK_SECONDARY,
+                customIcon = io.r_a_d.geiravor.R.drawable.ic_vol_down,
             ),
             MediaButtonSpec(
                 VOL_UP,
                 "Vol +",
-                CommandButton.ICON_VOLUME_UP,
+                CommandButton.ICON_UNDEFINED,
                 CommandButton.SLOT_FORWARD_SECONDARY,
+                customIcon = io.r_a_d.geiravor.R.drawable.ic_vol_up,
             ),
         )
 
-    fun mediaButtons(heartFilled: Boolean): ImmutableList<CommandButton> {
-        val buttons = mediaButtonSpecs(heartFilled).map { spec ->
-            CommandButton.Builder(spec.icon)
+    fun mediaButtons(heartFilled: Boolean, muted: Boolean = false): ImmutableList<CommandButton> {
+        val buttons = mediaButtonSpecs(heartFilled, muted).map { spec ->
+            val b = CommandButton.Builder(spec.icon)
                 .setDisplayName(spec.displayName)
                 .setSessionCommand(SessionCommand(spec.action, android.os.Bundle.EMPTY))
                 .setSlots(spec.slot)
-                .build()
+            if (spec.customIcon != 0) {
+                b.setCustomIconResId(spec.customIcon)
+            }
+            b.build()
         }
         return ImmutableList.copyOf(buttons)
     }

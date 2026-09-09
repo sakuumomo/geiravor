@@ -3,6 +3,7 @@ package io.r_a_d.geiravor.playback
 import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
+import android.graphics.Bitmap
 import android.os.Bundle
 import androidx.media3.common.AudioAttributes
 import androidx.media3.common.C
@@ -28,6 +29,8 @@ import io.r_a_d.geiravor.BuildConfig
 import io.r_a_d.geiravor.GeiravorApp
 import io.r_a_d.geiravor.MainActivity
 import io.r_a_d.geiravor.R
+import io.r_a_d.geiravor.compat.loadCoilStill
+import io.r_a_d.geiravor.compat.mysteryDjBitmap
 import io.r_a_d.geiravor.compat.startMediaPlaybackForeground
 import io.r_a_d.geiravor.ui.Prefs
 import io.r_a_d.geiravor.ui.tapFave
@@ -44,6 +47,10 @@ class PlaybackService : MediaLibraryService() {
     private var fallback: android.media.MediaPlayer? = null
     private var sleepAt = 0L
     private var lastSongsSig = ""
+    private var playbackForeground = false
+    private var shadePosted = false
+    private var shadeArt: Bitmap? = null
+    private var shadeArtUrl: String? = null
     private val sleepHandler = Handler(Looper.getMainLooper())
     private val reconnectHandler = Handler(Looper.getMainLooper())
     private val reconnectLive = Runnable {
@@ -71,7 +78,7 @@ class PlaybackService : MediaLibraryService() {
         super.onCreate()
         PlaybackNotice.ensureChannel(this)
         setShowNotificationForIdlePlayer(
-            MediaSessionService.SHOW_NOTIFICATION_FOR_IDLE_PLAYER_ALWAYS,
+            MediaSessionService.SHOW_NOTIFICATION_FOR_IDLE_PLAYER_NEVER,
         )
         setMediaNotificationProvider(ShadeNotificationProvider(this))
         player = ExoPlayer.Builder(this)
@@ -154,7 +161,8 @@ class PlaybackService : MediaLibraryService() {
         session
 
     override fun onUpdateNotification(session: MediaSession, startInForegroundRequired: Boolean) {
-        super.onUpdateNotification(session, startInForegroundRequired || player.playWhenReady)
+        if (shadePosted) return
+        super.onUpdateNotification(session, false)
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
@@ -164,6 +172,7 @@ class PlaybackService : MediaLibraryService() {
                 cancelReconnect()
                 cancelSleep(restore = true)
                 live.pauseStops()
+                leavePlaybackForeground()
             }
             ACTION_ALARM -> {
                 alarmRing = true
@@ -173,11 +182,31 @@ class PlaybackService : MediaLibraryService() {
                 val mins = intent.getIntExtra(EXTRA_SLEEP_MIN, 30).coerceIn(1, 12 * 60)
                 armSleep(mins * 60_000L)
             }
+            ACTION_FAVE -> {
+                val app = application as GeiravorApp
+                tapFave(app.ui, app.core, app.secrets) { refreshButtons() }
+            }
+            ACTION_MUTE -> {
+                val cur = player.volume
+                if (cur > 0f) lastGain = cur
+                applyGain(LivePlaybackPolicy.nextGainAfterMute(cur, lastGain))
+            }
+            ACTION_VOL_UP ->
+                applyGain(LivePlaybackPolicy.stepGain(player.volume, LivePlaybackPolicy.VOL_STEP))
+            ACTION_VOL_DOWN ->
+                applyGain(LivePlaybackPolicy.stepGain(player.volume, -LivePlaybackPolicy.VOL_STEP))
+            ACTION_DISMISS -> {
+                shadePosted = false
+                playbackForeground = false
+                getSystemService(android.app.NotificationManager::class.java)
+                    ?.cancel(PlaybackNotice.ID)
+            }
             ACTION_GAIN -> {
                 val g = intent.getFloatExtra(EXTRA_GAIN, lastGain).coerceIn(0f, 1f)
                 if (g > 0f) lastGain = g
                 if (sleepAt == 0L || sleepAt - System.currentTimeMillis() > 15_000L) {
                     player.volume = g
+                    postShade(playbackForeground)
                 }
             }
         }
@@ -203,12 +232,70 @@ class PlaybackService : MediaLibraryService() {
     }
 
     private fun playLiveNow() {
+        if (!playbackForeground) enterPlaybackForeground()
+        live.playLive()
+    }
+
+    private fun shadeNotice(playing: Boolean): android.app.Notification {
         PlaybackNotice.ensureChannel(this)
         val meta = player.mediaMetadata
         val title = meta.displayTitle ?: meta.title ?: getString(R.string.app_name)
-        val text = NowPlayingMeta.dj(meta).ifBlank { getString(R.string.playback_connecting) }
-        startMediaPlaybackForeground(PlaybackNotice.ID, PlaybackNotice.connecting(this, title, text))
-        live.playLive()
+        val text = ShadeLine.fitForShade(
+            this,
+            NowPlayingMeta.rawArtist(meta),
+            NowPlayingMeta.dj(meta),
+        ).ifBlank { getString(R.string.playback_connecting) }
+        return PlaybackNotice.shade(
+            this,
+            PlaybackNotice.Shade(
+                title = title,
+                text = text,
+                playing = playing,
+                muted = LivePlaybackPolicy.muted(player.volume),
+                heartFilled = (application as GeiravorApp).ui.heartFilled,
+                art = shadeArt,
+            ),
+        )
+    }
+
+    private fun postShade(playing: Boolean) {
+        if (!shadePosted) return
+        val nm = getSystemService(android.app.NotificationManager::class.java) ?: return
+        if (!playing && nm.activeNotifications.none { it.id == PlaybackNotice.ID }) {
+            shadePosted = false
+            return
+        }
+        nm.notify(PlaybackNotice.ID, shadeNotice(playing))
+    }
+
+    private fun loadShadeArt(url: String?) {
+        val key = url.orEmpty()
+        if (key == shadeArtUrl && shadeArt != null) return
+        shadeArtUrl = key
+        val app = application as GeiravorApp
+        app.ui.offMain {
+            val bmp = loadCoilStill(this, url) ?: mysteryDjBitmap(this)
+            app.ui.onMain {
+                if (shadeArtUrl != key) return@onMain
+                shadeArt = bmp
+                postShade(playbackForeground)
+            }
+        }
+    }
+
+    private fun enterPlaybackForeground() {
+        startMediaPlaybackForeground(PlaybackNotice.ID, shadeNotice(playing = true))
+        playbackForeground = true
+        shadePosted = true
+        loadShadeArt(player.mediaMetadata.artworkUri?.toString())
+    }
+
+    private fun leavePlaybackForeground() {
+        playbackForeground = false
+        shadePosted = true
+        stopForeground(android.app.Service.STOP_FOREGROUND_DETACH)
+        getSystemService(android.app.NotificationManager::class.java)
+            ?.notify(PlaybackNotice.ID, shadeNotice(playing = false))
     }
 
     private fun applyStatus(status: Status) {
@@ -237,6 +324,10 @@ class PlaybackService : MediaLibraryService() {
             built.setLiveConfiguration(MediaItem.LiveConfiguration.Builder().build())
         }
         player.replaceMediaItem(0, built.build())
+        if (shadePosted) {
+            loadShadeArt(LivePlaybackPolicy.djImageUrl(status.dj.image))
+            postShade(playbackForeground)
+        }
     }
 
     private fun playFallback() {
@@ -320,8 +411,20 @@ class PlaybackService : MediaLibraryService() {
 
     private fun refreshButtons() {
         session?.setMediaButtonPreferences(
-            LivePlaybackPolicy.mediaButtons((application as GeiravorApp).ui.heartFilled),
+            LivePlaybackPolicy.mediaButtons(
+                (application as GeiravorApp).ui.heartFilled,
+                LivePlaybackPolicy.muted(player.volume),
+            ),
         )
+        postShade(playbackForeground)
+    }
+
+    private fun applyGain(g: Float) {
+        setPlayerGain(g, persist = true)
+        val app = application as GeiravorApp
+        app.ui.gain = player.volume
+        if (player.volume > 0f) app.ui.lastGain = lastGain
+        postShade(playbackForeground)
     }
 
     private fun setPlayerGain(g: Float, persist: Boolean) {
@@ -370,26 +473,14 @@ class PlaybackService : MediaLibraryService() {
                     tapFave(app.ui, app.core, app.secrets) { refreshButtons() }
                 }
                 LivePlaybackPolicy.MUTE -> {
-                    if (player.volume > 0f) {
-                        lastGain = player.volume
-                        setPlayerGain(0f, persist = true)
-                    } else {
-                        setPlayerGain(
-                            LivePlaybackPolicy.unmuteGain(lastGain),
-                            persist = true,
-                        )
-                    }
+                    val cur = player.volume
+                    if (cur > 0f) lastGain = cur
+                    applyGain(LivePlaybackPolicy.nextGainAfterMute(cur, lastGain))
                 }
                 LivePlaybackPolicy.VOL_UP ->
-                    setPlayerGain(
-                        LivePlaybackPolicy.stepGain(player.volume, LivePlaybackPolicy.VOL_STEP),
-                        persist = true,
-                    )
+                    applyGain(LivePlaybackPolicy.stepGain(player.volume, LivePlaybackPolicy.VOL_STEP))
                 LivePlaybackPolicy.VOL_DOWN ->
-                    setPlayerGain(
-                        LivePlaybackPolicy.stepGain(player.volume, -LivePlaybackPolicy.VOL_STEP),
-                        persist = true,
-                    )
+                    applyGain(LivePlaybackPolicy.stepGain(player.volume, -LivePlaybackPolicy.VOL_STEP))
             }
             return Futures.immediateFuture(SessionResult(SessionResult.RESULT_SUCCESS))
         }
@@ -482,6 +573,11 @@ class PlaybackService : MediaLibraryService() {
     companion object {
         const val ACTION_PLAY = "io.r_a_d.geiravor.PLAY"
         const val ACTION_STOP = "io.r_a_d.geiravor.STOP"
+        const val ACTION_FAVE = "io.r_a_d.geiravor.FAVE"
+        const val ACTION_MUTE = "io.r_a_d.geiravor.MUTE"
+        const val ACTION_VOL_UP = "io.r_a_d.geiravor.VOL_UP"
+        const val ACTION_VOL_DOWN = "io.r_a_d.geiravor.VOL_DOWN"
+        const val ACTION_DISMISS = "io.r_a_d.geiravor.DISMISS"
         const val ACTION_GAIN = "io.r_a_d.geiravor.GAIN"
         const val ACTION_ALARM = "io.r_a_d.geiravor.ALARM"
         const val ACTION_SLEEP = "io.r_a_d.geiravor.SLEEP"
@@ -493,6 +589,21 @@ class PlaybackService : MediaLibraryService() {
 
         fun stopIntent(context: Context): Intent =
             Intent(context, PlaybackService::class.java).setAction(ACTION_STOP)
+
+        fun faveIntent(context: Context): Intent =
+            Intent(context, PlaybackService::class.java).setAction(ACTION_FAVE)
+
+        fun muteIntent(context: Context): Intent =
+            Intent(context, PlaybackService::class.java).setAction(ACTION_MUTE)
+
+        fun volUpIntent(context: Context): Intent =
+            Intent(context, PlaybackService::class.java).setAction(ACTION_VOL_UP)
+
+        fun volDownIntent(context: Context): Intent =
+            Intent(context, PlaybackService::class.java).setAction(ACTION_VOL_DOWN)
+
+        fun dismissIntent(context: Context): Intent =
+            Intent(context, PlaybackService::class.java).setAction(ACTION_DISMISS)
 
         fun alarmIntent(context: Context): Intent =
             Intent(context, PlaybackService::class.java).setAction(ACTION_ALARM)

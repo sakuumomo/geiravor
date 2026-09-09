@@ -22,7 +22,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -202,14 +202,22 @@ private fun ArticlePane(ui: UiState, core: RadioCore) {
                         NewsHtml(article.body, onJump = { jump(it) })
                     }
                 }
-                items(article.comments, key = { it.id }) { c ->
+                itemsIndexed(article.comments, key = { _, c -> c.id }) { i, c ->
                     val color = when (c.role) {
                         RoleColor.STAFF -> t.green
                         RoleColor.DJ -> t.blue
                         RoleColor.DEV -> t.red
                         RoleColor.NONE -> t.text
                     }
-                    InnerCard(Modifier.padding(top = InnerSection.GAP_DP.dp)) {
+                    InnerCard(
+                        Modifier.padding(
+                            top = if (i == 0) {
+                                InnerSection.ARTICLE_COMMENT_GAP_DP.dp
+                            } else {
+                                InnerSection.GAP_DP.dp
+                            },
+                        ),
+                    ) {
                         Row(Modifier.fillMaxWidth()) {
                             Text(
                                 c.author,
@@ -221,7 +229,7 @@ private fun ArticlePane(ui: UiState, core: RadioCore) {
                                 "#${c.id}",
                                 color = t.link,
                                 modifier = Modifier.clickable {
-                                    draft = draft + ">>${c.id}\n"
+                                    draft = quoteComment(draft, c.id)
                                 },
                             )
                         }
@@ -242,11 +250,10 @@ private fun ArticlePane(ui: UiState, core: RadioCore) {
                     .clip(RoundedCornerShape(6.dp))
                     .hoverable(filmHover)
                     .background(
-                        when {
-                            filmHovered -> t.highlight.copy(alpha = if (t.glass) 0.28f else 0.16f)
-                            t.glass -> Color.Black.copy(alpha = 0.5f)
-                            else -> t.surface
-                        },
+                        newsFilmFill(
+                            filmHovered,
+                            if (t.glass) Color.Black.copy(alpha = 0.5f) else t.surface,
+                        ),
                     )
                     .clickable { ui.article = null }
                     .padding(horizontal = 10.dp, vertical = 6.dp),
@@ -286,7 +293,10 @@ private fun SchedulePane(ui: UiState) {
     ) {
         ui.schedule.forEach { day ->
             val highlight = weekdayToday(day, today)
-            Row(innerRowModifier(), verticalAlignment = Alignment.Top) {
+            Row(
+                innerRowModifier(if (highlight) t.highlight else null),
+                verticalAlignment = Alignment.Top,
+            ) {
                 Box(
                     Modifier
                         .padding(end = 8.dp)
