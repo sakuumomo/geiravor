@@ -8,8 +8,6 @@ Supported flow: **Nix flake**. Cargo and Gradle run inside `nix develop`.
 
 Change them **only** via `scripts/bump-version`. Agents never hand-edit the triad. `scripts/check-pins` (hooks + CI) fails if they drift, if Gradle `ndkVersion` ≠ flake `ndkVersion`, or if `android-nixpkgs` `follows` nixpkgs.
 
-This rewrite tree stays **0.3.0** / `versionCode` **3** until that script at **1.0.0** / **4**.
-
 After 1.0.0:
 
 | Bump | When |

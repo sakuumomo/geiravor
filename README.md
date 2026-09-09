@@ -4,7 +4,7 @@ Android app for [r/a/dio](https://r-a-d.io). User-facing name: **r/a/dio**. Pack
 
 License: MIT (`LICENSE.md`). Copyright © 2026 Sakurai Momoka.
 
-This tree is a from-scratch rewrite toward **1.0.0**. The last 0.3.0 source is `legacy/0.3` (tag `v0.3.0`).
+**1.0.0** is a from-scratch rewrite of 0.3.0. The last 0.3.0 source is `legacy/0.3` (tag `v0.3.0`).
 
 [![CI](https://github.com/sakuumomo/geiravor/actions/workflows/ci.yml/badge.svg)](https://github.com/sakuumomo/geiravor/actions/workflows/ci.yml)
 
@@ -35,6 +35,8 @@ git config core.hooksPath .githooks
 | [`docs/spec/`](docs/spec/) | Product contract (what a listener gets) |
 | [`docs/`](docs/README.md) | Repo contract vs product split |
 | [`AGENTS.md`](AGENTS.md) | How to work in this tree |
+| [`CONTRIBUTING.md`](CONTRIBUTING.md) | Pointer to AGENTS and docs |
+| [`SECURITY.md`](SECURITY.md) | Vulnerability reports |
 | [`CHANGELOG.md`](CHANGELOG.md) | Version history of **this** tree |
 
 Generated crate docs: `nix develop .#rust -c cargo doc --no-deps --open` (not a second spec).

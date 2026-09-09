@@ -90,8 +90,14 @@ mod tests {
     use super::*;
 
     #[test]
-    fn version_is_the_rewrite_placeholder() {
-        assert_eq!(VERSION, "0.3.0");
+    fn version_is_semver() {
+        let parts: Vec<_> = VERSION.split('.').collect();
+        assert_eq!(parts.len(), 3);
+        assert!(
+            parts
+                .iter()
+                .all(|p| !p.is_empty() && p.chars().all(|c| c.is_ascii_digit()))
+        );
     }
 
     #[test]

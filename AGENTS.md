@@ -1,6 +1,6 @@
 # Agent notes — Geiravor
 
-Spec-first Android client for [r-a-d.io](https://r-a-d.io). Rewrite toward 1.0.0.
+Spec-first Android client for [r-a-d.io](https://r-a-d.io).
 
 ## Source of truth
 
@@ -49,7 +49,7 @@ Never push unless the human says `push`. Never force-push `main`.
 
 Do not commit `local.properties`, `jniLibs/`, `target/`, or keystores.
 
-Semver triad (`versionName` = Cargo = User-Agent `Geiravor/X.Y.Z`) is changed only by `scripts/bump-version`. This tree stays **0.3.0** until that script at 1.0.0.
+Semver triad (`versionName` = Cargo = User-Agent `Geiravor/X.Y.Z`) is changed only by `scripts/bump-version`.
 
 ## Docs vs rustdoc
 
